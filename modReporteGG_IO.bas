@@ -1,20 +1,31 @@
-Attribute VB_Name = "modReporteGG_IO"
 Option Explicit
 
-Public Sub LeerCodiguera(ByVal ws As Worksheet, _
-                         ByRef dictLlaveACombo As Object, _
-                         ByRef dictCombos As Object, _
-                         ByRef llavesValidas As Long)
-
+Public Sub LeerCodiguera(ByVal ws As Worksheet, ByRef dictLlaveACombo As Object, ByRef dictCombos As Object, ByRef llavesValidas As Long)
     Dim arrDatos As Variant
     Dim mapHeaders As Object
-    Dim ultimaFila As Long, ultimaCol As Long
+    Dim ultimaFila As Long
+    Dim ultimaCol As Long
     Dim i As Long
 
-    Dim cIncluir As Long, cNivel1 As Long, cNivel2 As Long, cSubtipo As Long
-    Dim cFinac As Long, cDerF As Long, cPG As Long, cSpg As Long, cProy As Long
-    Dim cRubroNum As Long, cRubro As Long, cRAuxNum As Long, cRAux As Long
-    Dim cUE As Long, cDep As Long, cObra As Long, cDerObra As Long, cServ As Long, cSniip As Long
+    Dim cIncluir As Long
+    Dim cNivel1 As Long
+    Dim cNivel2 As Long
+    Dim cSubtipo As Long
+    Dim cFinac As Long
+    Dim cDerF As Long
+    Dim cPG As Long
+    Dim cSpg As Long
+    Dim cProy As Long
+    Dim cRubroNum As Long
+    Dim cRubro As Long
+    Dim cRAuxNum As Long
+    Dim cRAux As Long
+    Dim cUE As Long
+    Dim cDep As Long
+    Dim cObra As Long
+    Dim cDerObra As Long
+    Dim cServ As Long
+    Dim cSniip As Long
 
     Dim incluye As String
     Dim comboKey As String
@@ -58,34 +69,15 @@ Public Sub LeerCodiguera(ByVal ws As Worksheet, _
     For i = 2 To UBound(arrDatos, 1)
         incluye = LimpiarTexto(CStr(ValorSeguro(arrDatos, i, cIncluir)))
         If UCase$(Replace(incluye, " ", "")) = "SI" Then
-
-            comboKey = ConstruirClaveCombo(CStr(ValorSeguro(arrDatos, i, cNivel1)), _
-                                           CStr(ValorSeguro(arrDatos, i, cNivel2)), _
-                                           CStr(ValorSeguro(arrDatos, i, cSubtipo)))
+            comboKey = ConstruirClaveCombo(CStr(ValorSeguro(arrDatos, i, cNivel1)), CStr(ValorSeguro(arrDatos, i, cNivel2)), CStr(ValorSeguro(arrDatos, i, cSubtipo)))
 
             If Not dictCombos.Exists(comboKey) Then
-                dictCombos.Add comboKey, Array(CStr(ValorSeguro(arrDatos, i, cNivel1)), _
-                                               CStr(ValorSeguro(arrDatos, i, cNivel2)), _
-                                               CStr(ValorSeguro(arrDatos, i, cSubtipo)))
+                dictCombos.Add comboKey, Array(CStr(ValorSeguro(arrDatos, i, cNivel1)), CStr(ValorSeguro(arrDatos, i, cNivel2)), CStr(ValorSeguro(arrDatos, i, cSubtipo)))
             End If
 
-            llave = ConstruirLlavePresupuestal( _
-                    ValorSeguro(arrDatos, i, cFinac), _
-                    ValorSeguro(arrDatos, i, cDerF), _
-                    ValorSeguro(arrDatos, i, cPG), _
-                    ValorSeguro(arrDatos, i, cSpg), _
-                    ValorSeguro(arrDatos, i, cProy), _
-                    ElegirRubroCodiguera(arrDatos, i, cRubroNum, cRubro), _
-                    ElegirRAuxCodiguera(arrDatos, i, cRAuxNum, cRAux), _
-                    ValorSeguro(arrDatos, i, cUE), _
-                    IIf(cDep > 0, ValorSeguro(arrDatos, i, cDep), ValorSeguro(arrDatos, i, cUE)), _
-                    ValorSeguro(arrDatos, i, cObra), _
-                    ValorSeguro(arrDatos, i, cDerObra), _
-                    ValorSeguro(arrDatos, i, cServ), _
-                    ValorSeguro(arrDatos, i, cSniip))
+            llave = ConstruirLlavePresupuestal(ValorSeguro(arrDatos, i, cFinac), ValorSeguro(arrDatos, i, cDerF), ValorSeguro(arrDatos, i, cPG), ValorSeguro(arrDatos, i, cSpg), ValorSeguro(arrDatos, i, cProy), ElegirRubroCodiguera(arrDatos, i, cRubroNum, cRubro), ElegirRAuxCodiguera(arrDatos, i, cRAuxNum, cRAux), ValorSeguro(arrDatos, i, cUE), IIf(cDep > 0, ValorSeguro(arrDatos, i, cDep), ValorSeguro(arrDatos, i, cUE)), ValorSeguro(arrDatos, i, cObra), ValorSeguro(arrDatos, i, cDerObra), ValorSeguro(arrDatos, i, cServ), ValorSeguro(arrDatos, i, cSniip))
 
-            ' Supuesto documentado:
-            ' Si la codiguera no trae columna DEP, se asume DEP = UE para construir la llave.
+            ' Si la codiguera no trae DEP, se asume DEP = UE.
             If Not dictLlaveACombo.Exists(llave) Then
                 dictLlaveACombo.Add llave, comboKey
                 llavesValidas = llavesValidas + 1
@@ -94,25 +86,34 @@ Public Sub LeerCodiguera(ByVal ws As Worksheet, _
     Next i
 End Sub
 
-Public Sub LeerEjecucionesYAcumular(ByVal ws As Worksheet, _
-                                    ByVal anioReporte As Long, _
-                                    ByRef dictLlaveACombo As Object, _
-                                    ByRef dictAcumulado As Object, _
-                                    ByRef registrosLeidos As Long)
-
+Public Sub LeerEjecucionesYAcumular(ByVal ws As Worksheet, ByVal anioReporte As Long, ByRef dictLlaveACombo As Object, ByRef dictAcumulado As Object, ByRef registrosLeidos As Long)
     Dim arrDatos As Variant
     Dim mapHeaders As Object
-    Dim ultimaFila As Long, ultimaCol As Long
+    Dim ultimaFila As Long
+    Dim ultimaCol As Long
     Dim i As Long
 
-    Dim cFinac As Long, cDerF As Long, cPG As Long, cSpg As Long, cProy As Long
-    Dim cRubro As Long, cRAux As Long, cUE As Long, cDep As Long
-    Dim cObra As Long, cDerObra As Long, cServ As Long, cSniip As Long
-    Dim cFechaValor As Long, cImporteMN As Long
+    Dim cFinac As Long
+    Dim cDerF As Long
+    Dim cPG As Long
+    Dim cSpg As Long
+    Dim cProy As Long
+    Dim cRubro As Long
+    Dim cRAux As Long
+    Dim cUE As Long
+    Dim cDep As Long
+    Dim cObra As Long
+    Dim cDerObra As Long
+    Dim cServ As Long
+    Dim cSniip As Long
+    Dim cFechaValor As Long
+    Dim cImporteMN As Long
 
-    Dim fechaValor As Variant, importeMN As Variant
+    Dim fechaValor As Variant
+    Dim importeMN As Variant
     Dim mes As Long
-    Dim llave As String, comboKey As String
+    Dim llave As String
+    Dim comboKey As String
 
     registrosLeidos = 0
 
@@ -147,35 +148,15 @@ Public Sub LeerEjecucionesYAcumular(ByVal ws As Worksheet, _
         registrosLeidos = registrosLeidos + 1
 
         fechaValor = ValorSeguro(arrDatos, i, cFechaValor)
-        If Not EsFechaValida(fechaValor) Then
-            GoTo SiguienteFila
-        End If
-
-        If Year(CDate(fechaValor)) <> anioReporte Then
-            GoTo SiguienteFila
-        End If
+        If Not EsFechaValida(fechaValor) Then GoTo SiguienteFila
+        If Year(CDate(fechaValor)) <> anioReporte Then GoTo SiguienteFila
 
         importeMN = ValorSeguro(arrDatos, i, cImporteMN)
-        If Not EsNumeroValido(importeMN) Then
-            GoTo SiguienteFila
-        End If
+        If Not EsNumeroValido(importeMN) Then GoTo SiguienteFila
 
         mes = Month(CDate(fechaValor))
 
-        llave = ConstruirLlavePresupuestal( _
-                ValorSeguro(arrDatos, i, cFinac), _
-                ValorSeguro(arrDatos, i, cDerF), _
-                ValorSeguro(arrDatos, i, cPG), _
-                ValorSeguro(arrDatos, i, cSpg), _
-                ValorSeguro(arrDatos, i, cProy), _
-                ValorSeguro(arrDatos, i, cRubro), _
-                ValorSeguro(arrDatos, i, cRAux), _
-                ValorSeguro(arrDatos, i, cUE), _
-                ValorSeguro(arrDatos, i, cDep), _
-                ValorSeguro(arrDatos, i, cObra), _
-                ValorSeguro(arrDatos, i, cDerObra), _
-                ValorSeguro(arrDatos, i, cServ), _
-                ValorSeguro(arrDatos, i, cSniip))
+        llave = ConstruirLlavePresupuestal(ValorSeguro(arrDatos, i, cFinac), ValorSeguro(arrDatos, i, cDerF), ValorSeguro(arrDatos, i, cPG), ValorSeguro(arrDatos, i, cSpg), ValorSeguro(arrDatos, i, cProy), ValorSeguro(arrDatos, i, cRubro), ValorSeguro(arrDatos, i, cRAux), ValorSeguro(arrDatos, i, cUE), ValorSeguro(arrDatos, i, cDep), ValorSeguro(arrDatos, i, cObra), ValorSeguro(arrDatos, i, cDerObra), ValorSeguro(arrDatos, i, cServ), ValorSeguro(arrDatos, i, cSniip))
 
         If dictLlaveACombo.Exists(llave) Then
             comboKey = CStr(dictLlaveACombo(llave))
@@ -186,19 +167,15 @@ SiguienteFila:
     Next i
 End Sub
 
-Public Sub VolcarResultado(ByVal wbDestino As Workbook, _
-                           ByVal anioReporte As Long, _
-                           ByVal dictCombos As Object, _
-                           ByVal dictAcumulado As Object, _
-                           ByRef cantidadCombos As Long)
-
+Public Sub VolcarResultado(ByVal wbDestino As Workbook, ByVal anioReporte As Long, ByVal dictCombos As Object, ByVal dictAcumulado As Object, ByRef cantidadCombos As Long)
     Dim nombreHoja As String
     Dim ws As Worksheet
     Dim arrSalida() As Variant
     Dim encabezados As Variant
 
     Dim k As Variant
-    Dim i As Long, j As Long
+    Dim i As Long
+    Dim j As Long
     Dim comboInfo As Variant
     Dim arrMeses As Variant
     Dim total As Double
@@ -251,8 +228,6 @@ Public Sub VolcarResultado(ByVal wbDestino As Workbook, _
         .Columns("A:C").AutoFit
         .Columns("D:P").ColumnWidth = 14
 
-        ' Congelar en fila 2 y después de columnas descriptivas (A:C).
-        ' Requiere activar la hoja para aplicar FreezePanes al window activo.
         .Activate
         ActiveWindow.SplitRow = 1
         ActiveWindow.SplitColumn = 3
