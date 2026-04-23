@@ -1,4 +1,3 @@
-Attribute VB_Name = "modReporteGG_Utils"
 Option Explicit
 
 Public Function ResolverArchivoCodiguera(ByVal rutaCodiguera As String) As String
@@ -15,7 +14,9 @@ Public Function ResolverArchivoCodiguera(ByVal rutaCodiguera As String) As Strin
 End Function
 
 Public Function ObtenerArchivoMasReciente(ByVal carpeta As String) As String
-    Dim fso As Object, folder As Object, archivo As Object
+    Dim fso As Object
+    Dim folder As Object
+    Dim archivo As Object
     Dim fechaMax As Date
     Dim candidato As String
 
@@ -101,7 +102,9 @@ Public Function MapearEncabezados(ByRef arrDatos As Variant) As Object
 End Function
 
 Public Function ObtenerColumna(ByVal mapHeaders As Object, ByVal aliases As Variant) As Long
-    Dim i As Long, key As String
+    Dim i As Long
+    Dim key As String
+
     For i = LBound(aliases) To UBound(aliases)
         key = NormalizarEncabezado(CStr(aliases(i)))
         If mapHeaders.Exists(key) Then
@@ -114,7 +117,9 @@ Public Function ObtenerColumna(ByVal mapHeaders As Object, ByVal aliases As Vari
 End Function
 
 Public Function ObtenerColumnaOpcional(ByVal mapHeaders As Object, ByVal aliases As Variant) As Long
-    Dim i As Long, key As String
+    Dim i As Long
+    Dim key As String
+
     For i = LBound(aliases) To UBound(aliases)
         key = NormalizarEncabezado(CStr(aliases(i)))
         If mapHeaders.Exists(key) Then
@@ -122,13 +127,14 @@ Public Function ObtenerColumnaOpcional(ByVal mapHeaders As Object, ByVal aliases
             Exit Function
         End If
     Next i
+
     ObtenerColumnaOpcional = 0
 End Function
 
 Public Function NormalizarEncabezado(ByVal texto As String) As String
     Dim t As String
-    t = LCase$(Trim$(texto))
 
+    t = LCase$(Trim$(texto))
     t = ReemplazarAcentos(t)
     t = Replace(t, vbTab, " ")
     t = Replace(t, "_", " ")
@@ -144,6 +150,7 @@ End Function
 
 Public Function ReemplazarAcentos(ByVal texto As String) As String
     Dim t As String
+
     t = texto
     t = Replace(t, "á", "a")
     t = Replace(t, "é", "e")
@@ -152,6 +159,7 @@ Public Function ReemplazarAcentos(ByVal texto As String) As String
     t = Replace(t, "ú", "u")
     t = Replace(t, "ü", "u")
     t = Replace(t, "ñ", "n")
+
     ReemplazarAcentos = t
 End Function
 
@@ -188,11 +196,7 @@ NoEsNumero:
     EsNumeroValido = False
 End Function
 
-Public Function ConstruirLlavePresupuestal(ByVal finac As Variant, ByVal derF As Variant, ByVal pg As Variant, ByVal spg As Variant, _
-                                           ByVal proy As Variant, ByVal rubro As Variant, ByVal rAux As Variant, ByVal ue As Variant, _
-                                           ByVal dep As Variant, ByVal obra As Variant, ByVal derObra As Variant, ByVal serv As Variant, _
-                                           ByVal sniip As Variant) As String
-
+Public Function ConstruirLlavePresupuestal(ByVal finac As Variant, ByVal derF As Variant, ByVal pg As Variant, ByVal spg As Variant, ByVal proy As Variant, ByVal rubro As Variant, ByVal rAux As Variant, ByVal ue As Variant, ByVal dep As Variant, ByVal obra As Variant, ByVal derObra As Variant, ByVal serv As Variant, ByVal sniip As Variant) As String
     ConstruirLlavePresupuestal = "F=" & NormalizarCodigo(finac) & _
                                  "|DF=" & NormalizarCodigo(derF) & _
                                  "|PG=" & NormalizarCodigo(pg) & _
@@ -232,8 +236,8 @@ End Function
 
 Public Function ElegirRubroCodiguera(ByRef arr As Variant, ByVal fila As Long, ByVal colRubroNum As Long, ByVal colRubro As Long) As Variant
     Dim vNum As Variant
-    vNum = ValorSeguro(arr, fila, colRubroNum)
 
+    vNum = ValorSeguro(arr, fila, colRubroNum)
     If colRubroNum > 0 And Len(Trim$(CStr(vNum))) > 0 Then
         ElegirRubroCodiguera = vNum
     Else
@@ -243,8 +247,8 @@ End Function
 
 Public Function ElegirRAuxCodiguera(ByRef arr As Variant, ByVal fila As Long, ByVal colRAuxNum As Long, ByVal colRAux As Long) As Variant
     Dim vNum As Variant
-    vNum = ValorSeguro(arr, fila, colRAuxNum)
 
+    vNum = ValorSeguro(arr, fila, colRAuxNum)
     If colRAuxNum > 0 And Len(Trim$(CStr(vNum))) > 0 Then
         ElegirRAuxCodiguera = vNum
     Else
@@ -274,6 +278,7 @@ End Function
 
 Public Sub EliminarHojaSiExiste(ByVal wb As Workbook, ByVal nombreHoja As String)
     Dim ws As Worksheet
+
     For Each ws In wb.Worksheets
         If StrComp(ws.Name, nombreHoja, vbTextCompare) = 0 Then
             ws.Delete
