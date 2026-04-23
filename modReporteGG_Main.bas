@@ -9,6 +9,8 @@ Public Sub Generar_Ejecucion_Mensual_GG()
     Dim anioReporte As Long
     Dim archivoEjec As String
     Dim archivoCodiguera As String
+    Dim etapaActual As String
+    Dim detalleError As String
 
     Dim wbEjec As Workbook
     Dim wbCod As Workbook
@@ -28,43 +30,55 @@ Public Sub Generar_Ejecucion_Mensual_GG()
 
     On Error GoTo ErrHandler
 
+    etapaActual = "Inicializando parámetros"
     anioReporte = 2026 ' <<< Ajustar aquí el año del informe
 
+    etapaActual = "Inicializando diccionarios"
     Set dictLlaveACombo = CreateObject("Scripting.Dictionary")
     Set dictCombos = CreateObject("Scripting.Dictionary")
     Set dictAcumulado = CreateObject("Scripting.Dictionary")
 
+    etapaActual = "Buscando archivo de ejecuciones"
     archivoEjec = ObtenerArchivoMasReciente(RUTA_CARPETA_EJECUCIONES)
     If Len(archivoEjec) = 0 Then
         Err.Raise vbObjectError + 1000, NOMBRE_MACRO, _
                   "No se encontró archivo de ejecuciones en: " & RUTA_CARPETA_EJECUCIONES
     End If
 
+    etapaActual = "Buscando archivo de codiguera"
     archivoCodiguera = ResolverArchivoCodiguera(RUTA_CODIGUERA)
     If Len(archivoCodiguera) = 0 Then
         Err.Raise vbObjectError + 1001, NOMBRE_MACRO, _
                   "No se encontró archivo de codiguera en: " & RUTA_CODIGUERA
     End If
 
+    etapaActual = "Configurando Excel para ejecución"
     Application.ScreenUpdating = False
     Application.EnableEvents = False
     Application.DisplayAlerts = False
     Application.Calculation = xlCalculationManual
 
+    etapaActual = "Abriendo archivo de ejecuciones"
     Set wbEjec = Workbooks.Open(Filename:=archivoEjec, ReadOnly:=True)
+
+    etapaActual = "Detectando hoja con datos en ejecuciones"
     Set wsEjec = ObtenerPrimeraHojaConDatos(wbEjec)
     If wsEjec Is Nothing Then
         Err.Raise vbObjectError + 1002, NOMBRE_MACRO, _
                   "El archivo de ejecuciones no contiene hojas con datos."
     End If
 
+    etapaActual = "Abriendo archivo de codiguera"
     Set wbCod = Workbooks.Open(Filename:=archivoCodiguera, ReadOnly:=True)
+
+    etapaActual = "Detectando hoja con datos en codiguera"
     Set wsCod = ObtenerPrimeraHojaConDatos(wbCod)
     If wsCod Is Nothing Then
         Err.Raise vbObjectError + 1003, NOMBRE_MACRO, _
                   "El archivo de codiguera no contiene hojas con datos."
     End If
 
+    etapaActual = "Leyendo codiguera"
     LeerCodiguera wsCod, dictLlaveACombo, dictCombos, llavesValidasCodiguera
 
     If llavesValidasCodiguera = 0 Then
@@ -72,6 +86,7 @@ Public Sub Generar_Ejecucion_Mensual_GG()
                   "No hay filas con Incluir_en_Informe = SI en la codiguera."
     End If
 
+    etapaActual = "Leyendo ejecuciones y acumulando"
     LeerEjecucionesYAcumular wsEjec, anioReporte, dictLlaveACombo, dictAcumulado, registrosLeidos
 
     If dictAcumulado.Count = 0 Then
@@ -79,16 +94,22 @@ Public Sub Generar_Ejecucion_Mensual_GG()
                   "No hay coincidencias entre llaves de ejecuciones y codiguera para el año " & anioReporte & "."
     End If
 
+    etapaActual = "Generando hoja de salida y escribiendo resultado"
     VolcarResultado ThisWorkbook, anioReporte, dictCombos, dictAcumulado, combinacionesGeneradas
 
+    etapaActual = "Cerrando workbook de ejecuciones"
     wbEjec.Close SaveChanges:=False
+
+    etapaActual = "Cerrando workbook de codiguera"
     wbCod.Close SaveChanges:=False
 
+    etapaActual = "Restaurando configuración de Excel"
     Application.ScreenUpdating = True
     Application.EnableEvents = True
     Application.DisplayAlerts = True
     Application.Calculation = xlCalculationAutomatic
 
+    etapaActual = "Mostrando resumen final"
     MsgBox "Proceso completado correctamente." & vbCrLf & vbCrLf & _
            "Archivo ejecuciones: " & NombreArchivoDesdeRuta(archivoEjec) & vbCrLf & _
            "Archivo codiguera: " & NombreArchivoDesdeRuta(archivoCodiguera) & vbCrLf & _
@@ -100,6 +121,18 @@ Public Sub Generar_Ejecucion_Mensual_GG()
     Exit Sub
 
 ErrHandler:
+    detalleError = "Procedimiento: " & NOMBRE_MACRO & vbCrLf & _
+                   "Etapa: " & IIf(Len(etapaActual) > 0, etapaActual, "(sin etapa informada)") & vbCrLf & _
+                   "Err.Number: " & CStr(Err.Number) & vbCrLf & _
+                   "Err.Description: " & Err.Description & vbCrLf & _
+                   "Erl: " & CStr(Erl)
+
+    Debug.Print String$(80, "-")
+    Debug.Print detalleError
+    Debug.Print "Fecha/Hora: " & Format$(Now, "yyyy-mm-dd hh:nn:ss")
+    Debug.Print String$(80, "-")
+    'Stop 'Descomentar para depurar paso a paso (F8) al producirse un error.
+
     On Error Resume Next
     If Not wbEjec Is Nothing Then wbEjec.Close SaveChanges:=False
     If Not wbCod Is Nothing Then wbCod.Close SaveChanges:=False
@@ -109,5 +142,5 @@ ErrHandler:
     Application.DisplayAlerts = True
     Application.Calculation = xlCalculationAutomatic
 
-    MsgBox "Error en " & NOMBRE_MACRO & ":" & vbCrLf & Err.Description, vbCritical
+    MsgBox detalleError, vbCritical, "Error de ejecución"
 End Sub
