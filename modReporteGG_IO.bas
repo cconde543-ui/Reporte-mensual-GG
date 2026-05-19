@@ -53,7 +53,7 @@ Public Sub LeerCodiguera(ByVal ws As Worksheet, ByRef dictLlaveACombo As Object,
     cIncluir = ObtenerColumna(mapHeaders, Array("Incluir_en_Informe"))
     cNivel1 = ObtenerColumna(mapHeaders, Array("Nivel_1"))
     cNivel2 = ObtenerColumna(mapHeaders, Array("Nivel_2"))
-    cSubtipo = ObtenerColumna(mapHeaders, Array("Subtipo"))
+    cSubtipo = ObtenerColumna(mapHeaders, Array("Nivel_3", "Nivel 3", "Nivel3", "Subtipo"))
 
     cFinac = ObtenerColumna(mapHeaders, Array("Finac"))
     cDerF = ObtenerColumna(mapHeaders, Array("Der-F", "Der F"))
@@ -61,23 +61,32 @@ Public Sub LeerCodiguera(ByVal ws As Worksheet, ByRef dictLlaveACombo As Object,
     cSpg = ObtenerColumna(mapHeaders, Array("Spg", "SPG"))
     cProy = ObtenerColumna(mapHeaders, Array("Proy", "Proyecto"))
 
-    cRubroNum = ObtenerColumnaOpcional(mapHeaders, Array("Rubro_Num", "Rubro Num"))
+    cRubroNum = ObtenerColumnaOpcional(mapHeaders, Array("Rubro Código numérico", "Rubro_Num", "Rubro Num"))
     cRubro = ObtenerColumna(mapHeaders, Array("Rubro"))
-    cRAuxNum = ObtenerColumnaOpcional(mapHeaders, Array("R. Aux_Num", "R Aux_Num", "R. Aux Num"))
+    cRAuxNum = ObtenerColumnaOpcional(mapHeaders, Array("R. Aux Código numérico", "R. Aux_Num", "R Aux_Num", "R. Aux Num"))
     cRAux = ObtenerColumna(mapHeaders, Array("R. Aux", "R Aux"))
 
-    cUE = ObtenerColumna(mapHeaders, Array("UE"))
-    cDep = ObtenerColumnaOpcional(mapHeaders, Array("Dep", "DEP"))
-    cObra = ObtenerColumna(mapHeaders, Array("Obra"))
-    cDerObra = ObtenerColumna(mapHeaders, Array("Der. Obra", "Der Obra"))
-    cServ = ObtenerColumna(mapHeaders, Array("Serv"))
-    cSniip = ObtenerColumna(mapHeaders, Array("SNIIP", "SNIP"))
+    cUE = ObtenerColumna(mapHeaders, Array("UE Código numérico", "UE"))
+    cDep = ObtenerColumnaOpcional(mapHeaders, Array("Dep Código numérico", "Dep", "DEP"))
+    cObra = ObtenerColumna(mapHeaders, Array("Obra Código numérico", "Obra"))
+    cDerObra = ObtenerColumna(mapHeaders, Array("Der. Obra Código numérico", "Der. Obra", "Der Obra"))
+    cServ = ObtenerColumna(mapHeaders, Array("Serv Código numérico", "Serv"))
+    cSniip = ObtenerColumna(mapHeaders, Array("SNIP Código numérico", "SNIIP", "SNIP"))
+
+    Dim filasLeidas As Long
+    Dim filasIncluidas As Long
 
     llavesValidas = 0
+    filasLeidas = 0
+    filasIncluidas = 0
+
+    Debug.Print "[DEBUG][Codiguera] Encabezados mapeados(normalizados): " & ListarClavesDiccionario(mapHeaders)
 
     For i = 2 To UBound(arrDatos, 1)
+        filasLeidas = filasLeidas + 1
         incluye = LimpiarTexto(CStr(ValorSeguro(arrDatos, i, cIncluir)))
         If UCase$(Replace(incluye, " ", "")) = "SI" Then
+            filasIncluidas = filasIncluidas + 1
             comboKey = ConstruirClaveCombo(CStr(ValorSeguro(arrDatos, i, cNivel1)), CStr(ValorSeguro(arrDatos, i, cNivel2)), CStr(ValorSeguro(arrDatos, i, cSubtipo)))
 
             If Not dictCombos.Exists(comboKey) Then
@@ -93,6 +102,11 @@ Public Sub LeerCodiguera(ByVal ws As Worksheet, ByRef dictLlaveACombo As Object,
             End If
         End If
     Next i
+
+    Debug.Print "[DEBUG][Codiguera] Filas leídas: " & CStr(filasLeidas)
+    Debug.Print "[DEBUG][Codiguera] Filas con Incluir_en_Informe=SI: " & CStr(filasIncluidas)
+    Debug.Print "[DEBUG][Codiguera] Llaves válidas cargadas: " & CStr(llavesValidas)
+
 End Sub
 
 Public Sub LeerEjecucionesYAcumular(ByVal ws As Worksheet, ByVal anioReporte As Long, ByRef dictLlaveACombo As Object, ByRef dictAcumulado As Object, ByRef registrosLeidos As Long)
@@ -174,6 +188,7 @@ Public Sub LeerEjecucionesYAcumular(ByVal ws As Worksheet, ByVal anioReporte As 
 
 SiguienteFila:
     Next i
+
 End Sub
 
 Public Sub VolcarResultado(ByVal wbDestino As Workbook, ByVal anioReporte As Long, ByVal dictCombos As Object, ByVal dictAcumulado As Object, ByRef cantidadCombos As Long)
@@ -195,7 +210,7 @@ Public Sub VolcarResultado(ByVal wbDestino As Workbook, ByVal anioReporte As Lon
     Set ws = wbDestino.Worksheets.Add(After:=wbDestino.Worksheets(wbDestino.Worksheets.Count))
     ws.Name = nombreHoja
 
-    encabezados = Array("Nivel_1", "Nivel_2", "Subtipo", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Setiembre", "Octubre", "Noviembre", "Diciembre", "Total")
+    encabezados = Array("Nivel_1", "Nivel_2", "Nivel_3", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Setiembre", "Octubre", "Noviembre", "Diciembre", "Total")
 
     cantidadCombos = dictCombos.Count
     ReDim arrSalida(1 To cantidadCombos + 1, 1 To 16)
