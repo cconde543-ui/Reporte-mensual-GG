@@ -87,8 +87,9 @@ Private Function CrearDiagnosticoBase() As Object
     d("ruta_ejec") = "": d("archivo_ejec") = "": d("hoja_ejec") = ""
     d("ruta_cod") = "": d("archivo_cod") = "": d("hoja_cod") = ""
     d("cod_total") = 0: d("cod_si") = 0: d("ej_total") = 0: d("ej_anio") = 0
-    d("ej_importe_num") = 0: d("ej_fecha_invalida") = 0: d("matches") = 0: d("no_matches") = 0
+    d("ej_importe_num") = 0: d("ej_fecha_valida") = 0: d("ej_fecha_invalida") = 0: d("matches") = 0: d("no_matches") = 0
     d("match_sindep") = 0: d("match_clave_cod") = 0: d("match_clave_sindep_cod") = 0
+    Set d("ej_fecha_muestras") = New Collection
 
     Set CrearDiagnosticoBase = d
 End Function
@@ -117,6 +118,7 @@ Private Sub EscribirDiagnostico(ByVal wb As Workbook, ByVal d As Object, ByVal a
     PutKV ws, r, "cantidad de filas de codiguera con Incluir_en_Informe = SI", d("cod_si")
     PutKV ws, r, "cantidad de llaves únicas cargadas desde codiguera", d("cod_set").Count
     PutKV ws, r, "cantidad total de filas de ejecuciones", d("ej_total")
+    PutKV ws, r, "cantidad de filas de ejecuciones con Fecha valor válida", d("ej_fecha_valida")
     PutKV ws, r, "cantidad de filas de ejecuciones con Fecha valor del año " & anio, d("ej_anio")
     PutKV ws, r, "cantidad de fechas inválidas en Fecha valor", d("ej_fecha_invalida")
     PutKV ws, r, "cantidad de filas de ejecuciones con importe numérico", d("ej_importe_num")
@@ -133,9 +135,22 @@ Private Sub EscribirDiagnostico(ByVal wb As Workbook, ByVal d As Object, ByVal a
     r = r + 1: PutLista ws, r, "Primeras 30 llaves codiguera SI sin match", d("cod_no_match")
 
     r = r + 1: PutTablaEjec ws, r, d("ej_rows")
+    r = r + 1: PutTablaMuestrasFecha ws, r, d("ej_fecha_muestras")
     r = r + 1: PutTablaCod ws, r, d("cod_rows")
 
     ws.Columns("A:Z").AutoFit
+End Sub
+
+Private Sub PutTablaMuestrasFecha(ByVal ws As Worksheet, ByRef r As Long, ByVal col As Collection)
+    Dim headers As Variant, i As Long, j As Long, rowArr As Variant
+    headers = Array("Fila origen", "Valor crudo de Fecha valor", "Tipo VBA detectado", "Fecha convertida", "Año detectado", "Mes detectado", "¿Fecha válida?")
+    ws.Cells(r, 1).Value = "Muestras de Fecha valor": ws.Cells(r, 1).Font.Bold = True: r = r + 1
+    For i = 0 To UBound(headers): ws.Cells(r, i + 1).Value = headers(i): ws.Cells(r, i + 1).Font.Bold = True: Next i
+    For i = 1 To col.Count
+        rowArr = col(i)
+        For j = 0 To UBound(rowArr): ws.Cells(r + i, j + 1).Value = rowArr(j): Next j
+    Next i
+    r = r + IIf(col.Count > 0, col.Count + 2, 2)
 End Sub
 
 Private Sub PutKV(ByVal ws As Worksheet, ByRef r As Long, ByVal k As String, ByVal v As Variant)
