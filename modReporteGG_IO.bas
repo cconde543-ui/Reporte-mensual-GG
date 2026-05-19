@@ -1,10 +1,11 @@
 Option Explicit
 
-Public Sub LeerCodiguera(ByVal ws As Worksheet, ByRef dictLlaveACombo As Object, ByRef dictCombos As Object, ByRef llavesValidas As Long)
+Public Sub LeerCodiguera(ByVal ws As Worksheet, ByRef dictLlaveACombo As Object, ByRef dictCombos As Object, ByRef llavesValidas As Long, Optional ByVal rutaArchivoCodiguera As String = "")
     Dim arrDatos As Variant
     Dim mapHeaders As Object
     Dim ultimaFila As Long
     Dim ultimaCol As Long
+    Dim filaEncabezado As Long
     Dim i As Long
 
     Dim cIncluir As Long
@@ -38,7 +39,15 @@ Public Sub LeerCodiguera(ByVal ws As Worksheet, ByRef dictLlaveACombo As Object,
         Err.Raise vbObjectError + 2000, "LeerCodiguera", "La codiguera no tiene filas de datos."
     End If
 
-    arrDatos = ws.Range(ws.Cells(1, 1), ws.Cells(ultimaFila, ultimaCol)).Value2
+    filaEncabezado = DetectarFilaEncabezadosCodiguera(ws, ultimaFila, ultimaCol)
+
+    Debug.Print "[DEBUG][Codiguera] Archivo abierto (FullName): " & IIf(Len(rutaArchivoCodiguera) > 0, rutaArchivoCodiguera, ws.Parent.FullName)
+    Debug.Print "[DEBUG][Codiguera] Nombre archivo abierto: " & ws.Parent.Name
+    Debug.Print "[DEBUG][Codiguera] Hoja utilizada: " & ws.Name
+    Debug.Print "[DEBUG][Codiguera] Fila de encabezados usada: " & CStr(filaEncabezado)
+    Debug.Print "[DEBUG][Codiguera] Encabezados detectados: " & ListarEncabezadosDeFila(ws, filaEncabezado, ultimaCol)
+
+    arrDatos = ws.Range(ws.Cells(filaEncabezado, 1), ws.Cells(ultimaFila, ultimaCol)).Value2
     Set mapHeaders = MapearEncabezados(arrDatos)
 
     cIncluir = ObtenerColumna(mapHeaders, Array("Incluir_en_Informe"))

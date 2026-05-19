@@ -13,6 +13,37 @@ Public Function ResolverArchivoCodiguera(ByVal rutaCodiguera As String) As Strin
     End If
 End Function
 
+Public Function ListarArchivosExcelCarpeta(ByVal carpeta As String) As String
+    Dim fso As Object
+    Dim folder As Object
+    Dim archivo As Object
+    Dim salida As String
+
+    On Error GoTo ControlError
+
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    If Not fso.FolderExists(carpeta) Then
+        ListarArchivosExcelCarpeta = "(carpeta no existe)"
+        Exit Function
+    End If
+
+    Set folder = fso.GetFolder(carpeta)
+
+    For Each archivo In folder.Files
+        If EsExtensionExcel(CStr(archivo.Name)) Then
+            If Len(salida) > 0 Then salida = salida & " | "
+            salida = salida & CStr(archivo.Name)
+        End If
+    Next archivo
+
+    If Len(salida) = 0 Then salida = "(sin archivos Excel)"
+    ListarArchivosExcelCarpeta = salida
+    Exit Function
+
+ControlError:
+    ListarArchivosExcelCarpeta = "(error listando carpeta)"
+End Function
+
 Public Function ObtenerArchivoMasReciente(ByVal carpeta As String) As String
     Dim fso As Object
     Dim folder As Object
@@ -60,6 +91,125 @@ Public Function ObtenerPrimeraHojaConDatos(ByVal wb As Workbook) As Worksheet
             Exit Function
         End If
     Next ws
+End Function
+
+Public Function ObtenerHojaCodigueraConEncabezados(ByVal wb As Workbook) As Worksheet
+    Dim ws As Worksheet
+    Dim wsPrimeraConDatos As Worksheet
+    Dim filaCandidate As Long
+    Dim puntaje As Long
+    Dim mejorPuntaje As Long
+    Dim mejorFila As Long
+    Dim mejorHoja As Worksheet
+
+    For Each ws In wb.Worksheets
+        If Application.WorksheetFunction.CountA(ws.Cells) > 0 Then
+            If wsPrimeraConDatos Is Nothing Then Set wsPrimeraConDatos = ws
+
+            filaCandidate = DetectarFilaEncabezadosCodiguera(ws, UltimaFilaConDatos(ws), UltimaColConDatos(ws), 15)
+            puntaje = PuntajeFilaEncabezadosCodiguera(ws, filaCandidate, UltimaColConDatos(ws))
+
+            Debug.Print "[DEBUG][Codiguera] Hoja candidata: " & ws.Name & " | Fila encabezado candidata: " & filaCandidate & " | Puntaje: " & puntaje
+
+            If puntaje > mejorPuntaje Then
+                mejorPuntaje = puntaje
+                mejorFila = filaCandidate
+                Set mejorHoja = ws
+            End If
+        End If
+    Next ws
+
+    If Not mejorHoja Is Nothing Then
+        Debug.Print "[DEBUG][Codiguera] Hoja seleccionada: " & mejorHoja.Name & " | Fila encabezado seleccionada: " & mejorFila & " | Puntaje: " & mejorPuntaje
+        Set ObtenerHojaCodigueraConEncabezados = mejorHoja
+        Exit Function
+    End If
+
+    Set ObtenerHojaCodigueraConEncabezados = wsPrimeraConDatos
+End Function
+
+Public Function DetectarFilaEncabezadosCodiguera(ByVal ws As Worksheet, ByVal ultimaFila As Long, ByVal ultimaCol As Long, Optional ByVal maxFilasAnalizar As Long = 15) As Long
+    Dim fila As Long
+    Dim filaMax As Long
+    Dim puntaje As Long
+    Dim mejorPuntaje As Long
+    Dim mejorFila As Long
+
+    If ultimaFila < 1 Then
+        DetectarFilaEncabezadosCodiguera = 1
+        Exit Function
+    End If
+
+    filaMax = IIf(ultimaFila < maxFilasAnalizar, ultimaFila, maxFilasAnalizar)
+    mejorFila = 1
+    mejorPuntaje = -1
+
+    For fila = 1 To filaMax
+        puntaje = PuntajeFilaEncabezadosCodiguera(ws, fila, ultimaCol)
+
+        If fila = 1 And puntaje >= 4 Then
+            DetectarFilaEncabezadosCodiguera = 1
+            Exit Function
+        End If
+
+        If puntaje > mejorPuntaje Then
+            mejorPuntaje = puntaje
+            mejorFila = fila
+        End If
+    Next fila
+
+    DetectarFilaEncabezadosCodiguera = mejorFila
+End Function
+
+Public Function PuntajeFilaEncabezadosCodiguera(ByVal ws As Worksheet, ByVal fila As Long, ByVal ultimaCol As Long) As Long
+    Dim headers As Object
+    Dim requeridos As Variant
+    Dim i As Long
+
+    Set headers = MapearEncabezadosDeFila(ws, fila, ultimaCol)
+
+    requeridos = Array("Nivel_1", "Nivel_2", "Subtipo", "Incluir_en_Informe", "Finac", "Der-F", "PG", "Spg")
+    For i = LBound(requeridos) To UBound(requeridos)
+        If headers.Exists(NormalizarEncabezado(CStr(requeridos(i)))) Then
+            PuntajeFilaEncabezadosCodiguera = PuntajeFilaEncabezadosCodiguera + 1
+        End If
+    Next i
+End Function
+
+Public Function MapearEncabezadosDeFila(ByVal ws As Worksheet, ByVal fila As Long, ByVal ultimaCol As Long) As Object
+    Dim dict As Object
+    Dim col As Long
+    Dim nombre As String
+
+    Set dict = CreateObject("Scripting.Dictionary")
+
+    For col = 1 To ultimaCol
+        nombre = NormalizarEncabezado(CStr(ws.Cells(fila, col).Value2))
+        If Len(nombre) > 0 Then
+            If Not dict.Exists(nombre) Then
+                dict.Add nombre, col
+            End If
+        End If
+    Next col
+
+    Set MapearEncabezadosDeFila = dict
+End Function
+
+Public Function ListarEncabezadosDeFila(ByVal ws As Worksheet, ByVal fila As Long, ByVal ultimaCol As Long) As String
+    Dim col As Long
+    Dim valor As String
+    Dim salida As String
+
+    For col = 1 To ultimaCol
+        valor = Trim$(CStr(ws.Cells(fila, col).Value2))
+        If Len(valor) > 0 Then
+            If Len(salida) > 0 Then salida = salida & " | "
+            salida = salida & "[C" & CStr(col) & "] " & valor
+        End If
+    Next col
+
+    If Len(salida) = 0 Then salida = "(sin encabezados detectados en la fila)"
+    ListarEncabezadosDeFila = salida
 End Function
 
 Public Function UltimaFilaConDatos(ByVal ws As Worksheet) As Long

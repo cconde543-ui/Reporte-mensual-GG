@@ -1,7 +1,7 @@
 Option Explicit
 
 Private Const RUTA_CARPETA_EJECUCIONES As String = "\\estructura\Finanzas\AREA Contaduria\Adm Presupuestal\Prest y Recursos\SISTEMA DE CONTROL PRESUPUESTAL\SeguimientoPresupuestal\DatosDescargados\DetalleRegistros\Ejecuciones"
-Private Const RUTA_CODIGUERA As String = "\\estructura\Finanzas\AREA Contaduria\Adm Presupuestal\Prest y Recursos\SISTEMA DE CONTROL PRESUPUESTAL\SeguimientoPresupuestal\Reporte GG\Codiguera"
+Private Const RUTA_CODIGUERA As String = "\\estructura\Finanzas\AREA Contaduria\Adm Presupuestal\Prest y Recursos\SISTEMA DE CONTROL PRESUPUESTAL\Reporte GG\Codiguera"
 
 Public Sub Generar_Ejecucion_Mensual_GG()
     Const NOMBRE_MACRO As String = "Generar_Ejecucion_Mensual_GG"
@@ -52,6 +52,12 @@ Public Sub Generar_Ejecucion_Mensual_GG()
                   "No se encontró archivo de codiguera en: " & RUTA_CODIGUERA
     End If
 
+    Debug.Print String$(100, "=")
+    Debug.Print "[DEBUG][Codiguera] Ruta base configurada: " & RUTA_CODIGUERA
+    Debug.Print "[DEBUG][Codiguera] Archivo seleccionado por resolver: " & archivoCodiguera
+    Debug.Print "[DEBUG][Codiguera] Nombre archivo seleccionado: " & NombreArchivoDesdeRuta(archivoCodiguera)
+    Debug.Print "[DEBUG][Codiguera] Archivos Excel candidatos: " & ListarArchivosExcelCarpeta(RUTA_CODIGUERA)
+
     etapaActual = "Configurando Excel para ejecución"
     Application.ScreenUpdating = False
     Application.EnableEvents = False
@@ -72,14 +78,14 @@ Public Sub Generar_Ejecucion_Mensual_GG()
     Set wbCod = Workbooks.Open(Filename:=archivoCodiguera, ReadOnly:=True)
 
     etapaActual = "Detectando hoja con datos en codiguera"
-    Set wsCod = ObtenerPrimeraHojaConDatos(wbCod)
+    Set wsCod = ObtenerHojaCodigueraConEncabezados(wbCod)
     If wsCod Is Nothing Then
         Err.Raise vbObjectError + 1003, NOMBRE_MACRO, _
                   "El archivo de codiguera no contiene hojas con datos."
     End If
 
     etapaActual = "Leyendo codiguera"
-    LeerCodiguera wsCod, dictLlaveACombo, dictCombos, llavesValidasCodiguera
+    LeerCodiguera wsCod, dictLlaveACombo, dictCombos, llavesValidasCodiguera, archivoCodiguera
 
     If llavesValidasCodiguera = 0 Then
         Err.Raise vbObjectError + 1004, NOMBRE_MACRO, _
