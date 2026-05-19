@@ -57,8 +57,9 @@ End Sub
 Public Sub LeerEjecucionesYAcumular(ByVal ws As Worksheet, ByVal anioReporte As Long, ByVal dictLlaveACombo As Object, ByRef dictAcumulado As Object, ByRef diag As Object)
     Dim arr As Variant, h As Object, i As Long, key As String, keySinDep As String, combo As String
     Dim cFin As Long, cDerF As Long, cPG As Long, cSpg As Long, cProy As Long, cRub As Long, cRA As Long
-    Dim cUE As Long, cDep As Long, cOb As Long, cDOb As Long, cSrv As Long, cSn As Long, cFv As Long, cImp As Long
-    Dim fv As Date, imp As Variant
+    Dim cUE As Long, cDep As Long, cOb As Long, cDOb As Long, cSrv As Long, cSn As Long
+    Dim cFv As Long, cImp As Long
+    Dim fv As Date, importeMN As Variant
 
     arr = ws.Range(ws.Cells(1, 1), ws.Cells(UltimaFilaConDatos(ws), UltimaColConDatos(ws))).Value2
     Set h = MapearEncabezados(arr)
@@ -83,8 +84,8 @@ Public Sub LeerEjecucionesYAcumular(ByVal ws As Worksheet, ByVal anioReporte As 
         End If
         If Year(fv) <> anioReporte Then GoTo S
         diag("ej_2026") = diag("ej_2026") + 1
-        imp = ValorSeguro(arr, i, cImp)
-        If Not IsNumeric(imp) Then GoTo S
+        importeMN = ValorSeguro(arr, i, cImp)
+        If Not IsNumeric(importeMN) Then GoTo S
         diag("ej_importe_num") = diag("ej_importe_num") + 1
 
         key = ConstruirClavePresupuestal(ValorSeguro(arr, i, cFin), ValorSeguro(arr, i, cDerF), ValorSeguro(arr, i, cPG), ValorSeguro(arr, i, cSpg), ValorSeguro(arr, i, cProy), ValorSeguro(arr, i, cRub), ValorSeguro(arr, i, cRA), ValorSeguro(arr, i, cUE), ValorSeguro(arr, i, cDep), ValorSeguro(arr, i, cOb), ValorSeguro(arr, i, cDOb), ValorSeguro(arr, i, cSrv), ValorSeguro(arr, i, cSn), True)
@@ -95,7 +96,7 @@ Public Sub LeerEjecucionesYAcumular(ByVal ws As Worksheet, ByVal anioReporte As 
         If dictLlaveACombo.Exists(key) Then
             combo = dictLlaveACombo(key)
             If Not dictAcumulado.Exists(combo) Then dictAcumulado.Add combo, 0#
-            dictAcumulado(combo) = CDbl(dictAcumulado(combo)) + CDbl(imp)
+            dictAcumulado(combo) = CDbl(dictAcumulado(combo)) + CDbl(importeMN)
         End If
 S:
     Next i
