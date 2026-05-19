@@ -196,11 +196,101 @@ Public Function ConstruirClavePresupuestal(ByVal finac As Variant, ByVal derF As
                                  NormalizarCampoClave(snip)
 End Function
 
-Public Function TryObtenerFecha(ByVal valor As Variant, ByRef fechaOut As Date) As Boolean
+Public Function TryObtenerFechaValorSeguro(ByVal v As Variant, ByRef fechaOut As Date) As Boolean
+    Dim t As String, n As Double
+    Dim yy As Long, mm As Long, dd As Long
+
     On Error GoTo F
-    If IsDate(valor) Then fechaOut = CDate(valor): TryObtenerFecha = True: Exit Function
+
+    If IsError(v) Then Exit Function
+    If IsEmpty(v) Then Exit Function
+    If VarType(v) = vbNull Then Exit Function
+
+    If IsDate(v) Then
+        fechaOut = CDate(v)
+        TryObtenerFechaValorSeguro = True
+        Exit Function
+    End If
+
+    If IsNumeric(v) Then
+        n = CDbl(v)
+        If n > 0# And n < 2958466# Then
+            fechaOut = CDate(CDbl(DateSerial(1899, 12, 30)) + n)
+            TryObtenerFechaValorSeguro = True
+            Exit Function
+        End If
+    End If
+
+    t = Trim$(CStr(v))
+    If Len(t) = 0 Then Exit Function
+
+    If ParseFechaISO(t, yy, mm, dd) Then
+        fechaOut = DateSerial(yy, mm, dd)
+        TryObtenerFechaValorSeguro = True
+        Exit Function
+    End If
+
+    If ParseFechaLatam(t, yy, mm, dd) Then
+        fechaOut = DateSerial(yy, mm, dd)
+        TryObtenerFechaValorSeguro = True
+        Exit Function
+    End If
+
 F:
-    TryObtenerFecha = False
+    If Not TryObtenerFechaValorSeguro Then TryObtenerFechaValorSeguro = False
+End Function
+
+Public Function TipoVBADeValor(ByVal v As Variant) As String
+    If IsObject(v) Then
+        TipoVBADeValor = "Object"
+    ElseIf IsError(v) Then
+        TipoVBADeValor = "Error"
+    Else
+        TipoVBADeValor = TypeName(v) & " (VarType=" & CStr(VarType(v)) & ")"
+    End If
+End Function
+
+Private Function ParseFechaISO(ByVal t As String, ByRef yy As Long, ByRef mm As Long, ByRef dd As Long) As Boolean
+    Dim p() As String
+    p = Split(t, "-")
+    If UBound(p) <> 2 Then Exit Function
+    If Not (EsEnteroPositivo(p(0)) And EsEnteroPositivo(p(1)) And EsEnteroPositivo(p(2))) Then Exit Function
+    yy = CLng(p(0)): mm = CLng(p(1)): dd = CLng(p(2))
+    If Not FechaValidaYMD(yy, mm, dd) Then Exit Function
+    ParseFechaISO = True
+End Function
+
+Private Function ParseFechaLatam(ByVal t As String, ByRef yy As Long, ByRef mm As Long, ByRef dd As Long) As Boolean
+    Dim p() As String
+    p = Split(t, "/")
+    If UBound(p) <> 2 Then Exit Function
+    If Not (EsEnteroPositivo(p(0)) And EsEnteroPositivo(p(1)) And EsEnteroPositivo(p(2))) Then Exit Function
+    dd = CLng(p(0)): mm = CLng(p(1)): yy = CLng(p(2))
+    If Not FechaValidaYMD(yy, mm, dd) Then Exit Function
+    ParseFechaLatam = True
+End Function
+
+Private Function EsEnteroPositivo(ByVal s As String) As Boolean
+    Dim i As Long, ch As String
+    s = Trim$(s)
+    If Len(s) = 0 Then Exit Function
+    For i = 1 To Len(s)
+        ch = Mid$(s, i, 1)
+        If ch < "0" Or ch > "9" Then Exit Function
+    Next i
+    EsEnteroPositivo = True
+End Function
+
+Private Function FechaValidaYMD(ByVal yy As Long, ByVal mm As Long, ByVal dd As Long) As Boolean
+    Dim f As Date
+    On Error GoTo F
+    If yy < 1900 Or yy > 9999 Then Exit Function
+    If mm < 1 Or mm > 12 Then Exit Function
+    If dd < 1 Or dd > 31 Then Exit Function
+    f = DateSerial(yy, mm, dd)
+    If Year(f) = yy And Month(f) = mm And Day(f) = dd Then FechaValidaYMD = True
+    Exit Function
+F:
 End Function
 
 Public Sub EliminarHojaSiExiste(ByVal wb As Workbook, ByVal nombreHoja As String)

@@ -56,6 +56,7 @@ Public Sub LeerEjecucionesYAcumular(ByVal ws As Worksheet, ByVal anioReporte As 
     Dim cFin As Long, cDerF As Long, cPG As Long, cSpg As Long, cProy As Long, cRub As Long, cRA As Long
     Dim cUE As Long, cDep As Long, cOb As Long, cDOb As Long, cSrv As Long, cSn As Long, cFv As Long, cImp As Long
     Dim fv As Date, importeMN As Variant
+    Dim fechaOk As Boolean, fechaTxt As String, anioDetectado As Variant, mesDetectado As Variant
 
     arr = ws.Range(ws.Cells(1, 1), ws.Cells(UltimaFilaConDatos(ws), UltimaColConDatos(ws))).Value2
     Set h = MapearEncabezados(arr)
@@ -71,7 +72,24 @@ Public Sub LeerEjecucionesYAcumular(ByVal ws As Worksheet, ByVal anioReporte As 
 
     diag("ej_total") = UBound(arr, 1) - 1
     For i = 2 To UBound(arr, 1)
-        If Not TryObtenerFecha(ValorSeguro(arr, i, cFv), fv) Then diag("ej_fecha_invalida") = CLng(diag("ej_fecha_invalida")) + 1: GoTo S
+        fechaOk = TryObtenerFechaValorSeguro(ValorSeguro(arr, i, cFv), fv)
+        If fechaOk Then
+            diag("ej_fecha_valida") = CLng(diag("ej_fecha_valida")) + 1
+            fechaTxt = Format$(fv, "yyyy-mm-dd hh:nn:ss")
+            anioDetectado = Year(fv)
+            mesDetectado = Month(fv)
+        Else
+            diag("ej_fecha_invalida") = CLng(diag("ej_fecha_invalida")) + 1
+            fechaTxt = vbNullString
+            anioDetectado = vbNullString
+            mesDetectado = vbNullString
+        End If
+
+        If diag("ej_fecha_muestras").Count < 30 Then
+            diag("ej_fecha_muestras").Add Array(i, ValorSeguro(arr, i, cFv), TipoVBADeValor(ValorSeguro(arr, i, cFv)), fechaTxt, anioDetectado, mesDetectado, IIf(fechaOk, "SI", "NO"))
+        End If
+
+        If Not fechaOk Then GoTo S
         If Year(fv) <> anioReporte Then GoTo S
         diag("ej_anio") = CLng(diag("ej_anio")) + 1
 
