@@ -83,6 +83,16 @@ Public Function EsExtensionExcel(ByVal nombreArchivo As String) As Boolean
     EsExtensionExcel = (ext = "xls" Or ext = "xlsx" Or ext = "xlsm" Or ext = "xlsb")
 End Function
 
+Public Function ObtenerHojaPorNombreExacto(ByVal wb As Workbook, ByVal nombreHoja As String) As Worksheet
+    Dim ws As Worksheet
+    For Each ws In wb.Worksheets
+        If StrComp(ws.Name, nombreHoja, vbTextCompare) = 0 Then
+            Set ObtenerHojaPorNombreExacto = ws
+            Exit Function
+        End If
+    Next ws
+End Function
+
 Public Function ObtenerPrimeraHojaConDatos(ByVal wb As Workbook) As Worksheet
     Dim ws As Worksheet
     For Each ws In wb.Worksheets
@@ -168,7 +178,7 @@ Public Function PuntajeFilaEncabezadosCodiguera(ByVal ws As Worksheet, ByVal fil
 
     Set headers = MapearEncabezadosDeFila(ws, fila, ultimaCol)
 
-    requeridos = Array("Nivel_1", "Nivel_2", "Subtipo", "Incluir_en_Informe", "Finac", "Der-F", "PG", "Spg")
+    requeridos = Array("Nivel_1", "Nivel_2", "Nivel_3", "Incluir_en_Informe", "Finac", "Der-F", "PG", "Spg")
     For i = LBound(requeridos) To UBound(requeridos)
         If headers.Exists(NormalizarEncabezado(CStr(requeridos(i)))) Then
             PuntajeFilaEncabezadosCodiguera = PuntajeFilaEncabezadosCodiguera + 1
@@ -263,7 +273,35 @@ Public Function ObtenerColumna(ByVal mapHeaders As Object, ByVal aliases As Vari
         End If
     Next i
 
-    Err.Raise vbObjectError + 3000, "ObtenerColumna", "Falta columna obligatoria: " & CStr(aliases(LBound(aliases)))
+    Err.Raise vbObjectError + 3000, "ObtenerColumna", _
+              "Falta columna obligatoria: " & CStr(aliases(LBound(aliases))) & _
+              " | Alias intentados: " & UnirAliases(aliases) & _
+              " | Encabezados detectados: " & ListarClavesDiccionario(mapHeaders)
+End Function
+
+Public Function UnirAliases(ByVal aliases As Variant) As String
+    Dim i As Long
+    Dim salida As String
+
+    For i = LBound(aliases) To UBound(aliases)
+        If Len(salida) > 0 Then salida = salida & ", "
+        salida = salida & CStr(aliases(i))
+    Next i
+
+    UnirAliases = salida
+End Function
+
+Public Function ListarClavesDiccionario(ByVal dict As Object) As String
+    Dim k As Variant
+    Dim salida As String
+
+    For Each k In dict.Keys
+        If Len(salida) > 0 Then salida = salida & " | "
+        salida = salida & CStr(k)
+    Next k
+
+    If Len(salida) = 0 Then salida = "(sin encabezados mapeados)"
+    ListarClavesDiccionario = salida
 End Function
 
 Public Function ObtenerColumnaOpcional(ByVal mapHeaders As Object, ByVal aliases As Variant) As Long

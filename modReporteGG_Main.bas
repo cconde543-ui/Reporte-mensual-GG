@@ -77,11 +77,11 @@ Public Sub Generar_Ejecucion_Mensual_GG()
     etapaActual = "Abriendo archivo de codiguera"
     Set wbCod = Workbooks.Open(Filename:=archivoCodiguera, ReadOnly:=True)
 
-    etapaActual = "Detectando hoja con datos en codiguera"
-    Set wsCod = ObtenerHojaCodigueraConEncabezados(wbCod)
+    etapaActual = "Seleccionando hoja Codiguera"
+    Set wsCod = ObtenerHojaPorNombreExacto(wbCod, "Codiguera")
     If wsCod Is Nothing Then
         Err.Raise vbObjectError + 1003, NOMBRE_MACRO, _
-                  "El archivo de codiguera no contiene hojas con datos."
+                  "No se encontró la hoja obligatoria 'Codiguera' en el archivo de codiguera."
     End If
 
     etapaActual = "Leyendo codiguera"
@@ -121,7 +121,7 @@ Public Sub Generar_Ejecucion_Mensual_GG()
            "Archivo codiguera: " & NombreArchivoDesdeRuta(archivoCodiguera) & vbCrLf & _
            "Registros leídos (ejecuciones): " & Format$(registrosLeidos, "#,##0") & vbCrLf & _
            "Llaves válidas (codiguera): " & Format$(llavesValidasCodiguera, "#,##0") & vbCrLf & _
-           "Combinaciones Nivel_1/Nivel_2/Subtipo: " & Format$(combinacionesGeneradas, "#,##0") & vbCrLf & _
+           "Combinaciones Nivel_1/Nivel_2/Nivel_3: " & Format$(combinacionesGeneradas, "#,##0") & vbCrLf & _
            "Tiempo (seg): " & Format$(Timer - fechaInicio, "0.00"), vbInformation
 
     Exit Sub
