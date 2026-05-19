@@ -69,18 +69,40 @@ EH:
 End Sub
 
 Private Function CrearDiagnosticoBase() As Object
-    Dim d As Object: Set d = CreateObject("Scripting.Dictionary")
-    d("cod_keys") = New Collection: d("ej_keys") = New Collection
-    d("ej_no_match") = New Collection: d("cod_no_match") = New Collection
+    Dim d As Object
+    Set d = CreateObject("Scripting.Dictionary")
+
+    Set d("cod_keys") = New Collection
+    Set d("ej_keys") = New Collection
+    Set d("ej_no_match") = New Collection
+    Set d("cod_no_match") = New Collection
+
     Set d("cod_set") = CreateObject("Scripting.Dictionary")
     Set d("ej_set") = CreateObject("Scripting.Dictionary")
     Set d("cod_set_sindep") = CreateObject("Scripting.Dictionary")
     Set d("ej_set_sindep") = CreateObject("Scripting.Dictionary")
     Set d("cod_set_clave") = CreateObject("Scripting.Dictionary")
     Set d("cod_set_clavesindep") = CreateObject("Scripting.Dictionary")
-    d("cod_total") = 0: d("cod_si") = 0: d("ej_total") = 0: d("ej_2026") = 0
-    d("ej_importe_num") = 0: d("ej_fecha_invalida") = 0: d("matches") = 0: d("no_matches") = 0
-    d("match_sindep") = 0: d("match_clave_cod") = 0: d("match_clave_sindep_cod") = 0
+
+    d("ruta_ejec") = vbNullString
+    d("archivo_ejec") = vbNullString
+    d("hoja_ejec") = vbNullString
+    d("ruta_cod") = vbNullString
+    d("archivo_cod") = vbNullString
+    d("hoja_cod") = vbNullString
+
+    d("cod_total") = 0
+    d("cod_si") = 0
+    d("ej_total") = 0
+    d("ej_2026") = 0
+    d("ej_importe_num") = 0
+    d("ej_fecha_invalida") = 0
+    d("matches") = 0
+    d("no_matches") = 0
+    d("match_sindep") = 0
+    d("match_clave_cod") = 0
+    d("match_clave_sindep_cod") = 0
+
     Set CrearDiagnosticoBase = d
 End Function
 
@@ -92,10 +114,13 @@ Private Function InterseccionCount(ByVal a As Object, ByVal b As Object) As Long
 End Function
 
 Private Sub EscribirDiagnostico(ByVal wb As Workbook, ByVal d As Object, ByVal anio As Long)
-    Dim ws As Worksheet, r As Long
+    Dim ws As Worksheet
+    Dim r As Long
+
     EliminarHojaSiExiste wb, "Diagnostico_Llaves"
     Set ws = wb.Worksheets.Add(After:=wb.Worksheets(wb.Worksheets.Count))
     ws.Name = "Diagnostico_Llaves"
+
     r = 1
     PutKV ws, r, "ruta completa del archivo de ejecuciones usado", d("ruta_ejec")
     PutKV ws, r, "nombre del archivo de ejecuciones usado", d("archivo_ejec")
@@ -117,20 +142,30 @@ Private Sub EscribirDiagnostico(ByVal wb As Workbook, ByVal d As Object, ByVal a
     PutKV ws, r, "coincidencias usando codiguera 'Clave Llave presupuestal'", d("match_clave_cod")
     PutKV ws, r, "coincidencias usando codiguera 'Clave sin dep'", d("match_clave_sindep_cod")
 
-    r = r + 1: PutLista ws, r, "Primeras 30 llaves codiguera", d("cod_keys")
-    r = r + 1: PutLista ws, r, "Primeras 30 llaves ejecuciones " & anio, d("ej_keys")
-    r = r + 1: PutLista ws, r, "Primeras 30 llaves ejecuciones no matchean", d("ej_no_match")
-    r = r + 1: PutLista ws, r, "Primeras 30 llaves codiguera SI no matchean", d("cod_no_match")
+    r = r + 1
+    PutLista ws, r, "Primeras 30 llaves codiguera", d("cod_keys")
+    r = r + 1
+    PutLista ws, r, "Primeras 30 llaves ejecuciones " & anio, d("ej_keys")
+    r = r + 1
+    PutLista ws, r, "Primeras 30 llaves ejecuciones no matchean", d("ej_no_match")
+    r = r + 1
+    PutLista ws, r, "Primeras 30 llaves codiguera SI no matchean", d("cod_no_match")
+
     ws.Columns("A:C").AutoFit
 End Sub
 
 Private Sub PutKV(ByVal ws As Worksheet, ByRef r As Long, ByVal k As String, ByVal v As Variant)
-    ws.Cells(r, 1).Value = k: ws.Cells(r, 2).Value = v: r = r + 1
+    ws.Cells(r, 1).Value = k
+    ws.Cells(r, 2).Value = v
+    r = r + 1
 End Sub
 
 Private Sub PutLista(ByVal ws As Worksheet, ByRef r As Long, ByVal titulo As String, ByVal col As Collection)
     Dim i As Long
-    ws.Cells(r, 1).Value = titulo: ws.Cells(r, 1).Font.Bold = True
+
+    ws.Cells(r, 1).Value = titulo
+    ws.Cells(r, 1).Font.Bold = True
+
     For i = 1 To col.Count
         ws.Cells(r + i, 2).Value = col(i)
     Next i
