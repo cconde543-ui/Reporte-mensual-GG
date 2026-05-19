@@ -2,13 +2,17 @@ Option Explicit
 
 Private Const RUTA_CARPETA_EJECUCIONES As String = "\\estructura\Finanzas\AREA Contaduria\Adm Presupuestal\Prest y Recursos\SISTEMA DE CONTROL PRESUPUESTAL\SeguimientoPresupuestal\DatosDescargados\DetalleRegistros\Ejecuciones"
 Private Const RUTA_CODIGUERA As String = "\\estructura\Finanzas\AREA Contaduria\Adm Presupuestal\Prest y Recursos\SISTEMA DE CONTROL PRESUPUESTAL\Reporte GG\Codiguera"
+Private Const RUTA_REPORTES_GENERADOS As String = "\\estructura\Finanzas\AREA Contaduria\Adm Presupuestal\Prest y Recursos\SISTEMA DE CONTROL PRESUPUESTAL\Reporte GG\ReportesGenerados"
 
 Public Sub Generar_Ejecucion_Mensual_GG()
     Dim anioReporte As Long: anioReporte = 2026
+    Dim mesReporte As Long: mesReporte = 1
+
     Dim archivoEjec As String, archivoCod As String
     Dim wbEjec As Workbook, wbCod As Workbook, wsEjec As Worksheet, wsCod As Worksheet
     Dim dictLlaveACombo As Object, dictCombos As Object, dictAcum As Object, diag As Object
     Dim matches As Long, k As Variant
+    Dim rutaReporteGuardado As String
 
     Set diag = CrearDiagnosticoBase()
     Set dictLlaveACombo = CreateObject("Scripting.Dictionary")
@@ -54,6 +58,7 @@ Public Sub Generar_Ejecucion_Mensual_GG()
     diag("match_clave_sindep_cod") = InterseccionCount(diag("cod_set_clavesindep"), diag("ej_set_sindep"))
 
     EscribirDiagnostico ThisWorkbook, diag, anioReporte
+    rutaReporteGuardado = GuardarReporteGenerado(ThisWorkbook, "Diagnostico_Llaves", anioReporte, mesReporte)
 
     If diag("ej_anio") = 0 Then
         MsgBox "El archivo de ejecuciones más reciente no tiene datos del año " & anioReporte & " en 'Fecha valor'. Revisá Diagnostico_Llaves.", vbExclamation
@@ -63,6 +68,8 @@ Public Sub Generar_Ejecucion_Mensual_GG()
         MsgBox "Proceso completado. Revisá Diagnostico_Llaves para detalle.", vbInformation
     End If
 
+    MsgBox "Reporte generado correctamente:" & vbCrLf & rutaReporteGuardado, vbInformation
+
     wbEjec.Close False: wbCod.Close False
     Exit Sub
 EH:
@@ -71,6 +78,98 @@ EH:
     If Not wbEjec Is Nothing Then wbEjec.Close False
     If Not wbCod Is Nothing Then wbCod.Close False
     MsgBox "Error: " & Err.Description & vbCrLf & "Revisá Diagnostico_Llaves.", vbCritical
+End Sub
+
+Private Function GuardarReporteGenerado(ByVal wbOrigen As Workbook, ByVal nombreHojaSalida As String, ByVal anioReporte As Long, ByVal mesReporte As Long) As String
+    Dim rutaBase As String, nombreBase As String
+    Dim rutaXlsx As String
+    Dim wsSalida As Worksheet
+    Dim wbNuevo As Workbook
+
+    rutaBase = NormalizarRutaCarpeta(RUTA_REPORTES_GENERADOS)
+    AsegurarCarpetaExiste rutaBase
+
+    Set wsSalida = wbOrigen.Worksheets(nombreHojaSalida)
+    wsSalida.Copy
+    Set wbNuevo = ActiveWorkbook
+
+    nombreBase = ConstruirNombreBaseReporte(anioReporte, mesReporte)
+    rutaXlsx = ConstruirRutaArchivoUnico(rutaBase, nombreBase, "xlsx")
+
+    Application.DisplayAlerts = False
+    wbNuevo.SaveAs Filename:=rutaXlsx, FileFormat:=xlOpenXMLWorkbook
+    Application.DisplayAlerts = True
+
+    Debug.Print "Reporte guardado en: " & rutaXlsx
+
+    wbNuevo.Close SaveChanges:=False
+    GuardarReporteGenerado = rutaXlsx
+End Function
+
+Private Function ConstruirNombreBaseReporte(ByVal anioReporte As Long, ByVal mesReporte As Long) As String
+    Dim base As String
+    base = "Informe_GG_Ejecucion_Mensual_" & CStr(anioReporte)
+    If mesReporte >= 1 And mesReporte <= 12 Then
+        base = base & "_" & Format$(mesReporte, "00")
+    End If
+    ConstruirNombreBaseReporte = base
+End Function
+
+Private Function ConstruirRutaArchivoUnico(ByVal rutaCarpeta As String, ByVal nombreBase As String, ByVal extensionSinPunto As String) As String
+    Dim rutaCandidata As String
+    Dim ts As String
+
+    rutaCandidata = rutaCarpeta & "\" & nombreBase & "." & extensionSinPunto
+    If Len(Dir$(rutaCandidata, vbNormal)) > 0 Then
+        ts = Format$(Now, "yyyymmdd_hhnn")
+        rutaCandidata = rutaCarpeta & "\" & nombreBase & "_" & ts & "." & extensionSinPunto
+    End If
+
+    ConstruirRutaArchivoUnico = rutaCandidata
+End Function
+
+Private Function NormalizarRutaCarpeta(ByVal ruta As String) As String
+    Dim r As String
+    r = Trim$(ruta)
+    Do While Right$(r, 1) = "\"
+        r = Left$(r, Len(r) - 1)
+    Loop
+    NormalizarRutaCarpeta = r
+End Function
+
+Private Sub AsegurarCarpetaExiste(ByVal rutaCarpeta As String)
+    Dim fso As Object
+    Set fso = CreateObject("Scripting.FileSystemObject")
+
+    If fso.FolderExists(rutaCarpeta) Then Exit Sub
+
+    On Error GoTo CrearError
+    CrearCarpetasRecursivas fso, rutaCarpeta
+
+    If Not fso.FolderExists(rutaCarpeta) Then
+        Err.Raise vbObjectError + 2001, "AsegurarCarpetaExiste", "No se pudo crear la carpeta de salida: " & rutaCarpeta
+    End If
+    Exit Sub
+
+CrearError:
+    Err.Raise vbObjectError + 2002, "AsegurarCarpetaExiste", "No se pudo crear la carpeta de salida: " & rutaCarpeta & ". Detalle: " & Err.Description
+End Sub
+
+Private Sub CrearCarpetasRecursivas(ByVal fso As Object, ByVal rutaCarpeta As String)
+    Dim rutaPadre As String
+
+    If fso.FolderExists(rutaCarpeta) Then Exit Sub
+
+    rutaPadre = fso.GetParentFolderName(rutaCarpeta)
+    If Len(rutaPadre) > 0 Then
+        If Not fso.FolderExists(rutaPadre) Then
+            CrearCarpetasRecursivas fso, rutaPadre
+        End If
+    End If
+
+    If Not fso.FolderExists(rutaCarpeta) Then
+        fso.CreateFolder rutaCarpeta
+    End If
 End Sub
 
 Private Function CrearDiagnosticoBase() As Object
