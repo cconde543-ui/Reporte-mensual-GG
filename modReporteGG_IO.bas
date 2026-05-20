@@ -5,24 +5,53 @@ Public Const RUTA_CODIGUERA As String = "\\estructura\Finanzas\AREA Contaduria\A
 Public Const RUTA_REPORTES_GENERADOS As String = "\\estructura\Finanzas\AREA Contaduria\Adm Presupuestal\Prest y Recursos\SISTEMA DE CONTROL PRESUPUESTAL\Reporte GG\ReportesGenerados"
 
 Public Function ObtenerArchivoMasReciente(ByVal carpeta As String) As String
-    Dim fso As Object, f As Object, folder As Object, dt As Date
+    Dim fso As Object
+    Dim archivo As Object
+    Dim folderObj As Object
+    Dim ultimaFecha As Date
+
     Set fso = CreateObject("Scripting.FileSystemObject")
-    If Not fso.FolderExists(carpeta) Then Exit Function
-    Set folder = fso.GetFolder(carpeta)
-    dt = #1/1/1900#
-    For Each f In folder.Files
-        If LCase$(fso.GetExtensionName(f.Name)) Like "xls*" Then
-            If f.DateLastModified > dt Then dt = f.DateLastModified: ObtenerArchivoMasReciente = f.Path
+    If Not fso.FolderExists(carpeta) Then
+        Exit Function
+    End If
+
+    Set folderObj = fso.GetFolder(carpeta)
+    ultimaFecha = #1/1/1900#
+
+    For Each archivo In folderObj.Files
+        If LCase$(fso.GetExtensionName(archivo.Name)) Like "xls*" Then
+            If archivo.DateLastModified > ultimaFecha Then
+                ultimaFecha = archivo.DateLastModified
+                ObtenerArchivoMasReciente = archivo.Path
+            End If
         End If
-    Next f
+    Next archivo
 End Function
 
 Public Function ResolverArchivoCodiguera(ByVal ruta As String) As String
-    Dim fso As Object: Set fso = CreateObject("Scripting.FileSystemObject")
-    If fso.FileExists(ruta) Then ResolverArchivoCodiguera = ruta Else ResolverArchivoCodiguera = ObtenerArchivoMasReciente(ruta)
+    Dim fso As Object
+
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    If fso.FileExists(ruta) Then
+        ResolverArchivoCodiguera = ruta
+    Else
+        ResolverArchivoCodiguera = ObtenerArchivoMasReciente(ruta)
+    End If
+End Function
+
+Public Function ObtenerHojaCodiguera(ByVal wb As Workbook) As Worksheet
+    Set ObtenerHojaCodiguera = wb.Worksheets("Codiguera")
+End Function
+
+Public Function ObtenerHojaEjecuciones(ByVal wb As Workbook) As Worksheet
+    Set ObtenerHojaEjecuciones = wb.Worksheets(1)
 End Function
 
 Public Sub AsegurarCarpetaExiste(ByVal ruta As String)
-    Dim fso As Object: Set fso = CreateObject("Scripting.FileSystemObject")
-    If Not fso.FolderExists(ruta) Then fso.CreateFolder ruta
+    Dim fso As Object
+
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    If Not fso.FolderExists(ruta) Then
+        fso.CreateFolder ruta
+    End If
 End Sub

@@ -5,69 +5,167 @@ Public Const PANEL_SHEET_NAME As String = "Panel Reportes"
 Public Const DIAG_SHEET_NAME As String = "Diagnostico_Llaves"
 
 Public Function MesesES() As Variant
-    MesesES = Array("Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Setiembre", "Octubre", "Noviembre", "Diciembre")
+    MesesES = Array("Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", _
+                    "Julio", "Agosto", "Setiembre", "Octubre", "Noviembre", "Diciembre")
 End Function
 
 Public Function MesTextoANumero(ByVal mesTexto As String) As Long
-    Dim i As Long, m As Variant
-    m = MesesES()
-    For i = LBound(m) To UBound(m)
-        If StrComp(Trim$(mesTexto), CStr(m(i)), vbTextCompare) = 0 Then MesTextoANumero = i + 1: Exit Function
+    Dim i As Long
+    Dim meses As Variant
+
+    meses = MesesES()
+    For i = LBound(meses) To UBound(meses)
+        If StrComp(Trim$(mesTexto), CStr(meses(i)), vbTextCompare) = 0 Then
+            MesTextoANumero = i + 1
+            Exit Function
+        End If
     Next i
+
+    MesTextoANumero = 0
 End Function
 
 Public Function NormalizarCampoClave(ByVal valor As Variant) As String
-    Dim t As String, d As Double
-    t = Replace(Replace(Trim$(CStr(valor)), ChrW$(160), ""), vbTab, "")
-    If Len(t) = 0 Then NormalizarCampoClave = "0": Exit Function
-    If IsNumeric(t) Then
-        d = CDbl(Replace(t, ",", "."))
-        If d = Fix(d) Then NormalizarCampoClave = CStr(Fix(d)) Else NormalizarCampoClave = CStr(d)
+    Dim texto As String
+    Dim numero As Double
+
+    texto = Replace(Replace(Trim$(CStr(valor)), ChrW$(160), ""), vbTab, "")
+    If Len(texto) = 0 Then
+        NormalizarCampoClave = "0"
+        Exit Function
+    End If
+
+    If IsNumeric(texto) Then
+        numero = CDbl(Replace(texto, ",", "."))
+        If numero = Fix(numero) Then
+            NormalizarCampoClave = CStr(Fix(numero))
+        Else
+            NormalizarCampoClave = CStr(numero)
+        End If
     Else
-        NormalizarCampoClave = UCase$(t)
+        NormalizarCampoClave = UCase$(texto)
     End If
 End Function
 
-Public Function ConstruirClavePresupuestal(ByVal finac As Variant, ByVal derF As Variant, ByVal pg As Variant, ByVal spg As Variant, ByVal proy As Variant, ByVal rubro As Variant, ByVal rAux As Variant, ByVal ue As Variant, ByVal dep As Variant, ByVal obra As Variant, ByVal derObra As Variant, ByVal serv As Variant, ByVal snip As Variant) As String
-    ConstruirClavePresupuestal = Join(Array(NormalizarCampoClave(finac), NormalizarCampoClave(derF), NormalizarCampoClave(pg), NormalizarCampoClave(spg), NormalizarCampoClave(proy), NormalizarCampoClave(rubro), NormalizarCampoClave(rAux), NormalizarCampoClave(ue), NormalizarCampoClave(dep), NormalizarCampoClave(obra), NormalizarCampoClave(derObra), NormalizarCampoClave(serv), NormalizarCampoClave(snip)), "|")
+Public Function ConstruirClavePresupuestal( _
+    ByVal finac As Variant, _
+    ByVal derF As Variant, _
+    ByVal pg As Variant, _
+    ByVal spg As Variant, _
+    ByVal proy As Variant, _
+    ByVal rubro As Variant, _
+    ByVal rAux As Variant, _
+    ByVal ue As Variant, _
+    ByVal dep As Variant, _
+    ByVal obra As Variant, _
+    ByVal derObra As Variant, _
+    ByVal serv As Variant, _
+    ByVal snip As Variant) As String
+
+    ConstruirClavePresupuestal = Join(Array( _
+        NormalizarCampoClave(finac), _
+        NormalizarCampoClave(derF), _
+        NormalizarCampoClave(pg), _
+        NormalizarCampoClave(spg), _
+        NormalizarCampoClave(proy), _
+        NormalizarCampoClave(rubro), _
+        NormalizarCampoClave(rAux), _
+        NormalizarCampoClave(ue), _
+        NormalizarCampoClave(dep), _
+        NormalizarCampoClave(obra), _
+        NormalizarCampoClave(derObra), _
+        NormalizarCampoClave(serv), _
+        NormalizarCampoClave(snip)), "|")
 End Function
 
-Public Function TryObtenerFechaValorSeguro(ByVal v As Variant, ByRef fechaOut As Date) As Boolean
-    Dim t As String, p() As String, n As Double
+Public Function TryObtenerFechaValorSeguro(ByVal valorFuente As Variant, ByRef fechaOut As Date) As Boolean
+    Dim texto As String
+    Dim partes() As String
+    Dim numero As Double
+
     On Error GoTo EH
-    If IsDate(v) Then fechaOut = CDate(v): TryObtenerFechaValorSeguro = True: Exit Function
-    If IsNumeric(v) Then
-        n = CDbl(v)
-        If n > 0 And n < 2958466 Then fechaOut = CDate(DateSerial(1899, 12, 30) + n): TryObtenerFechaValorSeguro = True: Exit Function
+
+    If IsDate(valorFuente) Then
+        fechaOut = CDate(valorFuente)
+        TryObtenerFechaValorSeguro = True
+        Exit Function
     End If
-    t = Trim$(CStr(v))
-    If InStr(1, t, "-") > 0 Then
-        p = Split(t, "-")
-        If UBound(p) = 2 Then fechaOut = DateSerial(CLng(p(0)), CLng(p(1)), CLng(p(2))): TryObtenerFechaValorSeguro = True: Exit Function
+
+    If IsNumeric(valorFuente) Then
+        numero = CDbl(valorFuente)
+        If numero > 0 And numero < 2958466 Then
+            fechaOut = CDate(DateSerial(1899, 12, 30) + numero)
+            TryObtenerFechaValorSeguro = True
+            Exit Function
+        End If
     End If
-    If InStr(1, t, "/") > 0 Then
-        p = Split(t, "/")
-        If UBound(p) = 2 Then fechaOut = DateSerial(CLng(p(2)), CLng(p(1)), CLng(p(0))): TryObtenerFechaValorSeguro = True: Exit Function
+
+    texto = Trim$(CStr(valorFuente))
+
+    If InStr(1, texto, "-") > 0 Then
+        partes = Split(texto, "-")
+        If UBound(partes) = 2 Then
+            fechaOut = DateSerial(CLng(partes(0)), CLng(partes(1)), CLng(partes(2)))
+            TryObtenerFechaValorSeguro = True
+            Exit Function
+        End If
     End If
+
+    If InStr(1, texto, "/") > 0 Then
+        partes = Split(texto, "/")
+        If UBound(partes) = 2 Then
+            fechaOut = DateSerial(CLng(partes(2)), CLng(partes(1)), CLng(partes(0)))
+            TryObtenerFechaValorSeguro = True
+            Exit Function
+        End If
+    End If
+
 EH:
 End Function
 
-Public Function MapearEncabezados(ByRef arr As Variant) As Object
-    Dim d As Object, c As Long
-    Set d = CreateObject("Scripting.Dictionary")
-    For c = 1 To UBound(arr, 2)
-        If Not d.Exists(LCase$(Trim$(CStr(arr(1, c))))) Then d.Add LCase$(Trim$(CStr(arr(1, c)))), c
-    Next c
-    Set MapearEncabezados = d
+Public Function MapearEncabezados(ByRef matriz As Variant) As Object
+    Dim diccHeaders As Object
+    Dim col As Long
+    Dim headerName As String
+
+    Set diccHeaders = CreateObject("Scripting.Dictionary")
+    For col = 1 To UBound(matriz, 2)
+        headerName = LCase$(Trim$(CStr(matriz(1, col))))
+        If Not diccHeaders.Exists(headerName) Then
+            diccHeaders.Add headerName, col
+        End If
+    Next col
+
+    Set MapearEncabezados = diccHeaders
 End Function
 
 Public Function ObtenerColumna(ByVal headers As Object, ByVal aliases As Variant) As Long
-    Dim i As Long, k As String
+    Dim i As Long
+    Dim aliasName As String
+
     For i = LBound(aliases) To UBound(aliases)
-        k = LCase$(Trim$(CStr(aliases(i))))
-        If headers.Exists(k) Then ObtenerColumna = CLng(headers(k)): Exit Function
+        aliasName = LCase$(Trim$(CStr(aliases(i))))
+        If headers.Exists(aliasName) Then
+            ObtenerColumna = CLng(headers(aliasName))
+            Exit Function
+        End If
     Next i
+
     Err.Raise vbObjectError + 513, , "No se encontró columna obligatoria."
+End Function
+
+Public Function ObtenerColumnaOpcional(ByVal headers As Object, ByVal aliases As Variant, ByVal defaultCol As Long) As Long
+    Dim i As Long
+    Dim aliasName As String
+
+    For i = LBound(aliases) To UBound(aliases)
+        aliasName = LCase$(Trim$(CStr(aliases(i))))
+        If headers.Exists(aliasName) Then
+            ObtenerColumnaOpcional = CLng(headers(aliasName))
+            Exit Function
+        End If
+    Next i
+
+    ObtenerColumnaOpcional = defaultCol
 End Function
 
 Public Function UltimaFilaConDatos(ByVal ws As Worksheet) As Long
