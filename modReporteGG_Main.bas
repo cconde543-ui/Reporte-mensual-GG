@@ -52,17 +52,17 @@ End Sub
 
 Public Sub LeerCodiguera(ByVal ws As Worksheet, ByRef dictCod As Object, ByRef diag As Object)
     Dim arr As Variant, headers As Object, i As Long, incluir As String, clave As String, info As Variant
-    Dim colFinan As Long
+    Dim colTitular As Long
     arr = ws.Range(ws.Cells(1, 1), ws.Cells(UltimaFilaConDatos(ws), UltimaColConDatos(ws))).Value2
     Set headers = MapearEncabezados(arr)
-    colFinan = ObtenerColumnaOpcional(headers, Array("financiamiento", LCase$(CAMPO_FINANCIAMIENTO_CODIGUERA), "finac", "titular", "clasif."), 0)
-    If colFinan = 0 Then Err.Raise vbObjectError + 201, , "No se encontró campo de financiamiento en codiguera."
+    colTitular = ObtenerColumna(headers, Array("titular"))
+    If colTitular = 0 Then Err.Raise vbObjectError + 201, , "Falta columna Titular en codiguera. Esta columna se usa como Financiamiento del reporte."
 
     For i = 2 To UBound(arr, 1)
         incluir = Replace(UCase$(Trim$(CStr(arr(i, ObtenerColumna(headers, Array("incluir_en_informe")))))), " ", "")
         If incluir = "SI" Then
             clave = ConstruirClavePresupuestal(arr(i, ObtenerColumna(headers, Array("finac código numérico"))), arr(i, ObtenerColumna(headers, Array("der-f código numérico"))), arr(i, ObtenerColumna(headers, Array("pg código numérico"))), arr(i, ObtenerColumna(headers, Array("spg código numérico"))), arr(i, ObtenerColumna(headers, Array("proy", "proyecto"))), arr(i, ObtenerColumna(headers, Array("rubro código numérico"))), arr(i, ObtenerColumna(headers, Array("r. aux código numérico"))), arr(i, ObtenerColumna(headers, Array("ue código numérico"))), arr(i, ObtenerColumna(headers, Array("dep código numérico"))), arr(i, ObtenerColumna(headers, Array("obra código numérico"))), arr(i, ObtenerColumna(headers, Array("der. obra código numérico"))), arr(i, ObtenerColumna(headers, Array("serv código numérico"))), arr(i, ObtenerColumna(headers, Array("snip código numérico"))))
-            info = Array(arr(i, colFinan), arr(i, ObtenerColumna(headers, Array("nivel_1"))), arr(i, ObtenerColumna(headers, Array("nivel_2"))), arr(i, ObtenerColumna(headers, Array("nivel_3"))) )
+            info = Array(arr(i, colTitular), arr(i, ObtenerColumna(headers, Array("nivel_1"))), arr(i, ObtenerColumna(headers, Array("nivel_2"))), arr(i, ObtenerColumna(headers, Array("nivel_3"))))
             dictCod(clave) = info
         End If
     Next i
@@ -89,8 +89,9 @@ Public Sub LeerEjecucionesYAcumular(ByVal ws As Worksheet, ByVal anio As Long, B
 End Sub
 
 Public Sub ConstruirBaseAgregadaReporte(ByVal ws As Worksheet, ByVal dictAgg As Object)
-    Dim fila As Long, dictKey As Variant, partes() As String, importeSalida As Double
+    Dim fila As Long, dictKey As Variant, partes() As String, importeSalida As Double, factor As Double
     ws.Range("A1:G1").Value = Array("Financiamiento", "Nivel_1", "Nivel_2", "Nivel_3", "MesNum", "MesNombre", "Importe")
+    factor = FactorEscalaImporte()
     fila = 2
     For Each dictKey In dictAgg.Keys
         partes = Split(CStr(dictKey), "|")
@@ -100,7 +101,7 @@ Public Sub ConstruirBaseAgregadaReporte(ByVal ws As Worksheet, ByVal dictAgg As 
         ws.Cells(fila, 4).Value = LimpiarTexto(CStr(partes(3)))
         ws.Cells(fila, 5).Value = CLng(partes(4))
         ws.Cells(fila, 6).Value = MesesESMin()(CLng(partes(4)) - 1)
-        If MOSTRAR_EN_MILES Then importeSalida = CDbl(dictAgg(dictKey)) / 1000# Else importeSalida = CDbl(dictAgg(dictKey))
+        importeSalida = CDbl(dictAgg(dictKey)) / factor
         ws.Cells(fila, 7).Value = importeSalida
         fila = fila + 1
     Next dictKey

@@ -7,7 +7,7 @@ Public Sub CrearOActualizarPanelReportes()
 
     ws.Cells.Clear
     ws.Range("A1").Value = "Reporte mensual Gerencia General"
-    ws.Range("A3").Value = "Año": ws.Range("B3").Value = Year(Date)
+    ws.Range("A3").Value = "Año": ws.Range("B3").Value = 2026
     ws.Range("A4").Value = "Mes de cierre": ws.Range("B4").Value = "Enero"
 
     meses = MesesES()
