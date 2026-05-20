@@ -1,9 +1,30 @@
 Option Explicit
 
-Public Const MOSTRAR_EN_MILES As Boolean = True
+Public Const MOSTRAR_EN_MILLONES As Boolean = True
+Public Const MOSTRAR_EN_MILES As Boolean = False
 Public Const PANEL_SHEET_NAME As String = "Panel Reportes"
 Public Const DIAG_SHEET_NAME As String = "Diagnostico_Llaves"
-Public Const CAMPO_FINANCIAMIENTO_CODIGUERA As String = "Finac"
+Public Const CAMPO_FINANCIAMIENTO_CODIGUERA As String = "Titular"
+
+Public Function FactorEscalaImporte() As Double
+    If MOSTRAR_EN_MILLONES Then
+        FactorEscalaImporte = 1000000#
+    ElseIf MOSTRAR_EN_MILES Then
+        FactorEscalaImporte = 1000#
+    Else
+        FactorEscalaImporte = 1#
+    End If
+End Function
+
+Public Function SufijoUnidadTitulo() As String
+    If MOSTRAR_EN_MILLONES Then
+        SufijoUnidadTitulo = " (en millones de $)"
+    ElseIf MOSTRAR_EN_MILES Then
+        SufijoUnidadTitulo = " (en miles de $)"
+    Else
+        SufijoUnidadTitulo = ""
+    End If
+End Function
 
 Public Function MesesES() As Variant
     MesesES = Array("Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", _
@@ -19,10 +40,7 @@ Public Function MesTextoANumero(ByVal mesTexto As String) As Long
     Dim i As Long, meses As Variant
     meses = MesesES()
     For i = LBound(meses) To UBound(meses)
-        If StrComp(LimpiarTexto(CStr(meses(i))), LimpiarTexto(mesTexto), vbTextCompare) = 0 Then
-            MesTextoANumero = i + 1
-            Exit Function
-        End If
+        If StrComp(LimpiarTexto(CStr(meses(i))), LimpiarTexto(mesTexto), vbTextCompare) = 0 Then MesTextoANumero = i + 1: Exit Function
     Next i
 End Function
 
@@ -83,13 +101,6 @@ Public Function ObtenerColumna(ByVal headers As Object, ByVal aliases As Variant
         If headers.Exists(a) Then ObtenerColumna = CLng(headers(a)): Exit Function
     Next i
     Err.Raise vbObjectError + 513, , "No se encontró columna obligatoria: " & Join(aliases, ", ")
-End Function
-
-Public Function ObtenerColumnaOpcional(ByVal headers As Object, ByVal aliases As Variant, ByVal defaultCol As Long) As Long
-    On Error Resume Next
-    ObtenerColumnaOpcional = ObtenerColumna(headers, aliases)
-    If Err.Number <> 0 Then ObtenerColumnaOpcional = defaultCol: Err.Clear
-    On Error GoTo 0
 End Function
 
 Public Function UltimaFilaConDatos(ByVal ws As Worksheet) As Long
