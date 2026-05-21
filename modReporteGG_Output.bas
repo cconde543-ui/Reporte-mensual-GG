@@ -1,6 +1,7 @@
 Option Explicit
 
 Private Const LOGO_BPS_PATH As String = "\\estructura\Finanzas\AREA Contaduria\Adm Presupuestal\Prest y Recursos\SISTEMA DE CONTROL PRESUPUESTAL\Reporte GG\Logo_BPS.jpg"
+Private Const DUMMY_MARCA As String = "__DUMMY_VISUAL__"
 
 Public Sub CrearReporteEjecucionMensual(ByVal wbOut As Workbook, ByVal wsBase As Worksheet, ByVal anio As Long, ByVal mesCierre As Long)
     Dim etapaVisual As String
@@ -24,6 +25,7 @@ Public Sub CrearTablaDinamicaOSalidaAgrupada(ByVal wbOut As Workbook, ByVal wsBa
     ValidarBaseAgregada wsBase
     encabezadosBase = EncabezadosBaseAgregada(wsBase)
     NormalizarBaseParaPivot wsBase
+    AgregarFilasDummyMeses wsBase
     Set rg = wsBase.Range("A1").CurrentRegion
 
     etapaVisual = "creando hoja de reporte"
@@ -65,12 +67,15 @@ Public Sub CrearTablaDinamicaOSalidaAgrupada(ByVal wbOut As Workbook, ByVal wsBa
     pt.RepeatAllLabels xlDoNotRepeatLabels
     pt.ShowDrillIndicators = True
     pt.DisplayFieldCaptions = False
-    pt.ColumnGrand = False
-    pt.RowGrand = False
+    pt.ColumnGrand = True
+    pt.RowGrand = True
     pt.NullString = ""
-    If Not pt.DataBodyRange Is Nothing Then pt.DataBodyRange.NumberFormat = "#,##0"
+    pt.DisplayNullString = True
 
     OrdenarMesesPivot pt, mesCierre
+    ColapsarPivotInicial pt
+    If Not pt.DataBodyRange Is Nothing Then pt.DataBodyRange.NumberFormat = "#,##0"
+
     AplicarFormatoReporteGG ws, pt, anio
     CrearSlicerFinanciamiento wbOut, ws, pt
     Exit Sub
@@ -109,6 +114,7 @@ Public Sub CrearSlicerFinanciamiento(ByVal wbOut As Workbook, ByVal wsReporte As
     wsReporte.Shapes("slFinanciamiento").Delete
     On Error GoTo EH
 
+    Set sc = Nothing
     On Error Resume Next
     Set sc = wbOut.SlicerCaches.Add2(pt, "Financiamiento", "Slicer_Financiamiento")
     If sc Is Nothing Then Set sc = wbOut.SlicerCaches.Add(pt, "Financiamiento", "Slicer_Financiamiento")
@@ -116,12 +122,23 @@ Public Sub CrearSlicerFinanciamiento(ByVal wbOut As Workbook, ByVal wsReporte As
 
     If sc Is Nothing Then Err.Raise vbObjectError + 743, "CrearSlicerFinanciamiento", "No fue posible crear SlicerCache de Financiamiento."
 
-    Set sl = sc.Slicers.Add(wsReporte, , "slFinanciamiento", "Financiamiento", wsReporte.Range("A5").Left, wsReporte.Range("A5").Top, 165, 260)
-    sl.NumberOfColumns = 1
-    sl.DisplayHeader = True
-    On Error Resume Next
-    sl.Style = "SlicerStyleLight2"
-    On Error GoTo EH
+    wsReporte.Columns("A").ColumnWidth = 28.14
+    Set sl = sc.Slicers.Add(wsReporte, , "slFinanciamiento", "Financiamiento", CmToPt(0.29), CmToPt(3.78), CmToPt(4.84), CmToPt(5.53))
+
+    With sl
+        .NumberOfColumns = 1
+        .DisplayHeader = True
+        .ColumnWidth = CmToPt(4.37)
+        .RowHeight = CmToPt(0.67)
+    End With
+
+    With sl.Shape
+        .Placement = xlMove
+        .PrintObject = True
+        .Locked = True
+    End With
+
+    AplicarEstiloSlicerAzul sl
     Exit Sub
 EH:
     Debug.Print "[ADVERTENCIA] No fue posible crear slicer de Financiamiento: " & Err.Description
@@ -131,15 +148,31 @@ EH:
 End Sub
 
 Private Sub ArmarEncabezadoVisual(ByVal ws As Worksheet, ByVal anio As Long, ByVal mesCierre As Long)
-    Dim titulo As String, mes As String, arrMeses As Variant
+    Dim mes As String, arrMeses As Variant
     arrMeses = MesesES()
     mes = UCase$(CStr(arrMeses(mesCierre - 1)))
 
+    ws.Rows(1).RowHeight = 50.25
+    ws.Rows(2).RowHeight = 15
+    ws.Rows(3).RowHeight = 24
+
+    ws.Range("A1:M1").UnMerge
     ws.Range("A3:M3").UnMerge
+    ws.Range("A1:M1").Merge
     ws.Range("A3:M3").Merge
+
+    ws.Range("A1").ClearContents
+    ws.Range("A2:M2").Clear
+
+    With ws.Range("A1")
+        .HorizontalAlignment = xlCenter
+        .VerticalAlignment = xlCenter
+        .Interior.Color = vbWhite
+    End With
+
     ws.Range("A3").Value = "Informe de Seguimiento Presupuestal " & mes & " " & anio & " - Ejecución mensual y acumulada"
     With ws.Range("A3")
-        .HorizontalAlignment = xlCenter
+        .HorizontalAlignment = xlLeft
         .VerticalAlignment = xlCenter
         .WrapText = True
         .Font.Name = "Calibri Light"
@@ -147,19 +180,20 @@ Private Sub ArmarEncabezadoVisual(ByVal ws As Worksheet, ByVal anio As Long, ByV
         .Font.Bold = True
         .Font.Color = RGB(0, 32, 96)
     End With
-    With ws.Range("A1:M2")
-        .Interior.Color = RGB(0, 84, 147)
-        .RowHeight = 18
-    End With
 
-    ws.Range("A3:M3").Borders(xlEdgeBottom).LineStyle = xlContinuous
-    ws.Range("A3:M3").Borders(xlEdgeBottom).Weight = xlMedium
+    With ws.Range("A3:M3").Borders(xlEdgeBottom)
+        .LineStyle = xlContinuous
+        .Weight = xlMedium
+        .Color = vbBlack
+    End With
 
     InsertarLogoBPS ws
 End Sub
 
 Private Sub InsertarLogoBPS(ByVal ws As Worksheet)
     Dim shp As Shape
+    Dim logoH As Double, logoW As Double, topPos As Double, leftPos As Double
+
     On Error Resume Next
     ws.Shapes("imgLogoBPS").Delete
     On Error GoTo 0
@@ -170,37 +204,51 @@ Private Sub InsertarLogoBPS(ByVal ws As Worksheet)
     End If
 
     On Error GoTo EH
-    Set shp = ws.Shapes.AddPicture(LOGO_BPS_PATH, msoFalse, msoTrue, ws.Range("L1").Left, ws.Range("A1").Top + 2, 120, 42)
+    logoH = ws.Rows(1).Height - 6
+    Set shp = ws.Shapes.AddPicture(LOGO_BPS_PATH, msoFalse, msoTrue, 0, 0, -1, logoH)
     shp.Name = "imgLogoBPS"
     shp.LockAspectRatio = msoTrue
+    logoW = shp.Width
+
+    topPos = ws.Rows(1).Top + (ws.Rows(1).Height - shp.Height) / 2
+    leftPos = ws.Range("M1").Left + ws.Range("M1").Width - logoW - 6
+    shp.Top = topPos
+    shp.Left = leftPos
+    shp.Placement = xlMove
     Exit Sub
 EH:
     Debug.Print "[ADVERTENCIA] No se pudo insertar logo BPS: " & Err.Description
 End Sub
 
 Private Sub OrdenarMesesPivot(ByVal pt As PivotTable, ByVal mesCierre As Long)
-    Dim pfNom As PivotField, pfNum As PivotField, m As Variant, i As Long
+    Dim pfNom As PivotField, m As Variant, i As Long
     On Error Resume Next
     Set pfNom = pt.PivotFields("MesNombre")
-    Set pfNum = pt.PivotFields("MesNum")
     On Error GoTo 0
-    If pfNom Is Nothing Or pfNum Is Nothing Then Exit Sub
+    If pfNom Is Nothing Then Exit Sub
 
     m = MesesES()
     On Error Resume Next
-    pfNom.AutoSort xlAscending, pfNum.SourceName
+    pfNom.AutoSort xlManual, pfNom.SourceName
     For i = 0 To 11
-        pfNom.PivotItems(CStr(m(i))).Visible = (i + 1 <= mesCierre)
+        pfNom.PivotItems(CStr(m(i))).Position = i + 1
+        pfNom.PivotItems(CStr(m(i))).Visible = True
     Next i
     On Error GoTo 0
 End Sub
 
 Public Sub AplicarFormatoReporteGG(ByVal ws As Worksheet, ByVal pt As PivotTable, ByVal anio As Long)
     Dim rng As Range
+
+    On Error Resume Next
     pt.TableStyle2 = "PivotStyleMedium9"
+    On Error GoTo 0
+
+    ws.Cells.Interior.Color = vbWhite
+    If Not ActiveWindow Is Nothing Then ActiveWindow.DisplayGridlines = False
 
     With ws.Cells
-        .Font.Name = "Calibri Light"
+        .Font.Name = "Calibri"
         .Font.Size = 11
     End With
 
@@ -213,10 +261,74 @@ Public Sub AplicarFormatoReporteGG(ByVal ws As Worksheet, ByVal pt As PivotTable
     End If
     On Error GoTo 0
 
-    ws.Columns("A").ColumnWidth = 22
+    ws.Columns("A").ColumnWidth = 28.14
     ws.Columns("B:M").AutoFit
     ws.Columns("B").ColumnWidth = 28
 End Sub
+
+Private Sub ColapsarPivotInicial(ByVal pt As PivotTable)
+    Dim pf As PivotField, pi As PivotItem
+    On Error Resume Next
+    For Each pf In pt.RowFields
+        pf.ShowDetail = False
+    Next pf
+    On Error GoTo 0
+
+    On Error Resume Next
+    For Each pi In pt.PivotFields("Nivel_1").PivotItems
+        pi.ShowDetail = False
+    Next pi
+    On Error GoTo 0
+
+    On Error Resume Next
+    pt.PivotFields("Nivel_1").PivotItems(DUMMY_MARCA).Visible = False
+    On Error GoTo 0
+End Sub
+
+Private Sub AplicarEstiloSlicerAzul(ByVal sl As Slicer)
+    On Error Resume Next
+    sl.Style = "SlicerStyleLight2"
+    If Err.Number <> 0 Then
+        Err.Clear
+        sl.Style = "SlicerStyleLight6"
+    End If
+    On Error GoTo 0
+End Sub
+
+Private Function CmToPt(ByVal cm As Double) As Double
+    CmToPt = cm * 28.3464567
+End Function
+
+Private Sub AgregarFilasDummyMeses(ByVal wsBase As Worksheet)
+    Dim i As Long, lastRow As Long, m As Variant
+    Dim existe As Boolean
+
+    existe = False
+    lastRow = UltimaFilaConDatos(wsBase)
+    If lastRow >= 2 Then
+        For i = 2 To lastRow
+            If CStr(wsBase.Cells(i, 2).Value) = DUMMY_MARCA Then
+                existe = True
+                Exit For
+            End If
+        Next i
+    End If
+    If existe Then Exit Sub
+
+    m = MesesES()
+    For i = 0 To 11
+        lastRow = lastRow + 1
+        wsBase.Cells(lastRow, 1).Value = "(Dummy)"
+        wsBase.Cells(lastRow, 2).Value = DUMMY_MARCA
+        wsBase.Cells(lastRow, 3).Value = ""
+        wsBase.Cells(lastRow, 4).Value = ""
+        wsBase.Cells(lastRow, 5).Value = i + 1
+        wsBase.Cells(lastRow, 6).Value = CStr(m(i))
+        wsBase.Cells(lastRow, 7).Value = 0#
+    Next i
+End Sub
+
+' --- resto sin cambios ---
 
 Private Sub CrearFallbackFinanciamiento(ByVal wsReporte As Worksheet, ByVal pt As PivotTable)
     Dim d As Object, it As PivotItem, txt As String
