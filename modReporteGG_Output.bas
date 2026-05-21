@@ -51,8 +51,6 @@ Public Sub CrearTablaDinamicaOSalidaAgrupada(ByVal wbOut As Workbook, ByVal wsBa
     ConfigurarCampoPivotSeguro pt, "Nivel_2", xlRowField, 2
     ConfigurarCampoPivotSeguro pt, "Nivel_3", xlRowField, 3
     ConfigurarCampoPivotSeguro pt, "MesNombre", xlColumnField, 1
-    ConfigurarCampoPivotSeguro pt, "MesNum", xlColumnField, 2
-    ConfigurarCampoPivotSeguro pt, "Financiamiento", xlPageField, 1
 
     If Not PivotFieldExiste(pt, "Importe") Then
         Err.Raise vbObjectError + 724, "CrearTablaDinamicaOSalidaAgrupada", "No existe el campo 'Importe' en la PivotTable."
@@ -70,7 +68,7 @@ Public Sub CrearTablaDinamicaOSalidaAgrupada(ByVal wbOut As Workbook, ByVal wsBa
     pt.ColumnGrand = False
     pt.RowGrand = False
     pt.NullString = ""
-    pt.DataBodyRange.NumberFormat = "#.##0"
+    If Not pt.DataBodyRange Is Nothing Then pt.DataBodyRange.NumberFormat = "#,##0"
 
     OrdenarMesesPivot pt, mesCierre
     AplicarFormatoReporteGG ws, pt, anio
@@ -118,8 +116,9 @@ Public Sub CrearSlicerFinanciamiento(ByVal wbOut As Workbook, ByVal wsReporte As
 
     If sc Is Nothing Then Err.Raise vbObjectError + 743, "CrearSlicerFinanciamiento", "No fue posible crear SlicerCache de Financiamiento."
 
-    Set sl = sc.Slicers.Add(wsReporte, , "slFinanciamiento", "Financiamiento", wsReporte.Range("A5").Left, wsReporte.Range("A5").Top, 165, 230)
+    Set sl = sc.Slicers.Add(wsReporte, , "slFinanciamiento", "Financiamiento", wsReporte.Range("A5").Left, wsReporte.Range("A5").Top, 165, 260)
     sl.NumberOfColumns = 1
+    sl.DisplayHeader = True
     On Error Resume Next
     sl.Style = "SlicerStyleLight2"
     On Error GoTo EH
@@ -127,18 +126,7 @@ Public Sub CrearSlicerFinanciamiento(ByVal wbOut As Workbook, ByVal wsReporte As
 EH:
     Debug.Print "[ADVERTENCIA] No fue posible crear slicer de Financiamiento: " & Err.Description
     On Error Resume Next
-    With wsReporte.Range("A5:A16")
-        .Merge
-        .Value = "Financiamiento"
-        .HorizontalAlignment = xlCenter
-        .VerticalAlignment = xlCenter
-        .Font.Name = "Calibri Light"
-        .Font.Bold = True
-        .Font.Size = 11
-        .Font.Color = RGB(255, 255, 255)
-        .Interior.Color = RGB(0, 112, 192)
-        .Borders.LineStyle = xlContinuous
-    End With
+    CrearFallbackFinanciamiento wsReporte, pt
     On Error GoTo 0
 End Sub
 
@@ -159,6 +147,11 @@ Private Sub ArmarEncabezadoVisual(ByVal ws As Worksheet, ByVal anio As Long, ByV
         .Font.Bold = True
         .Font.Color = RGB(0, 32, 96)
     End With
+    With ws.Range("A1:M2")
+        .Interior.Color = RGB(0, 84, 147)
+        .RowHeight = 18
+    End With
+
     ws.Range("A3:M3").Borders(xlEdgeBottom).LineStyle = xlContinuous
     ws.Range("A3:M3").Borders(xlEdgeBottom).Weight = xlMedium
 
@@ -193,10 +186,9 @@ Private Sub OrdenarMesesPivot(ByVal pt As PivotTable, ByVal mesCierre As Long)
     On Error GoTo 0
     If pfNom Is Nothing Or pfNum Is Nothing Then Exit Sub
 
-    m = MesesESMin()
-    pfNum.AutoSort xlAscending, pfNum.SourceName
-
+    m = MesesES()
     On Error Resume Next
+    pfNom.AutoSort xlAscending, pfNum.SourceName
     For i = 0 To 11
         pfNom.PivotItems(CStr(m(i))).Visible = (i + 1 <= mesCierre)
     Next i
@@ -221,8 +213,40 @@ Public Sub AplicarFormatoReporteGG(ByVal ws As Worksheet, ByVal pt As PivotTable
     End If
     On Error GoTo 0
 
-    ws.Columns("A").ColumnWidth = 18
+    ws.Columns("A").ColumnWidth = 22
     ws.Columns("B:M").AutoFit
+    ws.Columns("B").ColumnWidth = 28
+End Sub
+
+Private Sub CrearFallbackFinanciamiento(ByVal wsReporte As Worksheet, ByVal pt As PivotTable)
+    Dim d As Object, it As PivotItem, txt As String
+    Dim shp As Shape
+    Set d = CreateObject("Scripting.Dictionary")
+
+    On Error Resume Next
+    For Each it In pt.PivotFields("Financiamiento").PivotItems
+        If Len(Trim$(CStr(it.Name))) > 0 Then
+            If Not d.Exists(CStr(it.Name)) Then d.Add CStr(it.Name), CStr(it.Name)
+        End If
+    Next it
+    On Error GoTo 0
+
+    txt = "Financiamiento"
+    If d.Count > 0 Then txt = txt & vbCrLf & Join(d.Keys, vbCrLf)
+
+    On Error Resume Next
+    wsReporte.Shapes("shpFinanciamientoFallback").Delete
+    On Error GoTo 0
+
+    Set shp = wsReporte.Shapes.AddShape(msoShapeRectangle, wsReporte.Range("A5").Left, wsReporte.Range("A5").Top, 185, 250)
+    shp.Name = "shpFinanciamientoFallback"
+    shp.Fill.ForeColor.RGB = RGB(0, 112, 192)
+    shp.Line.ForeColor.RGB = RGB(255, 255, 255)
+    shp.TextFrame2.TextRange.Text = txt
+    shp.TextFrame2.TextRange.Font.Name = "Calibri Light"
+    shp.TextFrame2.TextRange.Font.Size = 10
+    shp.TextFrame2.TextRange.Font.Fill.ForeColor.RGB = RGB(255, 255, 255)
+    shp.TextFrame2.VerticalAnchor = msoAnchorTop
 End Sub
 
 Private Sub ValidarBaseAgregada(ByVal wsBase As Worksheet)
