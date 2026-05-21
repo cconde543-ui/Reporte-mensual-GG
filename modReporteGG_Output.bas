@@ -25,7 +25,6 @@ Public Sub CrearTablaDinamicaOSalidaAgrupada(ByVal wbOut As Workbook, ByVal wsBa
     ValidarBaseAgregada wsBase
     encabezadosBase = EncabezadosBaseAgregada(wsBase)
     NormalizarBaseParaPivot wsBase
-    AgregarFilasDummyMeses wsBase
     Set rg = wsBase.Range("A1").CurrentRegion
 
     etapaVisual = "creando hoja de reporte"
@@ -41,6 +40,7 @@ Public Sub CrearTablaDinamicaOSalidaAgrupada(ByVal wbOut As Workbook, ByVal wsBa
 
     etapaVisual = "creando pivot cache"
     Set pivotCacheObj = wbOut.PivotCaches.Create(SourceType:=xlDatabase, SourceData:=rg)
+    pivotCacheObj.MissingItemsLimit = xlMissingItemsNone
 
     etapaVisual = "creando pivot table"
     Set pt = pivotCacheObj.CreatePivotTable(TableDestination:=ws.Range("B5"), TableName:="ptGG")
@@ -75,7 +75,7 @@ Public Sub CrearTablaDinamicaOSalidaAgrupada(ByVal wbOut As Workbook, ByVal wsBa
 
     OrdenarMesesPivot pt, mesCierre
     ColapsarPivotInicial pt
-    If Not pt.DataBodyRange Is Nothing Then pt.DataBodyRange.NumberFormat = "#.##0"
+    If Not pt.DataBodyRange Is Nothing Then pt.DataBodyRange.NumberFormat = "#,##0"
 
     AplicarFormatoReporteGG ws, pt, anio
     CrearSlicerFinanciamiento wbOut, ws, pt
@@ -101,11 +101,14 @@ End Sub
 
 Public Sub CrearSlicerFinanciamiento(ByVal wbOut As Workbook, ByVal wsReporte As Worksheet, ByVal pt As PivotTable)
     Dim sc As SlicerCache, sl As Slicer
+    Dim topPos As Double, leftPos As Double, ancho As Double, alto As Double
+    Dim it As SlicerItem, nombreItem As String
 
     On Error GoTo EH
     On Error Resume Next
     wbOut.SlicerCaches("Slicer_Financiamiento").Delete
     wsReporte.Shapes("slFinanciamiento").Delete
+    wsReporte.Shapes("shpFinanciamientoFallback").Delete
     On Error GoTo EH
 
     Set sc = Nothing
@@ -113,18 +116,31 @@ Public Sub CrearSlicerFinanciamiento(ByVal wbOut As Workbook, ByVal wsReporte As
     Set sc = wbOut.SlicerCaches.Add2(pt, "Financiamiento", "Slicer_Financiamiento")
     If sc Is Nothing Then Set sc = wbOut.SlicerCaches.Add(pt, "Financiamiento", "Slicer_Financiamiento")
     On Error GoTo EH
-
     If sc Is Nothing Then Err.Raise vbObjectError + 743, "CrearSlicerFinanciamiento", "No fue posible crear SlicerCache de Financiamiento."
 
     wsReporte.Columns("A").ColumnWidth = 28.14
-    Set sl = sc.Slicers.Add(wsReporte, , "slFinanciamiento", "Financiamiento", CmToPt(0.29), CmToPt(3.78), CmToPt(4.84), CmToPt(5.53))
+    leftPos = wsReporte.Range("A5").Left
+    topPos = wsReporte.Range("A5").Top
+    ancho = wsReporte.Range("A5").Width
+    alto = wsReporte.Range("A5:A14").Height
+
+    Set sl = sc.Slicers.Add(wsReporte, , "slFinanciamiento", "Financiamiento", leftPos, topPos, ancho, alto)
 
     With sl
         .NumberOfColumns = 1
         .DisplayHeader = True
-        .ColumnWidth = CmToPt(4.37)
-        .RowHeight = CmToPt(0.67)
+        .ColumnWidth = ancho - 12
+        .RowHeight = 16
     End With
+
+    For Each it In sc.SlicerItems
+        nombreItem = Trim$(CStr(it.Name))
+        If StrComp(nombreItem, "(Dummy)", vbTextCompare) = 0 Or StrComp(nombreItem, DUMMY_MARCA, vbTextCompare) = 0 Then
+            On Error Resume Next
+            it.Selected = False
+            On Error GoTo EH
+        End If
+    Next it
 
     With sl.Shape
         .Placement = xlMove
@@ -137,10 +153,7 @@ Public Sub CrearSlicerFinanciamiento(ByVal wbOut As Workbook, ByVal wsReporte As
     Exit Sub
 EH:
     Debug.Print "[SLICER] creado=NO"
-    Debug.Print "[ADVERTENCIA] No fue posible crear slicer de Financiamiento: " & Err.Description
-    On Error Resume Next
-    CrearFallbackFinanciamiento wsReporte, pt
-    On Error GoTo 0
+    Err.Raise vbObjectError + 744, "CrearSlicerFinanciamiento", "No fue posible crear slicer de Financiamiento: " & Err.Description
 End Sub
 
 Private Sub ArmarEncabezadoVisual(ByVal ws As Worksheet, ByVal anio As Long, ByVal mesCierre As Long)
@@ -155,18 +168,19 @@ Private Sub ArmarEncabezadoVisual(ByVal ws As Worksheet, ByVal anio As Long, ByV
     ws.Rows(3).RowHeight = 24
 
     Set rngBandaSuperior = ws.Range("A1:M1")
-    Set rngTitulo = ws.Range("A1")
+    Set rngTitulo = ws.Range("A3:M3")
     Set rngSubtitulo = ws.Range("A3:M3")
 
     rngBandaSuperior.UnMerge
     rngSubtitulo.UnMerge
+    rngTitulo.Merge
 
     rngTitulo.ClearContents
-    ws.Range("A2:M2").Clear
+    ws.Range("A2:M2").ClearContents
 
     CrearBandaAzulSuperior ws
 
-    rngSubtitulo.Cells(1, 1).Value = "Informe de Seguimiento Presupuestal " & mes & " " & anio & " - Ejecución mensual y acumulada"
+    rngTitulo.Cells(1, 1).Value = "Informe de Seguimiento Presupuestal " & mes & " " & anio & " - Ejecución mensual y acumulada"
     With rngSubtitulo
         .HorizontalAlignment = xlLeft
         .VerticalAlignment = xlCenter
@@ -180,7 +194,7 @@ Private Sub ArmarEncabezadoVisual(ByVal ws As Worksheet, ByVal anio As Long, ByV
     With rngSubtitulo.Borders(xlEdgeBottom)
         .LineStyle = xlContinuous
         .Weight = xlMedium
-        .Color = vbBlack
+        .Color = RGB(0, 32, 96)
     End With
 
     InsertarLogoBPS ws
@@ -274,6 +288,8 @@ Public Sub AplicarFormatoReporteGG(ByVal ws As Worksheet, ByVal pt As PivotTable
         rng.Rows(1).Font.Color = RGB(255, 255, 255)
         rng.Rows(1).Interior.Color = RGB(0, 84, 147)
     End If
+    If Not pt.DataBodyRange Is Nothing Then pt.DataBodyRange.NumberFormat = "#,##0"
+    pt.PivotFields("Importe").NumberFormat = "#,##0"
     On Error GoTo 0
 
     ws.Columns("A").ColumnWidth = 28.14
