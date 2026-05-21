@@ -21,6 +21,7 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     Dim dictAgg As Object
     Dim diag As Object
     Dim rutaFinal As String
+    Dim etapaVisual As String
 
     Dim errNum As Long
     Dim errDesc As String
@@ -91,7 +92,8 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     ConstruirBaseAgregadaReporte wsBase, dictAgg
 
     etapaActual = "creando reporte visual"
-    CrearReporteEjecucionMensual wbOut, wsBase, anio, mesCierre
+    etapaVisual = "iniciando"
+    CrearTablaDinamicaOSalidaAgrupada wbOut, wsBase, anio, mesCierre, etapaVisual
     wsBase.Visible = xlSheetVeryHidden
 
     etapaActual = "guardando reporte liviano"
@@ -117,10 +119,16 @@ EH:
     msg = "Error al generar reporte." & vbCrLf & vbCrLf & _
           "Procedimiento: " & procedimiento & vbCrLf & _
           "Etapa: " & etapaActual & vbCrLf & _
+          "Etapa visual: " & IIf(Len(etapaVisual) > 0, etapaVisual, "(no aplica)") & vbCrLf & _
           "Err.Number: " & errNum & vbCrLf & _
           "Err.Description: " & errDesc & vbCrLf & _
           "Err.Source: " & errSource & vbCrLf & _
           "Erl: " & errLine & vbCrLf & _
+          "Workbook salida: " & IIf(wbOut Is Nothing, "(Nothing)", wbOut.Name) & vbCrLf & _
+          "Existe Base_Agregada: " & IIf(HojaExiste(wbOut, "Base_Agregada"), "SI", "NO") & vbCrLf & _
+          "Última fila Base_Agregada: " & ObtenerUltimaFilaSegura(wbOut, "Base_Agregada") & vbCrLf & _
+          "Última columna Base_Agregada: " & ObtenerUltimaColSegura(wbOut, "Base_Agregada") & vbCrLf & _
+          "Nombre hoja reporte: " & "Ejec. Mensual " & anio & vbCrLf & _
           "Archivo ejecuciones: " & IIf(Len(archivoEjec) > 0, archivoEjec, "(no detectado)") & vbCrLf & _
           "Archivo codiguera: " & IIf(Len(archivoCod) > 0, archivoCod, "(no detectado)") & vbCrLf & _
           "Salida: " & IIf(Len(rutaFinal) > 0, rutaFinal, RUTA_REPORTES_GENERADOS)

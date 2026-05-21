@@ -114,3 +114,28 @@ Public Function UltimaColConDatos(ByVal ws As Worksheet) As Long
     Set c = ws.Cells.Find("*", SearchOrder:=xlByColumns, SearchDirection:=xlPrevious)
     If c Is Nothing Then UltimaColConDatos = 1 Else UltimaColConDatos = c.Column
 End Function
+
+Public Function HojaExiste(ByVal wb As Workbook, ByVal nombreHoja As String) As Boolean
+    Dim ws As Worksheet
+    If wb Is Nothing Then Exit Function
+    On Error Resume Next
+    Set ws = wb.Worksheets(nombreHoja)
+    HojaExiste = Not ws Is Nothing
+    On Error GoTo 0
+End Function
+
+Public Function ObtenerUltimaFilaSegura(ByVal wb As Workbook, ByVal nombreHoja As String) As Long
+    Dim ws As Worksheet
+    If wb Is Nothing Then Exit Function
+    If Not HojaExiste(wb, nombreHoja) Then Exit Function
+    Set ws = wb.Worksheets(nombreHoja)
+    ObtenerUltimaFilaSegura = UltimaFilaConDatos(ws)
+End Function
+
+Public Function ObtenerUltimaColSegura(ByVal wb As Workbook, ByVal nombreHoja As String) As Long
+    Dim ws As Worksheet
+    If wb Is Nothing Then Exit Function
+    If Not HojaExiste(wb, nombreHoja) Then Exit Function
+    Set ws = wb.Worksheets(nombreHoja)
+    ObtenerUltimaColSegura = UltimaColConDatos(ws)
+End Function
