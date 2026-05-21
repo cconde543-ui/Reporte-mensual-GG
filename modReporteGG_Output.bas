@@ -37,8 +37,7 @@ Public Sub CrearTablaDinamicaOSalidaAgrupada(ByVal wbOut As Workbook, ByVal wsBa
 
     Set ws = wbOut.Worksheets.Add(After:=wbOut.Worksheets(wbOut.Worksheets.Count))
     ws.Name = "Ejec. Mensual " & anio
-    PrepararHojaReporte ws
-    ArmarEncabezadoVisual ws, anio, mesCierre
+    CrearHojaReporteVisual ws, anio, mesCierre
 
     etapaVisual = "creando pivot cache"
     Set pivotCacheObj = wbOut.PivotCaches.Create(SourceType:=xlDatabase, SourceData:=rg)
@@ -150,6 +149,8 @@ End Sub
 
 Private Sub ArmarEncabezadoVisual(ByVal ws As Worksheet, ByVal anio As Long, ByVal mesCierre As Long)
     Dim mes As String, arrMeses As Variant
+    Dim rngBandaSuperior As Range, rngTitulo As Range, rngSubtitulo As Range
+
     arrMeses = MesesES()
     mes = UCase$(CStr(arrMeses(mesCierre - 1)))
 
@@ -157,22 +158,24 @@ Private Sub ArmarEncabezadoVisual(ByVal ws As Worksheet, ByVal anio As Long, ByV
     ws.Rows(2).RowHeight = 15
     ws.Rows(3).RowHeight = 24
 
-    ws.Range("A1:M1").UnMerge
-    ws.Range("A3:M3").UnMerge
-    ws.Range("A1:M1").Merge
-    ws.Range("A3:M3").Merge
+    Set rngBandaSuperior = ws.Range("A1:M1")
+    Set rngTitulo = ws.Range("A1")
+    Set rngSubtitulo = ws.Range("A3:M3")
 
-    ws.Range("A1").ClearContents
+    rngBandaSuperior.UnMerge
+    rngSubtitulo.UnMerge
+
+    rngTitulo.ClearContents
     ws.Range("A2:M2").Clear
 
-    With ws.Range("A1")
+    With rngBandaSuperior
         .HorizontalAlignment = xlCenter
         .VerticalAlignment = xlCenter
         .Interior.Color = vbWhite
     End With
 
-    ws.Range("A3").Value = "Informe de Seguimiento Presupuestal " & mes & " " & anio & " - Ejecución mensual y acumulada"
-    With ws.Range("A3")
+    rngSubtitulo.Cells(1, 1).Value = "Informe de Seguimiento Presupuestal " & mes & " " & anio & " - Ejecución mensual y acumulada"
+    With rngSubtitulo
         .HorizontalAlignment = xlLeft
         .VerticalAlignment = xlCenter
         .WrapText = True
@@ -182,7 +185,7 @@ Private Sub ArmarEncabezadoVisual(ByVal ws As Worksheet, ByVal anio As Long, ByV
         .Font.Color = RGB(0, 32, 96)
     End With
 
-    With ws.Range("A3:M3").Borders(xlEdgeBottom)
+    With rngSubtitulo.Borders(xlEdgeBottom)
         .LineStyle = xlContinuous
         .Weight = xlMedium
         .Color = vbBlack
@@ -214,7 +217,6 @@ Private Sub InsertarLogoBPS(ByVal ws As Worksheet)
 
     topPos = ws.Rows(1).Top + (ws.Rows(1).Height - shp.Height) / 2
     Set rngBandaSuperior = ws.Range("A1:M1")
-    If rngBandaSuperior.MergeCells Then Set rngBandaSuperior = rngBandaSuperior.MergeArea
     leftPos = rngBandaSuperior.Left + rngBandaSuperior.Width - logoW - 6
     shp.Top = topPos
     shp.Left = leftPos
@@ -398,8 +400,7 @@ Private Sub GenerarSalidaEstaticaAgrupada(ByVal wbOut As Workbook, ByVal wsBase 
         ws.Name = "Ejec. Mensual " & anio
     End If
 
-    PrepararHojaReporte ws
-    ArmarEncabezadoVisual ws, anio, mesCierre
+    CrearHojaReporteVisual ws, anio, mesCierre
     ws.Range("B5:H5").Value = Array("Financiamiento", "Nivel_1", "Nivel_2", "Nivel_3", "MesNombre", "MesNum", "EJECUCIÓN " & anio)
 
     src = wsBase.Range("A1").CurrentRegion.Value2
@@ -426,6 +427,11 @@ Private Sub PrepararHojaReporte(ByVal ws As Worksheet)
     ws.Cells.Clear
     ws.Cells.Interior.Color = vbWhite
     On Error GoTo 0
+End Sub
+
+Private Sub CrearHojaReporteVisual(ByVal ws As Worksheet, ByVal anio As Long, ByVal mesCierre As Long)
+    PrepararHojaReporte ws
+    ArmarEncabezadoVisual ws, anio, mesCierre
 End Sub
 
 Private Sub ConfigurarCampoPivotSeguro(ByVal pt As PivotTable, ByVal nombreCampo As String, ByVal orientacion As XlPivotFieldOrientation, ByVal posicion As Long)
