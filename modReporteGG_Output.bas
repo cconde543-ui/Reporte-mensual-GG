@@ -194,6 +194,7 @@ End Sub
 Private Sub InsertarLogoBPS(ByVal ws As Worksheet)
     Dim shp As Shape
     Dim logoH As Double, logoW As Double, topPos As Double, leftPos As Double
+    Dim rngBandaSuperior As Range
 
     On Error Resume Next
     ws.Shapes("imgLogoBPS").Delete
@@ -212,7 +213,9 @@ Private Sub InsertarLogoBPS(ByVal ws As Worksheet)
     logoW = shp.Width
 
     topPos = ws.Rows(1).Top + (ws.Rows(1).Height - shp.Height) / 2
-    leftPos = ws.Range("M1").Left + ws.Range("M1").Width - logoW - 6
+    Set rngBandaSuperior = ws.Range("A1:M1")
+    If rngBandaSuperior.MergeCells Then Set rngBandaSuperior = rngBandaSuperior.MergeArea
+    leftPos = rngBandaSuperior.Left + rngBandaSuperior.Width - logoW - 6
     shp.Top = topPos
     shp.Left = leftPos
     shp.Placement = xlMove
