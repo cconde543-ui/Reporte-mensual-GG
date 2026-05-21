@@ -103,6 +103,7 @@ Public Sub CrearSlicerFinanciamiento(ByVal wbOut As Workbook, ByVal wsReporte As
     Dim sc As SlicerCache, sl As Slicer
     Dim topPos As Double, leftPos As Double, ancho As Double, alto As Double
     Dim it As SlicerItem, nombreItem As String
+    Dim nombreCampoFin As String
 
     On Error GoTo EH
     On Error Resume Next
@@ -111,12 +112,21 @@ Public Sub CrearSlicerFinanciamiento(ByVal wbOut As Workbook, ByVal wsReporte As
     wsReporte.Shapes("shpFinanciamientoFallback").Delete
     On Error GoTo EH
 
+    nombreCampoFin = ""
+    If PivotFieldExiste(pt, "Financiamiento") Then
+        nombreCampoFin = "Financiamiento"
+    ElseIf PivotFieldExiste(pt, "Financiamento") Then
+        nombreCampoFin = "Financiamento"
+    End If
+    If Len(nombreCampoFin) = 0 Then
+        Err.Raise vbObjectError + 742, "CrearSlicerFinanciamiento", "No existe el campo de financiamiento en la tabla dinámica."
+    End If
+
     Set sc = Nothing
     On Error Resume Next
-    Set sc = wbOut.SlicerCaches.Add2(pt, "Financiamiento", "Slicer_Financiamiento")
-    If sc Is Nothing Then Set sc = wbOut.SlicerCaches.Add(pt, "Financiamiento", "Slicer_Financiamiento")
+    Set sc = wbOut.SlicerCaches.Add(pt, nombreCampoFin, "Slicer_Financiamiento")
     On Error GoTo EH
-    If sc Is Nothing Then Err.Raise vbObjectError + 743, "CrearSlicerFinanciamiento", "No fue posible crear SlicerCache de Financiamiento."
+    If sc Is Nothing Then Err.Raise vbObjectError + 743, "CrearSlicerFinanciamiento", "No fue posible crear SlicerCache de " & nombreCampoFin & "."
 
     wsReporte.Columns("A").ColumnWidth = 28.14
     leftPos = wsReporte.Range("A5").Left
@@ -124,7 +134,7 @@ Public Sub CrearSlicerFinanciamiento(ByVal wbOut As Workbook, ByVal wsReporte As
     ancho = wsReporte.Range("A5").Width
     alto = wsReporte.Range("A5:A14").Height
 
-    Set sl = sc.Slicers.Add(wsReporte, , "slFinanciamiento", "Financiamiento", leftPos, topPos, ancho, alto)
+    Set sl = sc.Slicers.Add(wsReporte, , "slFinanciamiento", nombreCampoFin, leftPos, topPos, ancho, alto)
 
     With sl
         .NumberOfColumns = 1
@@ -149,7 +159,7 @@ Public Sub CrearSlicerFinanciamiento(ByVal wbOut As Workbook, ByVal wsReporte As
     End With
 
     AplicarEstiloSlicerAzul sl
-    Debug.Print "[SLICER] creado=SI"
+    Debug.Print "[SLICER] creado=SI campo=" & nombreCampoFin
     Exit Sub
 EH:
     Debug.Print "[SLICER] creado=NO"
