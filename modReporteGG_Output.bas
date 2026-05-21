@@ -37,6 +37,7 @@ Public Sub CrearTablaDinamicaOSalidaAgrupada(ByVal wbOut As Workbook, ByVal wsBa
 
     Set ws = wbOut.Worksheets.Add(After:=wbOut.Worksheets(wbOut.Worksheets.Count))
     ws.Name = "Ejec. Mensual " & anio
+    PrepararHojaReporte ws
     ArmarEncabezadoVisual ws, anio, mesCierre
 
     etapaVisual = "creando pivot cache"
@@ -230,6 +231,7 @@ Private Sub OrdenarMesesPivot(ByVal pt As PivotTable, ByVal mesCierre As Long)
     m = MesesES()
     On Error Resume Next
     pfNom.AutoSort xlManual, pfNom.SourceName
+    pfNom.ShowAllItems = True
     For i = 0 To 11
         pfNom.PivotItems(CStr(m(i))).Position = i + 1
         pfNom.PivotItems(CStr(m(i))).Visible = True
@@ -264,6 +266,13 @@ Public Sub AplicarFormatoReporteGG(ByVal ws As Worksheet, ByVal pt As PivotTable
     ws.Columns("A").ColumnWidth = 28.14
     ws.Columns("B:M").AutoFit
     ws.Columns("B").ColumnWidth = 28
+
+    With ws.Range("B5")
+        .Value = "Financiamiento"
+        .Interior.Color = RGB(0, 84, 147)
+        .Font.Color = RGB(255, 255, 255)
+        .Font.Bold = True
+    End With
 End Sub
 
 Private Sub ColapsarPivotInicial(ByVal pt As PivotTable)
@@ -386,9 +395,9 @@ Private Sub GenerarSalidaEstaticaAgrupada(ByVal wbOut As Workbook, ByVal wsBase 
         ws.Name = "Ejec. Mensual " & anio
     End If
 
-    ws.Cells.Clear
+    PrepararHojaReporte ws
     ArmarEncabezadoVisual ws, anio, mesCierre
-    ws.Range("B5:H5").Value = Array("Financiamiento", "Nivel_1", "Nivel_2", "Nivel_3", "MesNombre", "MesNum", "Importe")
+    ws.Range("B5:H5").Value = Array("Financiamiento", "Nivel_1", "Nivel_2", "Nivel_3", "MesNombre", "MesNum", "EJECUCIÓN " & anio)
 
     src = wsBase.Range("A1").CurrentRegion.Value2
     outR = 6
@@ -396,6 +405,24 @@ Private Sub GenerarSalidaEstaticaAgrupada(ByVal wbOut As Workbook, ByVal wsBase 
         ws.Cells(outR, 2).Resize(1, 7).Value = Array(src(i, 1), src(i, 2), src(i, 3), src(i, 4), src(i, 6), src(i, 5), src(i, 7))
         outR = outR + 1
     Next i
+
+    ws.Range("B5:H5").Interior.Color = RGB(0, 84, 147)
+    ws.Range("B5:H5").Font.Color = RGB(255, 255, 255)
+    ws.Range("B5:H5").Font.Bold = True
+    ws.Columns("B:H").AutoFit
+End Sub
+
+Private Sub PrepararHojaReporte(ByVal ws As Worksheet)
+    Dim shp As Shape
+
+    On Error Resume Next
+    For Each shp In ws.Shapes
+        shp.Delete
+    Next shp
+    ws.Cells.UnMerge
+    ws.Cells.Clear
+    ws.Cells.Interior.Color = vbWhite
+    On Error GoTo 0
 End Sub
 
 Private Sub ConfigurarCampoPivotSeguro(ByVal pt As PivotTable, ByVal nombreCampo As String, ByVal orientacion As XlPivotFieldOrientation, ByVal posicion As Long)
