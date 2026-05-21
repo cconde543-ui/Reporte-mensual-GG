@@ -28,6 +28,14 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     Dim errSource As String
     Dim errLine As Long
     Dim msg As String
+    Dim etapaVisualMsg As String
+    Dim wbOutMsg As String
+    Dim existeBase As String
+    Dim ultimaFilaBase As String
+    Dim ultimaColBase As String
+    Dim archivoEjecMsg As String
+    Dim archivoCodMsg As String
+    Dim salidaMsg As String
 
     procedimiento = "Generar_Reporte_GG_Desde_Panel"
     Debug.Print "Inicio Generar_Reporte_GG_Desde_Panel: " & Now
@@ -116,22 +124,64 @@ EH:
     errSource = Err.Source
     errLine = Erl
 
+    If Len(etapaVisual) > 0 Then
+        etapaVisualMsg = etapaVisual
+    Else
+        etapaVisualMsg = "(no aplica)"
+    End If
+
+    If wbOut Is Nothing Then
+        wbOutMsg = "(Nothing)"
+        existeBase = "(wbOut Nothing)"
+        ultimaFilaBase = "(wbOut Nothing)"
+        ultimaColBase = "(wbOut Nothing)"
+    Else
+        wbOutMsg = wbOut.Name
+        If HojaExiste(wbOut, "Base_Agregada") Then
+            existeBase = "SI"
+            ultimaFilaBase = CStr(ObtenerUltimaFilaSegura(wbOut, "Base_Agregada"))
+            ultimaColBase = CStr(ObtenerUltimaColSegura(wbOut, "Base_Agregada"))
+        Else
+            existeBase = "NO"
+            ultimaFilaBase = "(no existe)"
+            ultimaColBase = "(no existe)"
+        End If
+    End If
+
+    If Len(archivoEjec) > 0 Then
+        archivoEjecMsg = archivoEjec
+    Else
+        archivoEjecMsg = "(no detectado)"
+    End If
+
+    If Len(archivoCod) > 0 Then
+        archivoCodMsg = archivoCod
+    Else
+        archivoCodMsg = "(no detectado)"
+    End If
+
+    If Len(rutaFinal) > 0 Then
+        salidaMsg = rutaFinal
+    Else
+        salidaMsg = RUTA_REPORTES_GENERADOS
+    End If
+
     msg = "Error al generar reporte." & vbCrLf & vbCrLf & _
           "Procedimiento: " & procedimiento & vbCrLf & _
           "Etapa: " & etapaActual & vbCrLf & _
-          "Etapa visual: " & IIf(Len(etapaVisual) > 0, etapaVisual, "(no aplica)") & vbCrLf & _
+          "Etapa visual: " & etapaVisualMsg & vbCrLf & _
           "Err.Number: " & errNum & vbCrLf & _
           "Err.Description: " & errDesc & vbCrLf & _
           "Err.Source: " & errSource & vbCrLf & _
           "Erl: " & errLine & vbCrLf & _
-          "Workbook salida: " & IIf(wbOut Is Nothing, "(Nothing)", wbOut.Name) & vbCrLf & _
-          "Existe Base_Agregada: " & IIf(HojaExiste(wbOut, "Base_Agregada"), "SI", "NO") & vbCrLf & _
-          "Última fila Base_Agregada: " & ObtenerUltimaFilaSegura(wbOut, "Base_Agregada") & vbCrLf & _
-          "Última columna Base_Agregada: " & ObtenerUltimaColSegura(wbOut, "Base_Agregada") & vbCrLf & _
+          "Workbook salida: " & wbOutMsg & vbCrLf & _
+          "Existe Base_Agregada: " & existeBase & vbCrLf & _
+          "Última fila Base_Agregada: " & ultimaFilaBase & vbCrLf & _
+          "Última columna Base_Agregada: " & ultimaColBase & vbCrLf & _
           "Nombre hoja reporte: " & "Ejec. Mensual " & anio & vbCrLf & _
-          "Archivo ejecuciones: " & IIf(Len(archivoEjec) > 0, archivoEjec, "(no detectado)") & vbCrLf & _
-          "Archivo codiguera: " & IIf(Len(archivoCod) > 0, archivoCod, "(no detectado)") & vbCrLf & _
-          "Salida: " & IIf(Len(rutaFinal) > 0, rutaFinal, RUTA_REPORTES_GENERADOS)
+          "Archivo ejecuciones: " & archivoEjecMsg & vbCrLf & _
+          "Archivo codiguera: " & archivoCodMsg & vbCrLf & _
+          "Salida: " & salidaMsg
 
     Debug.Print String(100, "-")
     Debug.Print msg
