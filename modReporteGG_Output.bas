@@ -63,6 +63,7 @@ Public Sub CrearTablaDinamicaOSalidaAgrupada(ByVal wbOut As Workbook, ByVal wsBa
     pt.ManualUpdate = False
     manualUpdateActivo = False
 
+    Debug.Print "[PIVOT] Filas base=" & UltimaFilaConDatos(wsBase) - 1 & " Cols base=" & UltimaColConDatos(wsBase)
     pt.RowAxisLayout xlCompactRow
     pt.RepeatAllLabels xlDoNotRepeatLabels
     pt.ShowDrillIndicators = True
@@ -74,7 +75,7 @@ Public Sub CrearTablaDinamicaOSalidaAgrupada(ByVal wbOut As Workbook, ByVal wsBa
 
     OrdenarMesesPivot pt, mesCierre
     ColapsarPivotInicial pt
-    If Not pt.DataBodyRange Is Nothing Then pt.DataBodyRange.NumberFormat = "#,##0"
+    If Not pt.DataBodyRange Is Nothing Then pt.DataBodyRange.NumberFormat = "#.##0"
 
     AplicarFormatoReporteGG ws, pt, anio
     CrearSlicerFinanciamiento wbOut, ws, pt
@@ -89,13 +90,6 @@ EH:
         On Error Resume Next
         pt.ManualUpdate = False
         On Error GoTo 0
-    End If
-
-    On Error Resume Next
-    GenerarSalidaEstaticaAgrupada wbOut, wsBase, anio, mesCierre
-    If Err.Number = 0 Then
-        Debug.Print "[PIVOT] Fallback estático aplicado. Error original: " & errDescPivot
-        Exit Sub
     End If
 
     Err.Raise errNumPivot, "CrearTablaDinamicaOSalidaAgrupada", _
@@ -139,8 +133,10 @@ Public Sub CrearSlicerFinanciamiento(ByVal wbOut As Workbook, ByVal wsReporte As
     End With
 
     AplicarEstiloSlicerAzul sl
+    Debug.Print "[SLICER] creado=SI"
     Exit Sub
 EH:
+    Debug.Print "[SLICER] creado=NO"
     Debug.Print "[ADVERTENCIA] No fue posible crear slicer de Financiamiento: " & Err.Description
     On Error Resume Next
     CrearFallbackFinanciamiento wsReporte, pt
@@ -168,11 +164,7 @@ Private Sub ArmarEncabezadoVisual(ByVal ws As Worksheet, ByVal anio As Long, ByV
     rngTitulo.ClearContents
     ws.Range("A2:M2").Clear
 
-    With rngBandaSuperior
-        .HorizontalAlignment = xlCenter
-        .VerticalAlignment = xlCenter
-        .Interior.Color = vbWhite
-    End With
+    CrearBandaAzulSuperior ws
 
     rngSubtitulo.Cells(1, 1).Value = "Informe de Seguimiento Presupuestal " & mes & " " & anio & " - Ejecución mensual y acumulada"
     With rngSubtitulo
@@ -192,6 +184,22 @@ Private Sub ArmarEncabezadoVisual(ByVal ws As Worksheet, ByVal anio As Long, ByV
     End With
 
     InsertarLogoBPS ws
+End Sub
+
+
+Private Sub CrearBandaAzulSuperior(ByVal ws As Worksheet)
+    Dim shp As Shape
+    Dim rng As Range
+    On Error Resume Next
+    ws.Shapes("shpBandaAzul").Delete
+    On Error GoTo 0
+    Set rng = ws.Range("A1:M1")
+    Set shp = ws.Shapes.AddShape(msoShapeRectangle, rng.Left, rng.Top, rng.Width, rng.Height)
+    shp.Name = "shpBandaAzul"
+    shp.Fill.ForeColor.RGB = RGB(0, 84, 147)
+    shp.Line.Visible = msoFalse
+    shp.Placement = xlMove
+    shp.ZOrder msoSendToBack
 End Sub
 
 Private Sub InsertarLogoBPS(ByVal ws As Worksheet)
@@ -272,12 +280,6 @@ Public Sub AplicarFormatoReporteGG(ByVal ws As Worksheet, ByVal pt As PivotTable
     ws.Columns("B:M").AutoFit
     ws.Columns("B").ColumnWidth = 28
 
-    With ws.Range("B5")
-        .Value = "Financiamiento"
-        .Interior.Color = RGB(0, 84, 147)
-        .Font.Color = RGB(255, 255, 255)
-        .Font.Bold = True
-    End With
 End Sub
 
 Private Sub ColapsarPivotInicial(ByVal pt As PivotTable)
@@ -390,31 +392,6 @@ Private Sub ValidarBaseAgregada(ByVal wsBase As Worksheet)
     Next i
 End Sub
 
-Private Sub GenerarSalidaEstaticaAgrupada(ByVal wbOut As Workbook, ByVal wsBase As Worksheet, ByVal anio As Long, ByVal mesCierre As Long)
-    Dim ws As Worksheet, src As Variant, i As Long, outR As Long
-    On Error Resume Next
-    Set ws = wbOut.Worksheets("Ejec. Mensual " & anio)
-    On Error GoTo 0
-    If ws Is Nothing Then
-        Set ws = wbOut.Worksheets.Add(After:=wbOut.Worksheets(wbOut.Worksheets.Count))
-        ws.Name = "Ejec. Mensual " & anio
-    End If
-
-    CrearHojaReporteVisual ws, anio, mesCierre
-    ws.Range("B5:H5").Value = Array("Financiamiento", "Nivel_1", "Nivel_2", "Nivel_3", "MesNombre", "MesNum", "EJECUCIÓN " & anio)
-
-    src = wsBase.Range("A1").CurrentRegion.Value2
-    outR = 6
-    For i = 2 To UBound(src, 1)
-        ws.Cells(outR, 2).Resize(1, 7).Value = Array(src(i, 1), src(i, 2), src(i, 3), src(i, 4), src(i, 6), src(i, 5), src(i, 7))
-        outR = outR + 1
-    Next i
-
-    ws.Range("B5:H5").Interior.Color = RGB(0, 84, 147)
-    ws.Range("B5:H5").Font.Color = RGB(255, 255, 255)
-    ws.Range("B5:H5").Font.Bold = True
-    ws.Columns("B:H").AutoFit
-End Sub
 
 Private Sub PrepararHojaReporte(ByVal ws As Worksheet)
     Dim shp As Shape
