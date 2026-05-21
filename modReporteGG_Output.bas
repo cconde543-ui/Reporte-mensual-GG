@@ -9,6 +9,11 @@ End Sub
 Public Sub CrearTablaDinamicaOSalidaAgrupada(ByVal wbOut As Workbook, ByVal wsBase As Worksheet, ByVal anio As Long, ByVal mesCierre As Long, ByRef etapaVisual As String)
     Dim ws As Worksheet, pivotCacheObj As PivotCache, pt As PivotTable, rg As Range
     Dim campo As String, objetoNothing As String
+    Dim campoActual As String, accionActual As String
+    Dim pf As PivotField, pfImporte As PivotField
+    Dim errNumPivot As Long, errDescPivot As String
+    Dim encabezadosBase As String, camposPivot As String
+    Dim manualUpdateActivo As Boolean
     On Error GoTo EH
 
     Debug.Print "[VISUAL] Entrando a CrearTablaDinamicaOSalidaAgrupada"
@@ -23,6 +28,8 @@ Public Sub CrearTablaDinamicaOSalidaAgrupada(ByVal wbOut As Workbook, ByVal wsBa
 
     etapaVisual = "validando base agregada"
     ValidarBaseAgregada wsBase
+    encabezadosBase = EncabezadosBaseAgregada(wsBase)
+    NormalizarBaseParaPivot wsBase
     Debug.Print "[VISUAL] Antes de crear rango base"
     Set rg = wsBase.Range("A1").CurrentRegion
 
@@ -53,19 +60,72 @@ Public Sub CrearTablaDinamicaOSalidaAgrupada(ByVal wbOut As Workbook, ByVal wsBa
 
     etapaVisual = "configurando campos"
     Debug.Print "[VISUAL] Antes de configurar campos de pt"
-    With pt
-        .ManualUpdate = True
-        campo = "Nivel_1": .PivotFields(campo).Orientation = xlRowField: .PivotFields(campo).Position = 1
-        campo = "Nivel_2": .PivotFields(campo).Orientation = xlRowField: .PivotFields(campo).Position = 2
-        campo = "Nivel_3": .PivotFields(campo).Orientation = xlRowField: .PivotFields(campo).Position = 3
-        campo = "MesNombre": .PivotFields(campo).Orientation = xlColumnField: .PivotFields(campo).Position = 1
-        campo = "MesNum": .PivotFields(campo).Orientation = xlHidden
-        campo = "Importe": .AddDataField .PivotFields(campo), "Suma de Importe", xlSum
-        .ManualUpdate = False
-        .RowAxisLayout xlTabularRow
-        .RepeatAllLabels xlRepeatLabels
-        .ShowDrillIndicators = True
-    End With
+    pt.ManualUpdate = True
+    manualUpdateActivo = True
+
+    campoActual = "Nivel_1"
+    accionActual = "asignando Nivel_1 como fila"
+    Debug.Print "[PIVOT] Configurando campo: " & campoActual
+    ConfigurarCampoPivotSeguro pt, campoActual, xlRowField, 1
+    Debug.Print "[PIVOT] OK campo: " & campoActual
+
+    campoActual = "Nivel_2"
+    accionActual = "asignando Nivel_2 como fila"
+    Debug.Print "[PIVOT] Configurando campo: " & campoActual
+    ConfigurarCampoPivotSeguro pt, campoActual, xlRowField, 2
+    Debug.Print "[PIVOT] OK campo: " & campoActual
+
+    campoActual = "Nivel_3"
+    accionActual = "asignando Nivel_3 como fila"
+    Debug.Print "[PIVOT] Configurando campo: " & campoActual
+    ConfigurarCampoPivotSeguro pt, campoActual, xlRowField, 3
+    Debug.Print "[PIVOT] OK campo: " & campoActual
+
+    campoActual = "MesNombre"
+    accionActual = "asignando MesNombre como columna"
+    Debug.Print "[PIVOT] Configurando campo: " & campoActual
+    ConfigurarCampoPivotSeguro pt, campoActual, xlColumnField, 1
+    Debug.Print "[PIVOT] OK campo: " & campoActual
+
+    campoActual = "Importe"
+    accionActual = "agregando Importe como campo de valores"
+    Debug.Print "[PIVOT] Configurando campo: " & campoActual
+    If Not PivotFieldExiste(pt, campoActual) Then
+        Err.Raise vbObjectError + 724, "CrearTablaDinamicaOSalidaAgrupada", "No existe el campo '" & campoActual & "' en la PivotTable."
+    End If
+    Set pfImporte = pt.PivotFields(campoActual)
+    pt.AddDataField pfImporte, "Suma de Importe", xlSum
+    Debug.Print "[PIVOT] OK campo: " & campoActual
+
+    pt.ManualUpdate = False
+    manualUpdateActivo = False
+
+    accionActual = "aplicando RowAxisLayout"
+    On Error Resume Next
+    pt.RowAxisLayout xlTabularRow
+    If Err.Number <> 0 Then
+        Debug.Print "[PIVOT] Advertencia RowAxisLayout: " & Err.Description
+        Err.Clear
+    End If
+    On Error GoTo EH
+
+    accionActual = "aplicando RepeatAllLabels"
+    On Error Resume Next
+    pt.RepeatAllLabels xlRepeatLabels
+    If Err.Number <> 0 Then
+        Debug.Print "[PIVOT] Advertencia RepeatAllLabels: " & Err.Description
+        Err.Clear
+    End If
+    On Error GoTo EH
+
+    accionActual = "aplicando ShowDrillIndicators"
+    On Error Resume Next
+    pt.ShowDrillIndicators = True
+    If Err.Number <> 0 Then
+        Debug.Print "[PIVOT] Advertencia ShowDrillIndicators: " & Err.Description
+        Err.Clear
+    End If
+    On Error GoTo EH
 
     etapaVisual = "ordenando meses"
     OrdenarMesesPivot pt, mesCierre
@@ -79,17 +139,40 @@ Public Sub CrearTablaDinamicaOSalidaAgrupada(ByVal wbOut As Workbook, ByVal wsBa
     Exit Sub
 
 EH:
+    errNumPivot = Err.Number
+    errDescPivot = Err.Description
+    camposPivot = CamposDisponiblesPivot(pt)
+
+    If manualUpdateActivo Then
+        On Error Resume Next
+        pt.ManualUpdate = False
+        On Error GoTo 0
+    End If
+
     On Error Resume Next
     If Not pt Is Nothing Then pt.TableRange2.Clear
     On Error GoTo 0
 
+    On Error Resume Next
     GenerarSalidaEstaticaAgrupada wbOut, wsBase, anio, mesCierre
+    If Err.Number = 0 Then
+        Debug.Print "[PIVOT] Fallback estático aplicado correctamente."
+        Debug.Print "[PIVOT] Error pivot original. Etapa: " & etapaVisual & " | Campo: " & campoActual & " | Acción: " & accionActual & " | Err.Number: " & errNumPivot & " | Err.Description: " & errDescPivot
+        Debug.Print "[PIVOT] Campos disponibles pivot: " & camposPivot
+        Debug.Print "[PIVOT] Encabezados Base_Agregada: " & encabezadosBase
+        Exit Sub
+    End If
 
-    Err.Raise Err.Number, "CrearTablaDinamicaOSalidaAgrupada", _
+    Err.Raise errNumPivot, "CrearTablaDinamicaOSalidaAgrupada", _
               "Error creando reporte visual. Etapa visual: " & etapaVisual & _
-              " | Campo: " & campo & _
+              " | Campo actual: " & campoActual & _
+              " | Acción actual: " & accionActual & _
+              " | Campos disponibles pivot: " & camposPivot & _
+              " | Encabezados Base_Agregada: " & encabezadosBase & _
               " | Objeto Nothing detectado: " & IIf(Len(objetoNothing) = 0, "(no identificado)", objetoNothing) & _
-              " | Detalle: " & Err.Description
+              " | Err.Number: " & errNumPivot & _
+              " | Detalle: " & errDescPivot & _
+              " | Error fallback: " & Err.Description
 End Sub
 
 Public Sub CrearSlicerFinanciamiento(ByVal wbOut As Workbook, ByVal wsReporte As Worksheet, ByVal pt As PivotTable)
@@ -166,12 +249,30 @@ End Sub
 
 Private Sub OrdenarMesesPivot(ByVal pt As PivotTable, ByVal mesCierre As Long)
     Dim pf As PivotField, i As Long, m As Variant
-    Set pf = pt.PivotFields("MesNombre")
-    pf.AutoSort xlManual, pf.SourceName
-    m = MesesESMin()
+    If pt Is Nothing Then Exit Sub
+    If Not PivotFieldExiste(pt, "MesNombre") Then Exit Sub
+
     On Error Resume Next
+    Set pf = pt.PivotFields("MesNombre")
+    If Err.Number <> 0 Then
+        Debug.Print "[PIVOT] Advertencia al obtener MesNombre para ordenar: " & Err.Description
+        Err.Clear
+        Exit Sub
+    End If
+
+    pf.AutoSort xlManual, pf.SourceName
+    If Err.Number <> 0 Then
+        Debug.Print "[PIVOT] Advertencia AutoSort MesNombre: " & Err.Description
+        Err.Clear
+    End If
+
+    m = MesesESMin()
     For i = 0 To mesCierre - 1
         pf.PivotItems(CStr(m(i))).Position = i + 1
+        If Err.Number <> 0 Then
+            Debug.Print "[PIVOT] Advertencia ordenando mes '" & CStr(m(i)) & "': " & Err.Description
+            Err.Clear
+        End If
     Next i
     On Error GoTo 0
 End Sub
@@ -205,4 +306,84 @@ Private Sub GenerarSalidaEstaticaAgrupada(ByVal wbOut As Workbook, ByVal wsBase 
     Next i
     ws.Range("D6:J6").AutoFilter
     ws.Columns("D:J").AutoFit
+End Sub
+
+Private Sub ConfigurarCampoPivotSeguro(ByVal pt As PivotTable, ByVal nombreCampo As String, ByVal orientacion As XlPivotFieldOrientation, ByVal posicion As Long)
+    Dim pf As PivotField
+    If pt Is Nothing Then Err.Raise vbObjectError + 730, "ConfigurarCampoPivotSeguro", "PivotTable es Nothing."
+    If Not PivotFieldExiste(pt, nombreCampo) Then
+        Err.Raise vbObjectError + 731, "ConfigurarCampoPivotSeguro", "No existe el campo '" & nombreCampo & "'. Campos disponibles: " & CamposDisponiblesPivot(pt)
+    End If
+    Set pf = pt.PivotFields(nombreCampo)
+    pf.Orientation = orientacion
+    If posicion > 0 Then pf.Position = posicion
+End Sub
+
+Private Function PivotFieldExiste(ByVal pt As PivotTable, ByVal nombreCampo As String) As Boolean
+    Dim pf As PivotField
+    On Error Resume Next
+    Set pf = pt.PivotFields(nombreCampo)
+    PivotFieldExiste = Not pf Is Nothing
+    Set pf = Nothing
+    On Error GoTo 0
+End Function
+
+Private Function CamposDisponiblesPivot(ByVal pt As PivotTable) As String
+    Dim pf As PivotField
+    Dim arr() As String
+    Dim n As Long
+    If pt Is Nothing Then
+        CamposDisponiblesPivot = "(PivotTable Nothing)"
+        Exit Function
+    End If
+    For Each pf In pt.PivotFields
+        ReDim Preserve arr(0 To n)
+        arr(n) = CStr(pf.Name)
+        n = n + 1
+    Next pf
+    If n = 0 Then
+        CamposDisponiblesPivot = "(sin campos)"
+    Else
+        CamposDisponiblesPivot = Join(arr, ", ")
+    End If
+End Function
+
+Private Function EncabezadosBaseAgregada(ByVal wsBase As Worksheet) As String
+    Dim lastCol As Long
+    Dim i As Long
+    Dim arr() As String
+    lastCol = UltimaColConDatos(wsBase)
+    If lastCol < 1 Then
+        EncabezadosBaseAgregada = "(sin encabezados)"
+        Exit Function
+    End If
+    ReDim arr(1 To lastCol)
+    For i = 1 To lastCol
+        arr(i) = LimpiarTexto(CStr(wsBase.Cells(1, i).Value))
+    Next i
+    EncabezadosBaseAgregada = Join(arr, ", ")
+End Function
+
+Private Sub NormalizarBaseParaPivot(ByVal wsBase As Worksheet)
+    Dim lastRow As Long
+    Dim i As Long
+    Dim valImp As Variant
+
+    lastRow = UltimaFilaConDatos(wsBase)
+    If lastRow < 2 Then Exit Sub
+
+    For i = 2 To lastRow
+        If Len(Trim$(CStr(wsBase.Cells(i, 2).Value))) = 0 Then wsBase.Cells(i, 2).Value = "(Sin clasificar)"
+        If Len(Trim$(CStr(wsBase.Cells(i, 3).Value))) = 0 Then wsBase.Cells(i, 3).Value = "(Sin clasificar)"
+        If Len(Trim$(CStr(wsBase.Cells(i, 4).Value))) = 0 Then wsBase.Cells(i, 4).Value = "(Sin clasificar)"
+
+        valImp = wsBase.Cells(i, 7).Value
+        If IsError(valImp) Then
+            wsBase.Cells(i, 7).Value = 0#
+        ElseIf Len(Trim$(CStr(valImp))) = 0 Then
+            wsBase.Cells(i, 7).Value = 0#
+        ElseIf Not IsNumeric(valImp) Then
+            wsBase.Cells(i, 7).Value = CDbl(Val(Replace(CStr(valImp), ",", ".")))
+        End If
+    Next i
 End Sub
