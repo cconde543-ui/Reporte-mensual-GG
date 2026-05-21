@@ -139,3 +139,45 @@ Public Function ObtenerUltimaColSegura(ByVal wb As Workbook, ByVal nombreHoja As
     Set ws = wb.Worksheets(nombreHoja)
     ObtenerUltimaColSegura = UltimaColConDatos(ws)
 End Function
+
+Public Function ExisteHoja(ByVal wb As Workbook, ByVal nombreHoja As String) As Boolean
+    ExisteHoja = HojaExiste(wb, nombreHoja)
+End Function
+
+Public Function ObtenerUltimaFilaHoja(ByVal ws As Worksheet) As Long
+    Dim celda As Range
+
+    If ws Is Nothing Then
+        ObtenerUltimaFilaHoja = 0
+        Exit Function
+    End If
+
+    On Error Resume Next
+    Set celda = ws.Cells.Find(What:="*", LookIn:=xlFormulas, SearchOrder:=xlByRows, SearchDirection:=xlPrevious)
+    On Error GoTo 0
+
+    If celda Is Nothing Then
+        ObtenerUltimaFilaHoja = 0
+    Else
+        ObtenerUltimaFilaHoja = celda.Row
+    End If
+End Function
+
+Public Function ObtenerUltimaColHoja(ByVal ws As Worksheet) As Long
+    Dim celda As Range
+
+    If ws Is Nothing Then
+        ObtenerUltimaColHoja = 0
+        Exit Function
+    End If
+
+    On Error Resume Next
+    Set celda = ws.Cells.Find(What:="*", LookIn:=xlFormulas, SearchOrder:=xlByColumns, SearchDirection:=xlPrevious)
+    On Error GoTo 0
+
+    If celda Is Nothing Then
+        ObtenerUltimaColHoja = 0
+    Else
+        ObtenerUltimaColHoja = celda.Column
+    End If
+End Function
