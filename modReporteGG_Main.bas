@@ -197,7 +197,9 @@ End Sub
 
 Public Sub ConstruirBaseAgregadaReporte(ByVal ws As Worksheet, ByVal dictAgg As Object)
     Dim fila As Long, dictKey As Variant, partes() As String, importeSalida As Double, factor As Double
+    Dim arrMesesMin As Variant
     ws.Range("A1:G1").Value = Array("Financiamiento", "Nivel_1", "Nivel_2", "Nivel_3", "MesNum", "MesNombre", "Importe")
+    arrMesesMin = MesesESMin()
     factor = FactorEscalaImporte()
     fila = 2
     For Each dictKey In dictAgg.Keys
@@ -207,7 +209,7 @@ Public Sub ConstruirBaseAgregadaReporte(ByVal ws As Worksheet, ByVal dictAgg As 
         ws.Cells(fila, 3).Value = LimpiarTexto(CStr(partes(2)))
         ws.Cells(fila, 4).Value = LimpiarTexto(CStr(partes(3)))
         ws.Cells(fila, 5).Value = CLng(partes(4))
-        ws.Cells(fila, 6).Value = MesesESMin()(CLng(partes(4)) - 1)
+        ws.Cells(fila, 6).Value = arrMesesMin(CLng(partes(4)) - 1)
         importeSalida = CDbl(dictAgg(dictKey)) / factor
         ws.Cells(fila, 7).Value = importeSalida
         fila = fila + 1

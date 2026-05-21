@@ -11,15 +11,23 @@ Public Sub CrearTablaDinamicaOSalidaAgrupada(ByVal wbOut As Workbook, ByVal wsBa
     Dim campo As String, objetoNothing As String
     On Error GoTo EH
 
+    Debug.Print "[VISUAL] Entrando a CrearTablaDinamicaOSalidaAgrupada"
+    Debug.Print "[VISUAL] wbOut Is Nothing: "; (wbOut Is Nothing)
+    Debug.Print "[VISUAL] wsBase Is Nothing: "; (wsBase Is Nothing)
+    Debug.Print "[VISUAL] anio: "; anio
+    Debug.Print "[VISUAL] mesCierre: "; mesCierre
+
     etapaVisual = "validando objetos de entrada"
     If wbOut Is Nothing Then Err.Raise vbObjectError + 720, "CrearTablaDinamicaOSalidaAgrupada", "Workbook de salida (wbOut) es Nothing."
     If wsBase Is Nothing Then Err.Raise vbObjectError + 721, "CrearTablaDinamicaOSalidaAgrupada", "Hoja base (wsBase) es Nothing."
 
     etapaVisual = "validando base agregada"
     ValidarBaseAgregada wsBase
+    Debug.Print "[VISUAL] Antes de crear rango base"
     Set rg = wsBase.Range("A1").CurrentRegion
 
     etapaVisual = "creando hoja de reporte"
+    Debug.Print "[VISUAL] Antes de crear hoja de reporte"
     On Error Resume Next
     Application.DisplayAlerts = False
     wbOut.Worksheets("Ejec. Mensual " & anio).Delete
@@ -28,17 +36,23 @@ Public Sub CrearTablaDinamicaOSalidaAgrupada(ByVal wbOut As Workbook, ByVal wsBa
 
     Set ws = wbOut.Worksheets.Add(After:=wbOut.Worksheets(wbOut.Worksheets.Count))
     ws.Name = "Ejec. Mensual " & anio
+    Debug.Print "[VISUAL] Despues de crear ws. ws Is Nothing: "; (ws Is Nothing)
+    Debug.Print "[VISUAL] Antes de ArmarEncabezadoVisual"
     ArmarEncabezadoVisual ws, anio, mesCierre
+    Debug.Print "[VISUAL] Despues de ArmarEncabezadoVisual"
 
     etapaVisual = "creando pivot cache"
+    Debug.Print "[VISUAL] Antes de crear pivotCacheObj"
     Set pivotCacheObj = wbOut.PivotCaches.Create(SourceType:=xlDatabase, SourceData:=rg)
     If pivotCacheObj Is Nothing Then objetoNothing = "pivotCacheObj": Err.Raise vbObjectError + 722, "CrearTablaDinamicaOSalidaAgrupada", "No se pudo crear PivotCache."
 
     etapaVisual = "creando pivot table"
+    Debug.Print "[VISUAL] Antes de crear pt"
     Set pt = pivotCacheObj.CreatePivotTable(TableDestination:=ws.Range("D7"), TableName:="ptGG")
     If pt Is Nothing Then objetoNothing = "pivotTableObj": Err.Raise vbObjectError + 723, "CrearTablaDinamicaOSalidaAgrupada", "No se pudo crear PivotTable."
 
     etapaVisual = "configurando campos"
+    Debug.Print "[VISUAL] Antes de configurar campos de pt"
     With pt
         .ManualUpdate = True
         campo = "Nivel_1": .PivotFields(campo).Orientation = xlRowField: .PivotFields(campo).Position = 1
@@ -60,6 +74,7 @@ Public Sub CrearTablaDinamicaOSalidaAgrupada(ByVal wbOut As Workbook, ByVal wsBa
     AplicarFormatoReporteGG ws, pt
 
     etapaVisual = "creando slicer"
+    Debug.Print "[VISUAL] Antes de crear slicer"
     CrearSlicerFinanciamiento wbOut, ws, pt
     Exit Sub
 
@@ -126,7 +141,20 @@ End Sub
 
 Private Sub ArmarEncabezadoVisual(ByVal ws As Worksheet, ByVal anio As Long, ByVal mesCierre As Long)
     Dim titulo As String, mes As String
-    mes = UCase$(MesesES()(mesCierre - 1))
+    Dim arrMeses As Variant
+    Debug.Print "[ENCABEZADO] Entrando a ArmarEncabezadoVisual"
+    Debug.Print "[ENCABEZADO] ws Is Nothing: "; (ws Is Nothing)
+    Debug.Print "[ENCABEZADO] anio: "; anio
+    Debug.Print "[ENCABEZADO] mesCierre: "; mesCierre
+
+    If mesCierre < 1 Or mesCierre > 12 Then
+        Err.Raise vbObjectError + 900, "ArmarEncabezadoVisual", "Mes de cierre inválido: " & mesCierre
+    End If
+
+    arrMeses = MesesES()
+    Debug.Print "[ENCABEZADO] LBound MesesES: "; LBound(arrMeses)
+    Debug.Print "[ENCABEZADO] UBound MesesES: "; UBound(arrMeses)
+    mes = UCase$(CStr(arrMeses(mesCierre - 1)))
     ws.Range("A1:N1").Merge
     ws.Range("A1:N1").Interior.Color = RGB(47, 84, 150)
     ws.Range("A1:N1").RowHeight = 30
