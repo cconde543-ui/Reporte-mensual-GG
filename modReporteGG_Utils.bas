@@ -1,6 +1,6 @@
 Option Explicit
 
-Public Const MOSTRAR_EN_MILLONES As Boolean = True
+Public Const MOSTRAR_EN_MILLONES As Boolean = False
 Public Const MOSTRAR_EN_MILES As Boolean = False
 Public Const PANEL_SHEET_NAME As String = "Panel Reportes"
 Public Const DIAG_SHEET_NAME As String = "Diagnostico_Llaves"
