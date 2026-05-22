@@ -91,6 +91,9 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     etapaActual = "leyendo ejecuciones y acumulando"
     LeerEjecucionesYAcumular wsE, anio, mesCierre, dictCod, dictAgg, diag
 
+    etapaActual = "completando meses faltantes"
+    CompletarMesesAnioEnDictAgg dictAgg
+
     etapaActual = "creando workbook de salida"
     Set wbOut = Workbooks.Add(xlWBATWorksheet)
     Set wsBase = wbOut.Worksheets(1)
@@ -243,6 +246,33 @@ Public Sub LeerEjecucionesYAcumular(ByVal ws As Worksheet, ByVal anio As Long, B
     Exit Sub
 EH:
     Err.Raise Err.Number, "LeerEjecucionesYAcumular", "Error leyendo ejecuciones: " & Err.Description
+End Sub
+
+
+Private Sub CompletarMesesAnioEnDictAgg(ByRef dictAgg As Object)
+    Dim dictRows As Object
+    Dim k As Variant
+    Dim partes() As String
+    Dim rowKey As String
+    Dim m As Long
+    Dim fullKey As String
+
+    Set dictRows = CreateObject("Scripting.Dictionary")
+
+    For Each k In dictAgg.Keys
+        partes = Split(CStr(k), "|")
+        If UBound(partes) >= 4 Then
+            rowKey = CStr(partes(0)) & "|" & CStr(partes(1)) & "|" & CStr(partes(2)) & "|" & CStr(partes(3))
+            If Not dictRows.Exists(rowKey) Then dictRows.Add rowKey, True
+        End If
+    Next k
+
+    For Each k In dictRows.Keys
+        For m = 1 To 12
+            fullKey = CStr(k) & "|" & CStr(m)
+            If Not dictAgg.Exists(fullKey) Then dictAgg.Add fullKey, 0#
+        Next m
+    Next k
 End Sub
 
 Public Sub ConstruirBaseAgregadaReporte(ByVal ws As Worksheet, ByVal dictAgg As Object)

@@ -100,7 +100,7 @@ Public Sub CrearTablaDinamicaOSalidaAgrupada(ByVal wbOut As Workbook, ByVal wsBa
     End If
 
     ColapsarPivotInicial pt
-    If Not pt.DataBodyRange Is Nothing Then pt.DataBodyRange.NumberFormat = "#,##0"
+    If Not pt.DataBodyRange Is Nothing Then pt.DataBodyRange.NumberFormat = "#,##0;-#,##0;;@"
     AgregarSlicerFinanciamiento wbOut, ws, pt
     Exit Sub
 
@@ -227,16 +227,16 @@ Private Sub ArmarEncabezadoVisual(ByVal ws As Worksheet, ByVal anio As Long, ByV
     ws.Rows(2).RowHeight = 15
     ws.Rows(3).RowHeight = 24
 
-    Set rngBandaSuperior = ws.Range("A1:M1")
-    Set rngTitulo = ws.Range("A3:M3")
-    Set rngSubtitulo = ws.Range("A3:M3")
+    Set rngBandaSuperior = ws.Range("A1:O1")
+    Set rngTitulo = ws.Range("A3:O3")
+    Set rngSubtitulo = ws.Range("A3:O3")
 
     rngBandaSuperior.UnMerge
     rngSubtitulo.UnMerge
     rngTitulo.Merge
 
     rngTitulo.ClearContents
-    ws.Range("A2:M2").ClearContents
+    ws.Range("A2:O2").ClearContents
 
     CrearBandaAzulSuperior ws
 
@@ -266,7 +266,7 @@ Private Sub CrearBandaAzulSuperior(ByVal ws As Worksheet)
     On Error Resume Next
     ws.Shapes("shpBandaAzul").Delete
     On Error GoTo 0
-    Set rng = ws.Range("A1:M1")
+    Set rng = ws.Range("A1:O1")
     Set shp = ws.Shapes.AddShape(msoShapeRectangle, rng.Left, rng.Top, rng.Width, rng.Height)
     shp.Name = "shpBandaAzul"
     shp.Fill.ForeColor.RGB = RGB(0, 84, 147)
@@ -294,7 +294,7 @@ Private Sub InsertarLogoBPS(ByVal ws As Worksheet)
     logoW = shp.Width
 
     topPos = ws.Rows(1).Top + (ws.Rows(1).Height - shp.Height) / 2
-    Set rngBandaSuperior = ws.Range("A1:M1")
+    Set rngBandaSuperior = ws.Range("A1:O1")
     leftPos = rngBandaSuperior.Left + rngBandaSuperior.Width - logoW - 6
     shp.Top = topPos
     shp.Left = leftPos
@@ -311,7 +311,7 @@ Private Sub OrdenarMesesPivot(ByVal pt As PivotTable, ByVal campoMesNombre As St
     On Error GoTo 0
     If pfNom Is Nothing Then Exit Sub
 
-    m = MesesES()
+    m = MesesESMin()
     If Not pfNum Is Nothing Then
         On Error Resume Next
         pfNum.Orientation = xlHidden
@@ -383,6 +383,8 @@ Private Sub CrearHojaReporteVisual(ByVal ws As Worksheet, ByVal anio As Long, By
     PrepararHojaReporte ws
     ws.Columns("A").ColumnWidth = 28
     ArmarEncabezadoVisual ws, anio, mesCierre
+    ws.Activate
+    If Not ActiveWindow Is Nothing Then ActiveWindow.DisplayGridlines = False
 End Sub
 
 Private Sub AgregarSlicerFinanciamiento(ByVal wb As Workbook, ByVal ws As Worksheet, ByVal pt As PivotTable)
