@@ -3,6 +3,7 @@ Option Explicit
 Public Const RUTA_CARPETA_EJECUCIONES As String = "\\estructura\Finanzas\AREA Contaduria\Adm Presupuestal\Prest y Recursos\SISTEMA DE CONTROL PRESUPUESTAL\SeguimientoPresupuestal\DatosDescargados\DetalleRegistros\Ejecuciones"
 Public Const RUTA_CODIGUERA As String = "\\estructura\Finanzas\AREA Contaduria\Adm Presupuestal\Prest y Recursos\SISTEMA DE CONTROL PRESUPUESTAL\Reporte GG\Codiguera"
 Public Const RUTA_REPORTES_GENERADOS As String = "\\estructura\Finanzas\AREA Contaduria\Adm Presupuestal\Prest y Recursos\SISTEMA DE CONTROL PRESUPUESTAL\Reporte GG\ReportesGenerados"
+Public Const RUTA_CARPETA_ASIGNADOS_GASTOS As String = "\\estructura\Finanzas\AREA Contaduria\Adm Presupuestal\Prest y Recursos\SISTEMA DE CONTROL PRESUPUESTAL\SeguimientoPresupuestal\DatosDescargados\Asignados\Gastos"
 
 Public Function ObtenerHojaPanelReportes() As Worksheet
     On Error GoTo EH
@@ -65,3 +66,35 @@ Public Sub AsegurarCarpetaExiste(ByVal ruta As String)
 EH:
     Err.Raise Err.Number, "AsegurarCarpetaExiste", "No se pudo asegurar carpeta: " & ruta & " | " & Err.Description
 End Sub
+
+
+Public Function ObtenerArchivoMasRecientePorFechaCreacion(ByVal carpeta As String) As String
+    On Error GoTo EH
+    Dim fso As Object, archivo As Object, folderObj As Object
+    Dim ultimaFecha As Date, ext As String
+
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    If Not fso.FolderExists(carpeta) Then Exit Function
+
+    Set folderObj = fso.GetFolder(carpeta)
+    ultimaFecha = #1/1/1900#
+
+    For Each archivo In folderObj.Files
+        ext = LCase$(fso.GetExtensionName(archivo.Name))
+        If Left$(archivo.Name, 2) <> "~$" Then
+            If ext = "xls" Or ext = "xlsx" Or ext = "xlsm" Then
+                If archivo.DateCreated > ultimaFecha Then
+                    ultimaFecha = archivo.DateCreated
+                    ObtenerArchivoMasRecientePorFechaCreacion = archivo.Path
+                End If
+            End If
+        End If
+    Next archivo
+
+    If Len(ObtenerArchivoMasRecientePorFechaCreacion) = 0 Then
+        Err.Raise vbObjectError + 1902, "ObtenerArchivoMasRecientePorFechaCreacion", "No se encontró archivo xls/xlsx/xlsm en carpeta de asignados: " & carpeta
+    End If
+    Exit Function
+EH:
+    Err.Raise Err.Number, "ObtenerArchivoMasRecientePorFechaCreacion", "Error buscando archivo por fecha de creación en: " & carpeta & " | " & Err.Description
+End Function
