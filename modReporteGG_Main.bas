@@ -23,6 +23,7 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     Dim wsBasePorc As Worksheet
     Dim dictCod As Object
     Dim dictAgg As Object
+    Dim dictLlavesCodiguera As Object
     Dim diag As Object
     Dim dictAsignado As Object
     Dim dictPorcEjec As Object
@@ -68,6 +69,7 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
 
     Set dictCod = CreateObject("Scripting.Dictionary")
     Set dictAgg = CreateObject("Scripting.Dictionary")
+    Set dictLlavesCodiguera = CreateObject("Scripting.Dictionary")
     Set diag = CreateObject("Scripting.Dictionary")
     Set dictAsignado = CreateObject("Scripting.Dictionary")
     Set dictPorcEjec = CreateObject("Scripting.Dictionary")
@@ -111,11 +113,11 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     Set wsA = wbA.Worksheets(1)
 
     etapaActual = "leyendo codiguera"
-    LeerCodiguera wsC, dictCod, diag
+    LeerCodiguera wsC, dictCod, dictLlavesCodiguera, diag
 
     etapaActual = "leyendo ejecuciones y acumulando"
     LeerEjecucionesYAcumular wsE, anio, mesCierre, dictCod, dictAgg, diag
-    LeerAsignadosYAcumular wsA, dictCod, dictAsignado, diag, wbC, anio, archivoAsignados
+    LeerAsignadosYAcumular wsA, dictCod, dictLlavesCodiguera, dictAsignado, diag, wbC, anio, archivoAsignados
 
     If diag.Exists("asignados_faltantes") Then
         etapaActual = "guardando codiguera por nuevas llaves de asignados"
@@ -248,7 +250,7 @@ EH:
     MsgBox msg, vbCritical
 End Sub
 
-Public Sub LeerAsignadosYAcumular(ByVal ws As Worksheet, ByVal dictCod As Object, ByRef dictAsignado As Object, ByRef diag As Object, Optional ByVal wbCodiguera As Workbook, Optional ByVal anioFiltro As Long = 0, Optional ByVal archivoAsignados As String = "")
+Public Sub LeerAsignadosYAcumular(ByVal ws As Worksheet, ByVal dictCod As Object, ByVal dictLlavesCodiguera As Object, ByRef dictAsignado As Object, ByRef diag As Object, Optional ByVal wbCodiguera As Workbook, Optional ByVal anioFiltro As Long = 0, Optional ByVal archivoAsignados As String = "")
     Dim arr As Variant, headers As Object, i As Long, clave As String, info As Variant, keyAgg As String, monto As Double
     Dim colAnio As Long, anioFila As Long
     arr = ws.Range(ws.Cells(1, 1), ws.Cells(UltimaFilaConDatos(ws), UltimaColConDatos(ws))).Value2
@@ -264,35 +266,38 @@ Public Sub LeerAsignadosYAcumular(ByVal ws As Worksheet, ByVal dictCod As Object
                 If anioFila <> anioFiltro Then GoTo SiguienteFila
             End If
         End If
-        clave = ConstruirClavePresupuestal(arr(i, ObtenerColumna(headers, Array("finac"))), arr(i, ObtenerColumna(headers, Array("der-f"))), arr(i, ObtenerColumna(headers, Array("pg"))), arr(i, ObtenerColumna(headers, Array("spg"))), arr(i, ObtenerColumna(headers, Array("proy"))), arr(i, ObtenerColumna(headers, Array("rubro"))), arr(i, ObtenerColumna(headers, Array("r. aux"))), arr(i, ObtenerColumna(headers, Array("ue"))), arr(i, ObtenerColumna(headers, Array("dep"))), arr(i, ObtenerColumna(headers, Array("obra"))), arr(i, ObtenerColumna(headers, Array("der. obra"))), arr(i, ObtenerColumna(headers, Array("serv"))), arr(i, ObtenerColumna(headers, Array("sniip"))))
+        clave = ConstruirClaveLlavePresupuestalCodiguera(arr(i, ObtenerColumna(headers, Array("finac"))), arr(i, ObtenerColumna(headers, Array("der-f"))), arr(i, ObtenerColumna(headers, Array("pg"))), arr(i, ObtenerColumna(headers, Array("spg"))), arr(i, ObtenerColumna(headers, Array("proy"))), arr(i, ObtenerColumna(headers, Array("rubro"))), arr(i, ObtenerColumna(headers, Array("r. aux"))), arr(i, ObtenerColumna(headers, Array("ue"))), arr(i, ObtenerColumna(headers, Array("dep"))), arr(i, ObtenerColumna(headers, Array("obra"))), arr(i, ObtenerColumna(headers, Array("der. obra"))), arr(i, ObtenerColumna(headers, Array("serv"))), arr(i, ObtenerColumna(headers, Array("sniip"))))
         If dictCod.Exists(clave) Then
             info = dictCod(clave)
             keyAgg = CStr(info(0)) & "|" & CStr(info(1)) & "|" & CStr(info(2)) & "|" & CStr(info(3))
             monto = CDbl(0 + arr(i, ObtenerColumna(headers, Array("asignado"))))
             If Not dictAsignado.Exists(keyAgg) Then dictAsignado.Add keyAgg, 0#
             dictAsignado(keyAgg) = dictAsignado(keyAgg) + monto
-        Else
+        ElseIf Not dictLlavesCodiguera.Exists(clave) Then
             RegistrarYAgregarLlaveAsignadoFaltante wbCodiguera, diag, clave, arr, headers, i, archivoAsignados
+            If Not dictLlavesCodiguera.Exists(clave) Then dictLlavesCodiguera.Add clave, True
         End If
 SiguienteFila:
     Next i
 End Sub
 
-Public Sub LeerCodiguera(ByVal ws As Worksheet, ByRef dictCod As Object, ByRef diag As Object)
+Public Sub LeerCodiguera(ByVal ws As Worksheet, ByRef dictCod As Object, ByRef dictLlavesCodiguera As Object, ByRef diag As Object)
     On Error GoTo EH
 
     Dim arr As Variant, headers As Object, i As Long, incluir As String, clave As String, info As Variant
-    Dim colTitular As Long
+    Dim colTitular As Long, colClaveLlave As Long
 
     arr = ws.Range(ws.Cells(1, 1), ws.Cells(UltimaFilaConDatos(ws), UltimaColConDatos(ws))).Value2
     Set headers = MapearEncabezados(arr)
     colTitular = ObtenerColumna(headers, Array("titular"))
+    colClaveLlave = ObtenerColumna(headers, Array("clave llave presupuestal"))
     If colTitular = 0 Then Err.Raise vbObjectError + 201, "LeerCodiguera", "Falta columna Titular en codiguera."
 
     For i = 2 To UBound(arr, 1)
+        clave = NormalizarClaveCodigueraDesdeTexto(arr(i, colClaveLlave))
+        If Len(clave) > 0 And Not dictLlavesCodiguera.Exists(clave) Then dictLlavesCodiguera.Add clave, True
         incluir = Replace(UCase$(Trim$(CStr(arr(i, ObtenerColumna(headers, Array("incluir_en_informe")))))), " ", "")
-        If incluir = "SI" Then
-            clave = ConstruirClavePresupuestal(arr(i, ObtenerColumna(headers, Array("finac código numérico"))), arr(i, ObtenerColumna(headers, Array("der-f código numérico"))), arr(i, ObtenerColumna(headers, Array("pg código numérico"))), arr(i, ObtenerColumna(headers, Array("spg código numérico"))), arr(i, ObtenerColumna(headers, Array("proy", "proyecto"))), arr(i, ObtenerColumna(headers, Array("rubro código numérico"))), arr(i, ObtenerColumna(headers, Array("r. aux código numérico"))), arr(i, ObtenerColumna(headers, Array("ue código numérico"))), arr(i, ObtenerColumna(headers, Array("dep código numérico"))), arr(i, ObtenerColumna(headers, Array("obra código numérico"))), arr(i, ObtenerColumna(headers, Array("der. obra código numérico"))), arr(i, ObtenerColumna(headers, Array("serv código numérico"))), arr(i, ObtenerColumna(headers, Array("snip código numérico"))))
+        If incluir = "SI" And Len(clave) > 0 Then
             info = Array(arr(i, colTitular), arr(i, ObtenerColumna(headers, Array("nivel_1"))), arr(i, ObtenerColumna(headers, Array("nivel_2"))), arr(i, ObtenerColumna(headers, Array("nivel_3"))))
             dictCod(clave) = info
         End If
@@ -311,7 +316,7 @@ Public Sub LeerEjecucionesYAcumular(ByVal ws As Worksheet, ByVal anio As Long, B
     For i = 2 To UBound(arr, 1)
         If TryObtenerFechaValorSeguro(arr(i, ObtenerColumna(headers, Array("fecha valor"))), fechaValor) Then
             If Year(fechaValor) = anio And Month(fechaValor) <= mesCierre Then
-                clave = ConstruirClavePresupuestal(arr(i, ObtenerColumna(headers, Array("finac código numérico"))), arr(i, ObtenerColumna(headers, Array("der-f código numérico"))), arr(i, ObtenerColumna(headers, Array("pg código numérico"))), arr(i, ObtenerColumna(headers, Array("spg código numérico"))), arr(i, ObtenerColumna(headers, Array("proyecto", "proy"))), arr(i, ObtenerColumna(headers, Array("rubro código numérico"))), arr(i, ObtenerColumna(headers, Array("r. aux código numérico"))), arr(i, ObtenerColumna(headers, Array("ue código numérico"))), arr(i, ObtenerColumna(headers, Array("dep código numérico"))), arr(i, ObtenerColumna(headers, Array("obra código numérico"))), arr(i, ObtenerColumna(headers, Array("der. obra código numérico"))), arr(i, ObtenerColumna(headers, Array("serv código numérico"))), arr(i, ObtenerColumna(headers, Array("snip código numérico"))))
+                clave = ConstruirClaveLlavePresupuestalCodiguera(arr(i, ObtenerColumna(headers, Array("finac código numérico"))), arr(i, ObtenerColumna(headers, Array("der-f código numérico"))), arr(i, ObtenerColumna(headers, Array("pg código numérico"))), arr(i, ObtenerColumna(headers, Array("spg código numérico"))), arr(i, ObtenerColumna(headers, Array("proyecto", "proy"))), arr(i, ObtenerColumna(headers, Array("rubro código numérico"))), arr(i, ObtenerColumna(headers, Array("r. aux código numérico"))), arr(i, ObtenerColumna(headers, Array("ue código numérico"))), arr(i, ObtenerColumna(headers, Array("dep código numérico"))), arr(i, ObtenerColumna(headers, Array("obra código numérico"))), arr(i, ObtenerColumna(headers, Array("der. obra código numérico"))), arr(i, ObtenerColumna(headers, Array("serv código numérico"))), arr(i, ObtenerColumna(headers, Array("snip código numérico"))))
                 If dictCod.Exists(clave) Then
                     info = dictCod(clave): mesNum = Month(fechaValor)
                     importeMN = CDbl(0 + arr(i, ObtenerColumna(headers, Array("importe moneda nacional"))))
@@ -440,11 +445,34 @@ Private Sub ValidarColumnasAsignados(ByVal headers As Object)
     Next i
 End Sub
 
+Private Function NormalizarClaveCodigueraDesdeTexto(ByVal valor As Variant) As String
+    Dim partes() As String, i As Long
+    Dim vacio(0 To 12) As Variant
+    Dim componentes(0 To 12) As Variant
+    Dim texto As String
+
+    texto = Replace(CStr(valor), "|", "-")
+    texto = LimpiarTexto(texto)
+    If Len(texto) = 0 Then Exit Function
+    partes = Split(texto, "-")
+    If UBound(partes) = 12 Then
+        For i = 0 To 12
+            componentes(i) = partes(i)
+        Next i
+    Else
+        For i = 0 To 12
+            componentes(i) = vacio(i)
+        Next i
+        componentes(0) = texto
+    End If
+    NormalizarClaveCodigueraDesdeTexto = ConstruirClaveLlavePresupuestalCodiguera(componentes(0), componentes(1), componentes(2), componentes(3), componentes(4), componentes(5), componentes(6), componentes(7), componentes(8), componentes(9), componentes(10), componentes(11), componentes(12))
+End Function
+
 Private Sub RegistrarYAgregarLlaveAsignadoFaltante(ByVal wbCodiguera As Workbook, ByRef diag As Object, ByVal clave As String, ByRef arr As Variant, ByVal headers As Object, ByVal fila As Long, ByVal archivoAsignados As String)
     Dim wsC As Worksheet, hdrC As Object, lastR As Long, newR As Long, sec As Collection, rowInfo As Variant
     If Not diag.Exists("asignados_faltantes") Then Set diag("asignados_faltantes") = CreateObject("Scripting.Dictionary")
     If diag("asignados_faltantes").Exists(clave) Then Exit Sub
-    rowInfo = Array("Asignados", archivoAsignados, fila, clave, arr(fila, ObtenerColumna(headers, Array("finac"))), arr(fila, ObtenerColumna(headers, Array("der-f"))), arr(fila, ObtenerColumna(headers, Array("pg"))), arr(fila, ObtenerColumna(headers, Array("spg"))), arr(fila, ObtenerColumna(headers, Array("proy"))), arr(fila, ObtenerColumna(headers, Array("rubro"))), arr(fila, ObtenerColumna(headers, Array("r. aux"))), arr(fila, ObtenerColumna(headers, Array("ue"))), arr(fila, ObtenerColumna(headers, Array("dep"))), arr(fila, ObtenerColumna(headers, Array("obra"))), arr(fila, ObtenerColumna(headers, Array("der. obra"))), arr(fila, ObtenerColumna(headers, Array("serv"))), arr(fila, ObtenerColumna(headers, Array("sniip"))), "Agregada a codiguera - pendiente clasificar")
+    rowInfo = Array("Asignados", archivoAsignados, fila, clave, "", arr(fila, ObtenerColumna(headers, Array("finac"))), arr(fila, ObtenerColumna(headers, Array("der-f"))), arr(fila, ObtenerColumna(headers, Array("pg"))), arr(fila, ObtenerColumna(headers, Array("spg"))), arr(fila, ObtenerColumna(headers, Array("proy"))), arr(fila, ObtenerColumna(headers, Array("rubro"))), arr(fila, ObtenerColumna(headers, Array("r. aux"))), arr(fila, ObtenerColumna(headers, Array("ue"))), arr(fila, ObtenerColumna(headers, Array("dep"))), arr(fila, ObtenerColumna(headers, Array("obra"))), arr(fila, ObtenerColumna(headers, Array("der. obra"))), arr(fila, ObtenerColumna(headers, Array("serv"))), arr(fila, ObtenerColumna(headers, Array("sniip"))), "Agregada a codiguera - pendiente clasificar")
     diag("asignados_faltantes")(clave) = rowInfo
 
     If wbCodiguera Is Nothing Then Exit Sub
@@ -467,5 +495,22 @@ Private Sub RegistrarYAgregarLlaveAsignadoFaltante(ByVal wbCodiguera As Workbook
     wsC.Cells(newR, ObtenerColumna(hdrC, Array("serv"))).Value = arr(fila, ObtenerColumna(headers, Array("serv")))
     wsC.Cells(newR, ObtenerColumna(hdrC, Array("sniip"))).Value = arr(fila, ObtenerColumna(headers, Array("sniip")))
     wsC.Cells(newR, ObtenerColumna(hdrC, Array("clave llave presupuestal"))).Value = clave
-    wsC.Cells(newR, ObtenerColumna(hdrC, Array("llave presupuestal"))).Value = "Ej " & Year(Date) & ", Finac " & arr(fila, ObtenerColumna(headers, Array("finac"))) & ", Der-F " & arr(fila, ObtenerColumna(headers, Array("der-f")))
+    CompletarCodigoSiExiste wsC, hdrC, newR, "finac código numérico", arr(fila, ObtenerColumna(headers, Array("finac")))
+    CompletarCodigoSiExiste wsC, hdrC, newR, "der-f código numérico", arr(fila, ObtenerColumna(headers, Array("der-f")))
+    CompletarCodigoSiExiste wsC, hdrC, newR, "pg código numérico", arr(fila, ObtenerColumna(headers, Array("pg")))
+    CompletarCodigoSiExiste wsC, hdrC, newR, "spg código numérico", arr(fila, ObtenerColumna(headers, Array("spg")))
+    CompletarCodigoSiExiste wsC, hdrC, newR, "rubro código numérico", arr(fila, ObtenerColumna(headers, Array("rubro")))
+    CompletarCodigoSiExiste wsC, hdrC, newR, "r. aux código numérico", arr(fila, ObtenerColumna(headers, Array("r. aux")))
+    CompletarCodigoSiExiste wsC, hdrC, newR, "ue código numérico", arr(fila, ObtenerColumna(headers, Array("ue")))
+    CompletarCodigoSiExiste wsC, hdrC, newR, "dep código numérico", arr(fila, ObtenerColumna(headers, Array("dep")))
+    CompletarCodigoSiExiste wsC, hdrC, newR, "obra código numérico", arr(fila, ObtenerColumna(headers, Array("obra")))
+    CompletarCodigoSiExiste wsC, hdrC, newR, "der. obra código numérico", arr(fila, ObtenerColumna(headers, Array("der. obra")))
+    CompletarCodigoSiExiste wsC, hdrC, newR, "serv código numérico", arr(fila, ObtenerColumna(headers, Array("serv")))
+    CompletarCodigoSiExiste wsC, hdrC, newR, "snip código numérico", arr(fila, ObtenerColumna(headers, Array("sniip")))
+End Sub
+
+Private Sub CompletarCodigoSiExiste(ByVal ws As Worksheet, ByVal headers As Object, ByVal fila As Long, ByVal nombreColumna As String, ByVal valor As Variant)
+    Dim col As Long
+    col = ObtenerColumnaOpcional(headers, Array(nombreColumna))
+    If col > 0 Then ws.Cells(fila, col).Value = Split(ConstruirClaveLlavePresupuestalCodiguera(valor, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0), "-")(0)
 End Sub
