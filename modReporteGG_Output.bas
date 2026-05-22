@@ -17,6 +17,9 @@ Public Sub CrearTablaDinamicaOSalidaAgrupada(ByVal wbOut As Workbook, ByVal wsBa
     Dim errNumPivot As Long, errDescPivot As String
     Dim encabezadosBase As String, camposPivot As String
     Dim manualUpdateActivo As Boolean
+    Dim sourceAddress As String
+    Dim campoActual As String, accionActual As String
+    Dim orientacionActual As XlPivotFieldOrientation
     On Error GoTo EH
 
     etapaVisual = "validando objetos de entrada"
@@ -41,15 +44,18 @@ Public Sub CrearTablaDinamicaOSalidaAgrupada(ByVal wbOut As Workbook, ByVal wsBa
     CrearHojaReporteVisual ws, anio, mesCierre
 
     etapaVisual = "creando pivot cache"
-    Set pivotCacheObj = wbOut.PivotCaches.Create(SourceType:=xlDatabase, SourceData:=rg)
+    sourceAddress = rg.Address(ReferenceStyle:=xlR1C1, External:=True)
+    Set pivotCacheObj = wbOut.PivotCaches.Create(SourceType:=xlDatabase, SourceData:=sourceAddress)
     pivotCacheObj.MissingItemsLimit = xlMissingItemsNone
 
     etapaVisual = "creando pivot table"
     Set pt = pivotCacheObj.CreatePivotTable(TableDestination:=ws.Range("B5"), TableName:="ptGG")
 
+    etapaVisual = "refrescando cache y tabla"
+    pivotCacheObj.Refresh
+    pt.RefreshTable
+
     etapaVisual = "configurando campos"
-    pt.ManualUpdate = True
-    manualUpdateActivo = True
 
     campoNivel1 = ObtenerCampoDisponible(pt, Array("Nivel_1", "Nivel 1"))
     campoNivel2 = ObtenerCampoDisponible(pt, Array("Nivel_2", "Nivel 2"))
@@ -57,9 +63,24 @@ Public Sub CrearTablaDinamicaOSalidaAgrupada(ByVal wbOut As Workbook, ByVal wsBa
     campoMesNombre = ObtenerCampoDisponible(pt, Array("MesNombre", "Mes Nombre"))
     campoMesNum = ObtenerCampoDisponible(pt, Array("MesNum", "Mes Num"))
 
+    campoActual = campoNivel1
+    accionActual = "asignando " & campoNivel1 & " como xlRowField"
+    orientacionActual = xlRowField
     ConfigurarCampoPivotSeguro pt, campoNivel1, xlRowField, 1
+
+    campoActual = campoNivel2
+    accionActual = "asignando " & campoNivel2 & " como xlRowField"
+    orientacionActual = xlRowField
     ConfigurarCampoPivotSeguro pt, campoNivel2, xlRowField, 2
+
+    campoActual = campoNivel3
+    accionActual = "asignando " & campoNivel3 & " como xlRowField"
+    orientacionActual = xlRowField
     ConfigurarCampoPivotSeguro pt, campoNivel3, xlRowField, 3
+
+    campoActual = campoMesNombre
+    accionActual = "asignando " & campoMesNombre & " como xlColumnField"
+    orientacionActual = xlColumnField
     ConfigurarCampoPivotSeguro pt, campoMesNombre, xlColumnField, 1
 
     If Not PivotFieldExiste(pt, "Importe") Then
@@ -75,8 +96,8 @@ Public Sub CrearTablaDinamicaOSalidaAgrupada(ByVal wbOut As Workbook, ByVal wsBa
         End With
     End If
 
-    pt.ManualUpdate = False
-    manualUpdateActivo = False
+    pt.ManualUpdate = True
+    manualUpdateActivo = True
 
     Debug.Print "[PIVOT] Filas base=" & UltimaFilaConDatos(wsBase) - 1 & " Cols base=" & UltimaColConDatos(wsBase)
     pt.RowAxisLayout xlCompactRow
@@ -93,10 +114,15 @@ Public Sub CrearTablaDinamicaOSalidaAgrupada(ByVal wbOut As Workbook, ByVal wsBa
     If Not pt.DataBodyRange Is Nothing Then pt.DataBodyRange.NumberFormat = "#,##0"
 
     AplicarFormatoReporteGG ws, pt, anio
-    etapaVisual = "creando slicer de Financiamiento"
-    If Not CrearSlicerFinanciamiento(wbOut, ws, pt) Then
-        Debug.Print "[SLICER] No se creó slicer; se conserva Financiamiento como PageField."
-    End If
+
+    ' Slicer desactivado temporalmente para aislar estabilización de PivotTable.
+    ' etapaVisual = "creando slicer de Financiamiento"
+    ' If Not CrearSlicerFinanciamiento(wbOut, ws, pt) Then
+    '     Debug.Print "[SLICER] No se creó slicer; se conserva Financiamiento como PageField."
+    ' End If
+
+    pt.ManualUpdate = False
+    manualUpdateActivo = False
     Exit Sub
 
 EH:
@@ -112,9 +138,13 @@ EH:
 
     Err.Raise errNumPivot, "CrearTablaDinamicaOSalidaAgrupada", _
               "Error creando reporte visual. Etapa visual: " & etapaVisual & _
+              " | campoActual: " & campoActual & _
+              " | accionActual: " & accionActual & _
+              " | orientación solicitada: " & OrientacionPivotTexto(orientacionActual) & _
               " | Campos disponibles pivot: " & camposPivot & _
               " | Encabezados Base_Agregada: " & encabezadosBase & _
-              " | Detalle: " & errDescPivot
+              " | Err.Number: " & CStr(errNumPivot) & _
+              " | Err.Description: " & errDescPivot
 End Sub
 
 Public Function CrearSlicerFinanciamiento(ByVal wbOut As Workbook, ByVal wsReporte As Worksheet, ByVal pt As PivotTable) As Boolean
@@ -468,12 +498,31 @@ End Sub
 
 Private Sub ConfigurarCampoPivotSeguro(ByVal pt As PivotTable, ByVal nombreCampo As String, ByVal orientacion As XlPivotFieldOrientation, ByVal posicion As Long)
     Dim pf As PivotField
+    On Error GoTo EH
     If pt Is Nothing Then Err.Raise vbObjectError + 730, "ConfigurarCampoPivotSeguro", "PivotTable es Nothing."
     If Not PivotFieldExiste(pt, nombreCampo) Then Err.Raise vbObjectError + 731, "ConfigurarCampoPivotSeguro", "No existe el campo '" & nombreCampo & "'."
     Set pf = pt.PivotFields(nombreCampo)
     pf.Orientation = orientacion
     If posicion > 0 Then pf.Position = posicion
+    Exit Sub
+EH:
+    Err.Raise Err.Number, "ConfigurarCampoPivotSeguro", _
+        "No se pudo asignar orientación al campo '" & nombreCampo & _
+        "'. Orientación solicitada: " & OrientacionPivotTexto(orientacion) & _
+        ". Detalle: " & Err.Description
 End Sub
+
+Private Function OrientacionPivotTexto(ByVal orientacion As XlPivotFieldOrientation) As String
+    Select Case orientacion
+        Case xlRowField: OrientacionPivotTexto = "xlRowField"
+        Case xlColumnField: OrientacionPivotTexto = "xlColumnField"
+        Case xlPageField: OrientacionPivotTexto = "xlPageField"
+        Case xlDataField: OrientacionPivotTexto = "xlDataField"
+        Case xlHidden: OrientacionPivotTexto = "xlHidden"
+        Case Else: OrientacionPivotTexto = CStr(orientacion)
+    End Select
+End Function
+
 
 Private Function PivotFieldExiste(ByVal pt As PivotTable, ByVal nombreCampo As String) As Boolean
     Dim pf As PivotField
