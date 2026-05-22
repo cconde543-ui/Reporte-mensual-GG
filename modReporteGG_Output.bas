@@ -575,9 +575,6 @@ End Function
 
 Public Sub CrearHojaPorcEjecucion(ByVal wbOut As Workbook, ByVal wsBase As Worksheet, ByVal anio As Long, ByVal mesCierre As Long, ByRef etapaVisual As String)
     Dim ws As Worksheet, pc As PivotCache, pt As PivotTable, rg As Range
-    Dim dfEjecutado As PivotField
-    Dim dfAsignado As PivotField
-    Dim dfPct As PivotField
 
     On Error GoTo EH
 
@@ -625,19 +622,17 @@ Public Sub CrearHojaPorcEjecucion(ByVal wbOut As Workbook, ByVal wsBase As Works
     End If
 
     etapaVisual = "agregando valores % ejecución"
-    Set dfEjecutado = pt.AddDataField(pt.PivotFields("Ejecutado"), "Ejecutado ", xlSum)
-    Set dfAsignado = pt.AddDataField(pt.PivotFields("Asignado"), "Asignado " & CStr(anio), xlSum)
-    Set dfPct = pt.AddDataField(pt.PivotFields("% de ejecución"), " % ejec.", xlSum)
+    Call AgregarDataFieldSeguro(pt, "Ejecutado", "Ejecutado ", xlSum, "#,##0")
+    Call AgregarDataFieldSeguro(pt, "Asignado", "Asignado " & CStr(anio), xlSum, "#,##0")
+    Call AgregarDataFieldSeguro(pt, "% de ejecución", " % ejec.", xlSum, "0.0%")
+
+    pt.RefreshTable
 
     pt.RowAxisLayout xlCompactRow
     pt.DisplayFieldCaptions = False
     pt.ColumnGrand = True: pt.RowGrand = True
     pt.NullString = "": pt.DisplayNullString = True
     ColapsarPivotInicial pt
-    etapaVisual = "formateando valores % ejecución"
-    dfEjecutado.NumberFormat = "#,##0"
-    dfAsignado.NumberFormat = "#,##0"
-    dfPct.NumberFormat = "0.0%"
 
     etapaVisual = "agregando slicer % ejecución"
     AgregarSlicerFinanciamiento wbOut, ws, pt
@@ -651,6 +646,44 @@ EH:
         " | Err.Number: " & CStr(Err.Number) & _
         " | Err.Description: " & Err.Description
 End Sub
+
+Private Function AgregarDataFieldSeguro( _
+    ByVal pt As PivotTable, _
+    ByVal sourceFieldName As String, _
+    ByVal caption As String, _
+    ByVal funcion As XlConsolidationFunction, _
+    ByVal formatoNumero As String) As PivotField
+
+    Dim nAntes As Long
+    Dim pfSource As PivotField
+    Dim pfData As PivotField
+
+    If pt Is Nothing Then
+        Err.Raise vbObjectError + 1400, "AgregarDataFieldSeguro", "PivotTable es Nothing."
+    End If
+
+    If Not PivotFieldExiste(pt, sourceFieldName) Then
+        Err.Raise vbObjectError + 1401, "AgregarDataFieldSeguro", "No existe el campo fuente '" & sourceFieldName & "'."
+    End If
+
+    Set pfSource = pt.PivotFields(sourceFieldName)
+
+    nAntes = pt.DataFields.Count
+
+    pt.AddDataField pfSource, caption, funcion
+
+    If pt.DataFields.Count <= nAntes Then
+        Err.Raise vbObjectError + 1402, "AgregarDataFieldSeguro", "No se agregó el campo de valores '" & caption & "'."
+    End If
+
+    Set pfData = pt.DataFields(pt.DataFields.Count)
+
+    If Len(formatoNumero) > 0 Then
+        pfData.NumberFormat = formatoNumero
+    End If
+
+    Set AgregarDataFieldSeguro = pfData
+End Function
 
 
 Private Sub ValidarBasePorcEjec(ByVal wsBase As Worksheet)
