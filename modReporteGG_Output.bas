@@ -12,6 +12,8 @@ End Sub
 Public Sub CrearTablaDinamicaOSalidaAgrupada(ByVal wbOut As Workbook, ByVal wsBase As Worksheet, ByVal anio As Long, ByVal mesCierre As Long, ByRef etapaVisual As String)
     Dim ws As Worksheet, pivotCacheObj As PivotCache, pt As PivotTable, rg As Range
     Dim pfImporte As PivotField
+    Dim campoNivel1 As String, campoNivel2 As String, campoNivel3 As String
+    Dim campoMesNombre As String, campoMesNum As String
     Dim errNumPivot As Long, errDescPivot As String
     Dim encabezadosBase As String, camposPivot As String
     Dim manualUpdateActivo As Boolean
@@ -49,10 +51,16 @@ Public Sub CrearTablaDinamicaOSalidaAgrupada(ByVal wbOut As Workbook, ByVal wsBa
     pt.ManualUpdate = True
     manualUpdateActivo = True
 
-    ConfigurarCampoPivotSeguro pt, "Nivel_1", xlRowField, 1
-    ConfigurarCampoPivotSeguro pt, "Nivel_2", xlRowField, 2
-    ConfigurarCampoPivotSeguro pt, "Nivel_3", xlRowField, 3
-    ConfigurarCampoPivotSeguro pt, "MesNombre", xlColumnField, 1
+    campoNivel1 = ObtenerCampoDisponible(pt, Array("Nivel_1", "Nivel 1"))
+    campoNivel2 = ObtenerCampoDisponible(pt, Array("Nivel_2", "Nivel 2"))
+    campoNivel3 = ObtenerCampoDisponible(pt, Array("Nivel_3", "Nivel 3"))
+    campoMesNombre = ObtenerCampoDisponible(pt, Array("MesNombre", "Mes Nombre"))
+    campoMesNum = ObtenerCampoDisponible(pt, Array("MesNum", "Mes Num"))
+
+    ConfigurarCampoPivotSeguro pt, campoNivel1, xlRowField, 1
+    ConfigurarCampoPivotSeguro pt, campoNivel2, xlRowField, 2
+    ConfigurarCampoPivotSeguro pt, campoNivel3, xlRowField, 3
+    ConfigurarCampoPivotSeguro pt, campoMesNombre, xlColumnField, 1
 
     If Not PivotFieldExiste(pt, "Importe") Then
         Err.Raise vbObjectError + 724, "CrearTablaDinamicaOSalidaAgrupada", "No existe el campo 'Importe' en la PivotTable."
@@ -73,7 +81,7 @@ Public Sub CrearTablaDinamicaOSalidaAgrupada(ByVal wbOut As Workbook, ByVal wsBa
     pt.NullString = ""
     pt.DisplayNullString = True
 
-    OrdenarMesesPivot pt, mesCierre
+    OrdenarMesesPivot pt, campoMesNombre, campoMesNum
     ColapsarPivotInicial pt
     If Not pt.DataBodyRange Is Nothing Then pt.DataBodyRange.NumberFormat = "#,##0"
 
@@ -258,17 +266,24 @@ EH:
     Debug.Print "[ADVERTENCIA] No se pudo insertar logo BPS: " & Err.Description
 End Sub
 
-Private Sub OrdenarMesesPivot(ByVal pt As PivotTable, ByVal mesCierre As Long)
-    Dim pfNom As PivotField, m As Variant, i As Long
+Private Sub OrdenarMesesPivot(ByVal pt As PivotTable, ByVal campoMesNombre As String, ByVal campoMesNum As String)
+    Dim pfNom As PivotField, pfNum As PivotField, m As Variant, i As Long
     On Error Resume Next
-    Set pfNom = pt.PivotFields("MesNombre")
+    Set pfNom = pt.PivotFields(campoMesNombre)
+    Set pfNum = pt.PivotFields(campoMesNum)
     On Error GoTo 0
     If pfNom Is Nothing Then Exit Sub
 
     m = MesesES()
+    If Not pfNum Is Nothing Then
+        On Error Resume Next
+        pfNum.Orientation = xlHidden
+        On Error GoTo 0
+    End If
+
     On Error Resume Next
-    pfNom.AutoSort xlManual, pfNom.SourceName
     pfNom.ShowAllItems = True
+    pfNom.AutoSort xlManual, pfNom.SourceName
     For i = 0 To 11
         pfNom.PivotItems(CStr(m(i))).Position = i + 1
         pfNom.PivotItems(CStr(m(i))).Visible = True
@@ -310,20 +325,27 @@ End Sub
 
 Private Sub ColapsarPivotInicial(ByVal pt As PivotTable)
     Dim pf As PivotField, pi As PivotItem
+    Dim campoNivel1 As String
     On Error Resume Next
     For Each pf In pt.RowFields
         pf.ShowDetail = False
     Next pf
     On Error GoTo 0
 
+    campoNivel1 = ""
     On Error Resume Next
-    For Each pi In pt.PivotFields("Nivel_1").PivotItems
+    campoNivel1 = ObtenerCampoDisponible(pt, Array("Nivel_1", "Nivel 1"))
+    On Error GoTo 0
+    If Len(campoNivel1) = 0 Then Exit Sub
+
+    On Error Resume Next
+    For Each pi In pt.PivotFields(campoNivel1).PivotItems
         pi.ShowDetail = False
     Next pi
     On Error GoTo 0
 
     On Error Resume Next
-    pt.PivotFields("Nivel_1").PivotItems(DUMMY_MARCA).Visible = False
+    pt.PivotFields(campoNivel1).PivotItems(DUMMY_MARCA).Visible = False
     On Error GoTo 0
 End Sub
 
@@ -371,37 +393,6 @@ Private Sub AgregarFilasDummyMeses(ByVal wsBase As Worksheet)
 End Sub
 
 ' --- resto sin cambios ---
-
-Private Sub CrearFallbackFinanciamiento(ByVal wsReporte As Worksheet, ByVal pt As PivotTable)
-    Dim d As Object, it As PivotItem, txt As String
-    Dim shp As Shape
-    Set d = CreateObject("Scripting.Dictionary")
-
-    On Error Resume Next
-    For Each it In pt.PivotFields("Financiamiento").PivotItems
-        If Len(Trim$(CStr(it.Name))) > 0 Then
-            If Not d.Exists(CStr(it.Name)) Then d.Add CStr(it.Name), CStr(it.Name)
-        End If
-    Next it
-    On Error GoTo 0
-
-    txt = "Financiamiento"
-    If d.Count > 0 Then txt = txt & vbCrLf & Join(d.Keys, vbCrLf)
-
-    On Error Resume Next
-    wsReporte.Shapes("shpFinanciamientoFallback").Delete
-    On Error GoTo 0
-
-    Set shp = wsReporte.Shapes.AddShape(msoShapeRectangle, wsReporte.Range("A5").Left, wsReporte.Range("A5").Top, 185, 250)
-    shp.Name = "shpFinanciamientoFallback"
-    shp.Fill.ForeColor.RGB = RGB(0, 112, 192)
-    shp.Line.ForeColor.RGB = RGB(255, 255, 255)
-    shp.TextFrame2.TextRange.Text = txt
-    shp.TextFrame2.TextRange.Font.Name = "Calibri Light"
-    shp.TextFrame2.TextRange.Font.Size = 10
-    shp.TextFrame2.TextRange.Font.Fill.ForeColor.RGB = RGB(255, 255, 255)
-    shp.TextFrame2.VerticalAnchor = msoAnchorTop
-End Sub
 
 Private Sub ValidarBaseAgregada(ByVal wsBase As Worksheet)
     Dim esperado As Variant, i As Long
@@ -453,6 +444,17 @@ Private Function PivotFieldExiste(ByVal pt As PivotTable, ByVal nombreCampo As S
     PivotFieldExiste = Not pf Is Nothing
     Set pf = Nothing
     On Error GoTo 0
+End Function
+
+Private Function ObtenerCampoDisponible(ByVal pt As PivotTable, ByVal candidatos As Variant) As String
+    Dim i As Long
+    For i = LBound(candidatos) To UBound(candidatos)
+        If PivotFieldExiste(pt, CStr(candidatos(i))) Then
+            ObtenerCampoDisponible = CStr(candidatos(i))
+            Exit Function
+        End If
+    Next i
+    Err.Raise vbObjectError + 741, "ObtenerCampoDisponible", "No se encontró ninguno de los campos candidatos: " & Join(candidatos, ", ")
 End Function
 
 Private Function CamposDisponiblesPivot(ByVal pt As PivotTable) As String
