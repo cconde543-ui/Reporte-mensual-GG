@@ -84,6 +84,15 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
         Err.Raise vbObjectError + 103, procedimiento, "No se encontró archivo de codiguera en: " & RUTA_CODIGUERA
     End If
 
+    etapaActual = "buscando asignados por fecha de creación"
+    archivoAsignados = ObtenerArchivoMasRecientePorFechaCreacion(RUTA_CARPETA_ASIGNADOS_GASTOS)
+
+    If Len(archivoAsignados) = 0 Then
+        Err.Raise vbObjectError + 117, procedimiento, "No se encontró archivo de asignados en: " & RUTA_CARPETA_ASIGNADOS_GASTOS
+    End If
+
+    archivoAsignadosMsg = archivoAsignados
+
     etapaActual = "abriendo archivo de ejecuciones"
     Set wbE = Workbooks.Open(archivoEjec, ReadOnly:=True)
 
@@ -193,6 +202,12 @@ EH:
         archivoCodMsg = archivoCod
     Else
         archivoCodMsg = "(no detectado)"
+    End If
+
+    If Len(archivoAsignados) > 0 Then
+        archivoAsignadosMsg = archivoAsignados
+    Else
+        archivoAsignadosMsg = "(no detectado)"
     End If
 
     If Len(rutaFinal) > 0 Then
@@ -402,14 +417,6 @@ Public Sub EscribirDiagnostico(ByVal wb As Workbook, ByVal diag As Object, ByVal
     End If
     ws.Columns("A:B").AutoFit
 End Sub
-    etapaActual = "buscando asignados por fecha de creación"
-    archivoAsignados = ObtenerArchivoMasRecientePorFechaCreacion(RUTA_CARPETA_ASIGNADOS_GASTOS)
-
-    If Len(archivoAsignados) > 0 Then
-        archivoAsignadosMsg = archivoAsignados
-    Else
-        archivoAsignadosMsg = "(no detectado)"
-    End If
 
 Private Function ObtenerColumnaOpcional(ByVal headers As Object, ByVal aliases As Variant) As Long
     Dim i As Long, a As String
