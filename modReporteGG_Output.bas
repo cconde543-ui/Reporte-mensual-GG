@@ -9,17 +9,20 @@ Public Sub CrearReporteEjecucionMensual(ByVal wbOut As Workbook, ByVal wsBase As
 End Sub
 
 Public Sub CrearTablaDinamicaOSalidaAgrupada(ByVal wbOut As Workbook, ByVal wsBase As Worksheet, ByVal anio As Long, ByVal mesCierre As Long, ByRef etapaVisual As String)
-    Dim ws As Worksheet, pivotCacheObj As PivotCache, pt As PivotTable, rg As Range
-    Dim pfImporte As PivotField
+    Dim ws As Worksheet
+    Dim pivotCacheObj As PivotCache
+    Dim pt As PivotTable
+    Dim rg As Range
+    Dim sourceAddress As String
     Dim campoNivel1 As String, campoNivel2 As String, campoNivel3 As String
     Dim campoMesNombre As String, campoMesNum As String
-    Dim errNumPivot As Long, errDescPivot As String
+    Dim campoMesColumnaUsado As String
+    Dim pfImporte As PivotField
     Dim encabezadosBase As String, camposPivot As String
-    Dim sourceAddress As String
     Dim campoActual As String, accionActual As String
     Dim orientacionActual As XlPivotFieldOrientation
-    Dim campoMesColumnaUsado As String
-    Dim msgMesFallback As String
+    Dim errNumPivot As Long, errDescPivot As String
+
     On Error GoTo EH
 
     etapaVisual = "validando objetos de entrada"
@@ -31,8 +34,11 @@ Public Sub CrearTablaDinamicaOSalidaAgrupada(ByVal wbOut As Workbook, ByVal wsBa
     encabezadosBase = EncabezadosBaseAgregada(wsBase)
     NormalizarYValidarMesesBase wsBase
     Set rg = wsBase.Range("A1").CurrentRegion
+
+    etapaVisual = "creando PivotCache"
     sourceAddress = rg.Address(ReferenceStyle:=xlR1C1, External:=True)
-    DiagnosticarBaseAgregadaPrePivot wsBase, sourceAddress
+    Set pivotCacheObj = wbOut.PivotCaches.Create(SourceType:=xlDatabase, SourceData:=sourceAddress)
+    pivotCacheObj.MissingItemsLimit = xlMissingItemsNone
 
     etapaVisual = "creando hoja de reporte"
     On Error Resume Next
@@ -45,65 +51,41 @@ Public Sub CrearTablaDinamicaOSalidaAgrupada(ByVal wbOut As Workbook, ByVal wsBa
     ws.Name = "Ejec. Mensual " & anio
     CrearHojaReporteVisual ws, anio, mesCierre
 
-    etapaVisual = "creando pivot cache"
-    Debug.Print "[PIVOT] SourceData=" & sourceAddress
-    Set pivotCacheObj = wbOut.PivotCaches.Create(SourceType:=xlDatabase, SourceData:=sourceAddress)
-    pivotCacheObj.MissingItemsLimit = xlMissingItemsNone
-
-    etapaVisual = "creando pivot table"
+    etapaVisual = "creando PivotTable"
     Set pt = pivotCacheObj.CreatePivotTable(TableDestination:=ws.Range("B5"), TableName:="ptGG")
 
-    etapaVisual = "refrescando cache y tabla"
+    etapaVisual = "refrescando PivotCache y PivotTable"
     pivotCacheObj.Refresh
     pt.RefreshTable
 
-    etapaVisual = "configurando campos"
-
+    etapaVisual = "resolviendo campos"
     campoNivel1 = ObtenerCampoDisponible(pt, Array("Nivel_1", "Nivel 1"))
     campoNivel2 = ObtenerCampoDisponible(pt, Array("Nivel_2", "Nivel 2"))
     campoNivel3 = ObtenerCampoDisponible(pt, Array("Nivel_3", "Nivel 3"))
     campoMesNombre = ObtenerCampoDisponible(pt, Array("MesNombre", "Mes Nombre"))
     campoMesNum = ObtenerCampoDisponible(pt, Array("MesNum", "Mes Num"))
 
+    etapaVisual = "configurando filas"
+    campoActual = campoNivel1: accionActual = "asignando fila nivel 1": orientacionActual = xlRowField
+    ConfigurarCampoPivotSeguro pt, campoNivel1, xlRowField, 1
+
+    campoActual = campoNivel2: accionActual = "asignando fila nivel 2": orientacionActual = xlRowField
+    ConfigurarCampoPivotSeguro pt, campoNivel2, xlRowField, 2
+
+    campoActual = campoNivel3: accionActual = "asignando fila nivel 3": orientacionActual = xlRowField
+    ConfigurarNivel3ConFallback pt, campoNivel3, 3
+
+    etapaVisual = "configurando columna de mes"
+    campoActual = campoMesNombre: accionActual = "asignando columna mes": orientacionActual = xlColumnField
+    campoMesColumnaUsado = ConfigurarCampoMesColumnaConFallback(pt, campoMesNombre, campoMesNum)
+
+    etapaVisual = "agregando valores"
     If Not PivotFieldExiste(pt, "Importe") Then
         Err.Raise vbObjectError + 724, "CrearTablaDinamicaOSalidaAgrupada", "No existe el campo 'Importe' en la PivotTable."
     End If
-    campoActual = "Importe"
-    accionActual = "agregando campo de valores Importe"
-    orientacionActual = xlDataField
     Set pfImporte = pt.PivotFields("Importe")
     pt.AddDataField pfImporte, "EJECUCIÓN " & anio, xlSum
 
-    campoActual = campoNivel1
-    accionActual = "asignando " & campoNivel1 & " como xlRowField"
-    orientacionActual = xlRowField
-    ConfigurarCampoPivotSeguro pt, campoNivel1, xlRowField, 1
-
-    campoActual = campoNivel2
-    accionActual = "asignando " & campoNivel2 & " como xlRowField"
-    orientacionActual = xlRowField
-    ConfigurarCampoPivotSeguro pt, campoNivel2, xlRowField, 2
-
-    campoActual = campoNivel3
-    accionActual = "asignando " & campoNivel3 & " como xlRowField"
-    orientacionActual = xlRowField
-    ConfigurarCampoPivotSeguro pt, campoNivel3, xlRowField, 3
-
-    campoActual = campoMesNombre
-    accionActual = "asignando " & campoMesNombre & " como xlColumnField"
-    orientacionActual = xlColumnField
-    campoMesColumnaUsado = ConfigurarCampoMesColumnaConFallback(pt, campoMesNombre, campoMesNum, msgMesFallback)
-    If Len(msgMesFallback) > 0 Then Debug.Print msgMesFallback
-
-    If PivotFieldExiste(pt, "Financiamiento") Then
-        With pt.PivotFields("Financiamiento")
-            .Orientation = xlPageField
-            .Position = 1
-        End With
-    End If
-
-    Debug.Print "[PIVOT] Filas base=" & UltimaFilaConDatos(wsBase) - 1 & " Cols base=" & UltimaColConDatos(wsBase)
-    Debug.Print "[PIVOT] Campo de mes en columnas: " & campoMesColumnaUsado
     pt.RowAxisLayout xlCompactRow
     pt.RepeatAllLabels xlDoNotRepeatLabels
     pt.ShowDrillIndicators = True
@@ -116,6 +98,7 @@ Public Sub CrearTablaDinamicaOSalidaAgrupada(ByVal wbOut As Workbook, ByVal wsBa
     If StrComp(campoMesColumnaUsado, campoMesNombre, vbTextCompare) = 0 Then
         OrdenarMesesPivot pt, campoMesNombre, campoMesNum
     End If
+
     ColapsarPivotInicial pt
     If Not pt.DataBodyRange Is Nothing Then pt.DataBodyRange.NumberFormat = "#,##0"
     Exit Sub
@@ -126,7 +109,7 @@ EH:
     camposPivot = CamposDisponiblesPivot(pt)
 
     Err.Raise errNumPivot, "CrearTablaDinamicaOSalidaAgrupada", _
-              "Error creando reporte visual. Etapa visual: " & etapaVisual & _
+              "Error creando PivotTable. Etapa: " & etapaVisual & _
               " | campoActual: " & campoActual & _
               " | accionActual: " & accionActual & _
               " | orientación solicitada: " & OrientacionPivotTexto(orientacionActual) & _
@@ -134,6 +117,102 @@ EH:
               " | Encabezados Base_Agregada: " & encabezadosBase & _
               " | Err.Number: " & CStr(errNumPivot) & _
               " | Err.Description: " & errDescPivot
+End Sub
+
+Private Sub ConfigurarNivel3ConFallback(ByVal pt As PivotTable, ByVal campoNivel3 As String, ByVal posicion As Long)
+    On Error GoTo FallbackSinPosicion
+    ConfigurarCampoPivotSeguro pt, campoNivel3, xlRowField, posicion
+    Exit Sub
+
+FallbackSinPosicion:
+    Dim errNumPosicion As Long, errDescPosicion As String
+    errNumPosicion = Err.Number
+    errDescPosicion = Err.Description
+    Err.Clear
+
+    On Error GoTo EH
+    ConfigurarCampoPivotSeguro pt, campoNivel3, xlRowField, 0
+    Exit Sub
+
+EH:
+    Err.Raise Err.Number, "ConfigurarNivel3ConFallback", _
+              "Falló configuración de '" & campoNivel3 & "' como fila. " & _
+              "Intento 1 (con posición=" & CStr(posicion) & ") -> Err.Number=" & CStr(errNumPosicion) & ", Err.Description=" & errDescPosicion & ". " & _
+              "Intento 2 (solo Orientation, sin Position) -> Err.Number=" & CStr(Err.Number) & ", Err.Description=" & Err.Description
+End Sub
+
+Private Function ConfigurarCampoMesColumnaConFallback(ByVal pt As PivotTable, ByVal campoMesNombre As String, ByVal campoMesNum As String) As String
+    On Error GoTo FallbackMesNum
+    ConfigurarCampoPivotSeguro pt, campoMesNombre, xlColumnField, 1
+    ConfigurarCampoMesColumnaConFallback = campoMesNombre
+    Exit Function
+
+FallbackMesNum:
+    Dim errNumMesNombre As Long, errDescMesNombre As String
+    errNumMesNombre = Err.Number
+    errDescMesNombre = Err.Description
+    Err.Clear
+
+    On Error GoTo EH
+    ConfigurarCampoPivotSeguro pt, campoMesNum, xlColumnField, 1
+    ConfigurarCampoMesColumnaConFallback = campoMesNum
+    Exit Function
+
+EH:
+    Err.Raise Err.Number, "ConfigurarCampoMesColumnaConFallback", _
+              "MesNombre falló como columna (Err.Number=" & CStr(errNumMesNombre) & ", Err.Description=" & errDescMesNombre & "). " & _
+              "MesNum también falló (Err.Number=" & CStr(Err.Number) & ", Err.Description=" & Err.Description & ")."
+End Function
+
+Private Sub ConfigurarCampoPivotSeguro(ByVal pt As PivotTable, ByVal nombreCampo As String, ByVal orientacion As XlPivotFieldOrientation, ByVal posicion As Long)
+    Dim pf As PivotField
+    Dim orientacionPrevia As XlPivotFieldOrientation
+    Dim sourceName As String
+    Dim caption As String
+    Dim errNum As Long, errDesc As String
+
+    If pt Is Nothing Then Err.Raise vbObjectError + 730, "ConfigurarCampoPivotSeguro", "PivotTable es Nothing."
+    If Not PivotFieldExiste(pt, nombreCampo) Then Err.Raise vbObjectError + 731, "ConfigurarCampoPivotSeguro", "No existe el campo '" & nombreCampo & "'."
+
+    Set pf = pt.PivotFields(nombreCampo)
+    orientacionPrevia = pf.Orientation
+    sourceName = CStr(pf.SourceName)
+    caption = CStr(pf.Caption)
+
+    On Error GoTo EH_ORIENTATION
+    pf.Orientation = orientacion
+
+    If posicion > 0 Then
+        On Error GoTo EH_POSITION
+        pf.Position = posicion
+    End If
+
+    Exit Sub
+
+EH_ORIENTATION:
+    errNum = Err.Number
+    errDesc = Err.Description
+    Err.Raise errNum, "ConfigurarCampoPivotSeguro", _
+              "Error al asignar Orientation. nombreCampo=" & nombreCampo & _
+              " | orientación solicitada=" & OrientacionPivotTexto(orientacion) & _
+              " | orientación actual previa=" & OrientacionPivotTexto(orientacionPrevia) & _
+              " | SourceName=" & sourceName & _
+              " | Caption=" & caption & _
+              " | Err.Number=" & CStr(errNum) & _
+              " | Err.Description=" & errDesc
+
+EH_POSITION:
+    errNum = Err.Number
+    errDesc = Err.Description
+    Err.Raise errNum, "ConfigurarCampoPivotSeguro", _
+              "Error al asignar Position. nombreCampo=" & nombreCampo & _
+              " | orientación solicitada=" & OrientacionPivotTexto(orientacion) & _
+              " | orientación actual previa=" & OrientacionPivotTexto(orientacionPrevia) & _
+              " | SourceName=" & sourceName & _
+              " | Caption=" & caption & _
+              " | Position solicitada=" & CStr(posicion) & _
+              " | Err.Number=" & CStr(errNum) & _
+              " | Err.Description=" & errDesc
 End Sub
 
 Private Sub ArmarEncabezadoVisual(ByVal ws As Worksheet, ByVal anio As Long, ByVal mesCierre As Long)
@@ -180,7 +259,6 @@ Private Sub ArmarEncabezadoVisual(ByVal ws As Worksheet, ByVal anio As Long, ByV
     InsertarLogoBPS ws
 End Sub
 
-
 Private Sub CrearBandaAzulSuperior(ByVal ws As Worksheet)
     Dim shp As Shape
     Dim rng As Range
@@ -205,10 +283,7 @@ Private Sub InsertarLogoBPS(ByVal ws As Worksheet)
     ws.Shapes("imgLogoBPS").Delete
     On Error GoTo 0
 
-    If Dir$(LOGO_BPS_PATH, vbNormal) = "" Then
-        Debug.Print "[ADVERTENCIA] No se encontró logo BPS en: " & LOGO_BPS_PATH
-        Exit Sub
-    End If
+    If Dir$(LOGO_BPS_PATH, vbNormal) = "" Then Exit Sub
 
     On Error GoTo EH
     logoH = ws.Rows(1).Height - 6
@@ -225,7 +300,6 @@ Private Sub InsertarLogoBPS(ByVal ws As Worksheet)
     shp.Placement = xlMove
     Exit Sub
 EH:
-    Debug.Print "[ADVERTENCIA] No se pudo insertar logo BPS: " & Err.Description
 End Sub
 
 Private Sub OrdenarMesesPivot(ByVal pt As PivotTable, ByVal campoMesNombre As String, ByVal campoMesNum As String)
@@ -253,41 +327,11 @@ Private Sub OrdenarMesesPivot(ByVal pt As PivotTable, ByVal campoMesNombre As St
     On Error GoTo 0
 End Sub
 
-Public Sub AplicarFormatoReporteGG(ByVal ws As Worksheet, ByVal pt As PivotTable, ByVal anio As Long)
-    Dim rng As Range
-
-    On Error Resume Next
-    pt.TableStyle2 = "PivotStyleMedium9"
-    On Error GoTo 0
-
-    ws.Cells.Interior.Color = vbWhite
-    If Not ActiveWindow Is Nothing Then ActiveWindow.DisplayGridlines = False
-
-    With ws.Cells
-        .Font.Name = "Calibri"
-        .Font.Size = 11
-    End With
-
-    On Error Resume Next
-    Set rng = pt.TableRange1
-    If Not rng Is Nothing Then
-        rng.Columns(1).ColumnWidth = 28
-        rng.Rows(1).Font.Color = RGB(255, 255, 255)
-        rng.Rows(1).Interior.Color = RGB(0, 84, 147)
-    End If
-    If Not pt.DataBodyRange Is Nothing Then pt.DataBodyRange.NumberFormat = "#,##0"
-    pt.PivotFields("Importe").NumberFormat = "#,##0"
-    On Error GoTo 0
-
-    ws.Columns("A").ColumnWidth = 28.14
-    ws.Columns("B:M").AutoFit
-    ws.Columns("B").ColumnWidth = 28
-
-End Sub
-
 Private Sub ColapsarPivotInicial(ByVal pt As PivotTable)
-    Dim pf As PivotField, pi As PivotItem
+    Dim pf As PivotField
+    Dim pi As PivotItem
     Dim campoNivel1 As String
+
     On Error Resume Next
     For Each pf In pt.RowFields
         pf.ShowDetail = False
@@ -305,15 +349,7 @@ Private Sub ColapsarPivotInicial(ByVal pt As PivotTable)
         pi.ShowDetail = False
     Next pi
     On Error GoTo 0
-
 End Sub
-
-Private Function CmToPt(ByVal cm As Double) As Double
-    CmToPt = cm * 28.3464567
-End Function
-
-
-' --- resto sin cambios ---
 
 Private Sub ValidarBaseAgregada(ByVal wsBase As Worksheet)
     Dim esperado As Variant, i As Long
@@ -330,10 +366,8 @@ Private Sub ValidarBaseAgregada(ByVal wsBase As Worksheet)
     Next i
 End Sub
 
-
 Private Sub PrepararHojaReporte(ByVal ws As Worksheet)
     Dim shp As Shape
-
     On Error Resume Next
     For Each shp In ws.Shapes
         shp.Delete
@@ -348,60 +382,6 @@ Private Sub CrearHojaReporteVisual(ByVal ws As Worksheet, ByVal anio As Long, By
     PrepararHojaReporte ws
     ArmarEncabezadoVisual ws, anio, mesCierre
 End Sub
-
-Private Sub ConfigurarCampoPivotSeguro(ByVal pt As PivotTable, ByVal nombreCampo As String, ByVal orientacion As XlPivotFieldOrientation, ByVal posicion As Long)
-    Dim pf As PivotField
-    Dim orientacionPrevia As String
-    Dim sourceName As String
-    Dim caption As String
-    Dim posicionPrevia As String
-    On Error GoTo EH
-    If pt Is Nothing Then Err.Raise vbObjectError + 730, "ConfigurarCampoPivotSeguro", "PivotTable es Nothing."
-    If Not PivotFieldExiste(pt, nombreCampo) Then Err.Raise vbObjectError + 731, "ConfigurarCampoPivotSeguro", "No existe el campo '" & nombreCampo & "'."
-    Set pf = pt.PivotFields(nombreCampo)
-    orientacionPrevia = OrientacionPivotTexto(pf.Orientation)
-    sourceName = CStr(pf.SourceName)
-    caption = CStr(pf.Caption)
-    posicionPrevia = CStr(pf.Position)
-    pf.Orientation = orientacion
-    If posicion > 0 Then pf.Position = posicion
-    Exit Sub
-EH:
-    Err.Raise Err.Number, "ConfigurarCampoPivotSeguro", _
-        "No se pudo asignar orientación al campo '" & nombreCampo & _
-        "'. Orientación solicitada: " & OrientacionPivotTexto(orientacion) & _
-        ". Orientación actual previa: " & orientacionPrevia & _
-        ". SourceName: " & sourceName & _
-        ". Caption: " & caption & _
-        ". Position previa: " & posicionPrevia & _
-        ". Position solicitada: " & CStr(posicion) & _
-        ". Err.Number: " & CStr(Err.Number) & _
-        ". Detalle: " & Err.Description
-End Sub
-
-Private Function ConfigurarCampoMesColumnaConFallback(ByVal pt As PivotTable, ByVal campoMesNombre As String, ByVal campoMesNum As String, ByRef msgFallback As String) As String
-    On Error GoTo FallbackMesNum
-    ConfigurarCampoPivotSeguro pt, campoMesNombre, xlColumnField, 1
-    ConfigurarCampoMesColumnaConFallback = campoMesNombre
-    msgFallback = "[PIVOT] MesNombre funcionó como columna."
-    Exit Function
-
-FallbackMesNum:
-    Dim errNumMesNombre As Long, errDescMesNombre As String
-    errNumMesNombre = Err.Number
-    errDescMesNombre = Err.Description
-    Debug.Print "[PIVOT] MesNombre falló como columna. Probando MesNum."
-    On Error GoTo EH
-    Err.Clear
-    ConfigurarCampoPivotSeguro pt, campoMesNum, xlColumnField, 1
-    msgFallback = "[PIVOT] MesNombre falló (" & CStr(errNumMesNombre) & "). MesNum funcionó como columna técnica."
-    ConfigurarCampoMesColumnaConFallback = campoMesNum
-    Exit Function
-EH:
-    Err.Raise Err.Number, "ConfigurarCampoMesColumnaConFallback", _
-              "MesNombre falló como columna (Err.Number=" & CStr(errNumMesNombre) & ", Detalle=" & errDescMesNombre & _
-              "). MesNum también falló (Err.Number=" & CStr(Err.Number) & ", Detalle=" & Err.Description & ")."
-End Function
 
 Private Sub NormalizarYValidarMesesBase(ByVal wsBase As Worksheet)
     Dim colMesNum As Long, colMesNombre As Long, lastRow As Long, i As Long
@@ -418,69 +398,13 @@ Private Sub NormalizarYValidarMesesBase(ByVal wsBase As Worksheet)
         mesTxt = Replace(mesTxt, "septiembre", "setiembre")
         wsBase.Cells(i, colMesNombre).Value = mesTxt
 
-        If Len(mesTxt) = 0 Then
-            Err.Raise vbObjectError + 760, "NormalizarYValidarMesesBase", "MesNombre vacío en fila " & CStr(i) & "."
-        End If
-        If Not mesesValidos.Exists(mesTxt) Then
-            Err.Raise vbObjectError + 761, "NormalizarYValidarMesesBase", "MesNombre inválido ('" & mesTxt & "') en fila " & CStr(i) & "."
-        End If
+        If Len(mesTxt) = 0 Then Err.Raise vbObjectError + 760, "NormalizarYValidarMesesBase", "MesNombre vacío en fila " & CStr(i) & "."
+        If Not mesesValidos.Exists(mesTxt) Then Err.Raise vbObjectError + 761, "NormalizarYValidarMesesBase", "MesNombre inválido ('" & mesTxt & "') en fila " & CStr(i) & "."
 
         mesNumVal = wsBase.Cells(i, colMesNum).Value
-        If Not IsNumeric(mesNumVal) Then
-            Err.Raise vbObjectError + 762, "NormalizarYValidarMesesBase", "MesNum no numérico en fila " & CStr(i) & "."
-        End If
-        If CLng(mesNumVal) < 1 Or CLng(mesNumVal) > 12 Then
-            Err.Raise vbObjectError + 763, "NormalizarYValidarMesesBase", "MesNum fuera de rango (" & CStr(mesNumVal) & ") en fila " & CStr(i) & "."
-        End If
+        If Not IsNumeric(mesNumVal) Then Err.Raise vbObjectError + 762, "NormalizarYValidarMesesBase", "MesNum no numérico en fila " & CStr(i) & "."
+        If CLng(mesNumVal) < 1 Or CLng(mesNumVal) > 12 Then Err.Raise vbObjectError + 763, "NormalizarYValidarMesesBase", "MesNum fuera de rango (" & CStr(mesNumVal) & ") en fila " & CStr(i) & "."
     Next i
-End Sub
-
-Private Sub DiagnosticarBaseAgregadaPrePivot(ByVal wsBase As Worksheet, ByVal sourceAddress As String)
-    Dim colMesNum As Long, colMesNombre As Long, lastRow As Long, lastCol As Long, i As Long
-    Dim mesTxt As String, mesNumVal As Variant
-    Dim dictMeses As Object
-    Dim vaciosMesNombre As Long, invalidosMesNum As Long
-    Dim claves As Variant, maxPreview As Long, j As Long
-    Set dictMeses = CreateObject("Scripting.Dictionary")
-
-    colMesNum = 5
-    colMesNombre = 6
-    lastRow = UltimaFilaConDatos(wsBase)
-    lastCol = UltimaColConDatos(wsBase)
-
-    For i = 2 To lastRow
-        mesTxt = LCase$(Trim$(CStr(wsBase.Cells(i, colMesNombre).Value)))
-        If Len(mesTxt) = 0 Then
-            vaciosMesNombre = vaciosMesNombre + 1
-        ElseIf Not dictMeses.Exists(mesTxt) Then
-            dictMeses.Add mesTxt, 1
-        End If
-
-        mesNumVal = wsBase.Cells(i, colMesNum).Value
-        If (Not IsNumeric(mesNumVal)) Or (CLng(mesNumVal) < 1 Or CLng(mesNumVal) > 12) Then
-            invalidosMesNum = invalidosMesNum + 1
-        End If
-    Next i
-
-    Debug.Print "[PIVOT] Base_Agregada filas=" & CStr(lastRow - 1) & " columnas=" & CStr(lastCol)
-    Debug.Print "[PIVOT] SourceData=" & sourceAddress
-    Debug.Print "[PIVOT] MesNombre vacíos=" & CStr(vaciosMesNombre)
-    Debug.Print "[PIVOT] MesNum inválidos=" & CStr(invalidosMesNum)
-    If dictMeses.Count > 0 Then
-        claves = dictMeses.Keys
-        Debug.Print "[PIVOT] MesNombre únicos=" & Join(claves, ", ")
-    Else
-        Debug.Print "[PIVOT] MesNombre únicos=(sin valores)"
-    End If
-
-    maxPreview = Application.WorksheetFunction.Min(10, lastRow - 1)
-    For j = 2 To maxPreview + 1
-        Debug.Print "[PIVOT] Row" & CStr(j) & ": " & _
-                    CStr(wsBase.Cells(j, 1).Value) & " | " & CStr(wsBase.Cells(j, 2).Value) & " | " & _
-                    CStr(wsBase.Cells(j, 3).Value) & " | " & CStr(wsBase.Cells(j, 4).Value) & " | " & _
-                    CStr(wsBase.Cells(j, 5).Value) & " | " & CStr(wsBase.Cells(j, 6).Value) & " | " & _
-                    CStr(wsBase.Cells(j, 7).Value)
-    Next j
 End Sub
 
 Private Function MesesValidosDict() As Object
@@ -502,7 +426,6 @@ Private Function OrientacionPivotTexto(ByVal orientacion As XlPivotFieldOrientat
         Case Else: OrientacionPivotTexto = CStr(orientacion)
     End Select
 End Function
-
 
 Private Function PivotFieldExiste(ByVal pt As PivotTable, ByVal nombreCampo As String) As Boolean
     Dim pf As PivotField
@@ -547,24 +470,3 @@ Private Function EncabezadosBaseAgregada(ByVal wsBase As Worksheet) As String
     Next i
     EncabezadosBaseAgregada = Join(arr, ", ")
 End Function
-
-Private Sub NormalizarBaseParaPivot(ByVal wsBase As Worksheet)
-    Dim lastRow As Long, i As Long, valImp As Variant
-    lastRow = UltimaFilaConDatos(wsBase)
-    If lastRow < 2 Then Exit Sub
-
-    For i = 2 To lastRow
-        If Len(Trim$(CStr(wsBase.Cells(i, 2).Value))) = 0 Then wsBase.Cells(i, 2).Value = "(Sin clasificar)"
-        If Len(Trim$(CStr(wsBase.Cells(i, 3).Value))) = 0 Then wsBase.Cells(i, 3).Value = "(Sin clasificar)"
-        If Len(Trim$(CStr(wsBase.Cells(i, 4).Value))) = 0 Then wsBase.Cells(i, 4).Value = "(Sin clasificar)"
-
-        valImp = wsBase.Cells(i, 7).Value
-        If IsError(valImp) Then
-            wsBase.Cells(i, 7).Value = 0#
-        ElseIf Len(Trim$(CStr(valImp))) = 0 Then
-            wsBase.Cells(i, 7).Value = 0#
-        ElseIf Not IsNumeric(valImp) Then
-            wsBase.Cells(i, 7).Value = CDbl(Val(Replace(CStr(valImp), ",", ".")))
-        End If
-    Next i
-End Sub
