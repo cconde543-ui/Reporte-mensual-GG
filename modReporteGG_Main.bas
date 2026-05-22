@@ -29,6 +29,7 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     Dim dictPorcEjec As Object
     Dim rutaFinal As String
     Dim etapaVisual As String
+    Dim hojaReporteActual As String
 
     Dim errNum As Long
     Dim errDesc As String
@@ -140,12 +141,17 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     ConstruirBaseAgregadaReporte wsBase, dictAgg
 
     etapaActual = "creando reporte visual"
-    etapaVisual = "iniciando"
+    hojaReporteActual = "Ejec. Mensual " & anio
+    etapaActual = "creando hoja Ejec. Mensual"
+    etapaVisual = "iniciando hoja Ejec. Mensual"
     CrearTablaDinamicaOSalidaAgrupada wbOut, wsBase, anio, mesCierre, etapaVisual
     Set wsBasePorc = wbOut.Worksheets.Add(After:=wbOut.Worksheets(wbOut.Worksheets.Count))
     wsBasePorc.Name = "Base_Porc_Ejec"
     ConstruirBasePorcEjec wsBasePorc, dictAgg, dictAsignado, mesCierre
-    CrearHojaPorcEjecucion wbOut, wsBasePorc, anio, mesCierre
+    hojaReporteActual = "% ejecución " & anio
+    etapaActual = "creando hoja % ejecución"
+    etapaVisual = "iniciando hoja % ejecución"
+    CrearHojaPorcEjecucion wbOut, wsBasePorc, anio, mesCierre, etapaVisual
     wsBase.Visible = xlSheetVeryHidden
     wsBasePorc.Visible = xlSheetVeryHidden
 
@@ -230,7 +236,7 @@ EH:
           "Existe Base_Agregada: " & existeBase & vbCrLf & _
           "Última fila Base_Agregada: " & ultimaFilaBase & vbCrLf & _
           "Última columna Base_Agregada: " & ultimaColBase & vbCrLf & _
-          "Nombre hoja reporte: " & "Ejec. Mensual " & anio & vbCrLf & _
+          "Nombre hoja reporte: " & IIf(Len(hojaReporteActual) > 0, hojaReporteActual, "(no determinada)") & vbCrLf & _
           "Archivo ejecuciones: " & archivoEjecMsg & vbCrLf & _
           "Archivo codiguera: " & archivoCodMsg & vbCrLf & _
           "Archivo asignados: " & archivoAsignadosMsg & vbCrLf & _
