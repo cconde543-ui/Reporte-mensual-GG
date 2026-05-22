@@ -1,7 +1,6 @@
 Option Explicit
 
 Private Const LOGO_BPS_PATH As String = "\\estructura\Finanzas\AREA Contaduria\Adm Presupuestal\Prest y Recursos\SISTEMA DE CONTROL PRESUPUESTAL\Reporte GG\Logo_BPS.jpg"
-Private Const DUMMY_MARCA As String = "__DUMMY_VISUAL__"
 
 Public Sub CrearReporteEjecucionMensual(ByVal wbOut As Workbook, ByVal wsBase As Worksheet, ByVal anio As Long, ByVal mesCierre As Long)
     Dim etapaVisual As String
@@ -103,8 +102,6 @@ Public Sub CrearTablaDinamicaOSalidaAgrupada(ByVal wbOut As Workbook, ByVal wsBa
         End With
     End If
 
-    pt.ManualUpdate = False
-
     Debug.Print "[PIVOT] Filas base=" & UltimaFilaConDatos(wsBase) - 1 & " Cols base=" & UltimaColConDatos(wsBase)
     Debug.Print "[PIVOT] Campo de mes en columnas: " & campoMesColumnaUsado
     pt.RowAxisLayout xlCompactRow
@@ -121,10 +118,6 @@ Public Sub CrearTablaDinamicaOSalidaAgrupada(ByVal wbOut As Workbook, ByVal wsBa
     End If
     ColapsarPivotInicial pt
     If Not pt.DataBodyRange Is Nothing Then pt.DataBodyRange.NumberFormat = "#,##0"
-
-    AplicarFormatoReporteGG ws, pt, anio
-
-    Debug.Print "[SLICER] omitido temporalmente hasta estabilizar PivotTable."
     Exit Sub
 
 EH:
@@ -142,101 +135,6 @@ EH:
               " | Err.Number: " & CStr(errNumPivot) & _
               " | Err.Description: " & errDescPivot
 End Sub
-
-Public Function CrearSlicerFinanciamiento(ByVal wbOut As Workbook, ByVal wsReporte As Worksheet, ByVal pt As PivotTable) As Boolean
-    Dim sc As SlicerCache, sl As Slicer
-    Dim topPos As Double, leftPos As Double, ancho As Double, alto As Double
-    Dim it As SlicerItem, nombreItem As String
-    Dim nombreCampoFin As String
-    Dim etapaSlicer As String
-
-    CrearSlicerFinanciamiento = False
-    etapaSlicer = "eliminando slicer anterior"
-    On Error Resume Next
-    Debug.Print "[SLICER] Etapa: " & etapaSlicer
-    wbOut.SlicerCaches("Slicer_Financiamiento").Delete
-    wsReporte.Shapes("slFinanciamiento").Delete
-    wsReporte.Shapes("shpFinanciamientoFallback").Delete
-    On Error GoTo 0
-
-    nombreCampoFin = ""
-    If PivotFieldExiste(pt, "Financiamiento") Then
-        nombreCampoFin = "Financiamiento"
-    ElseIf PivotFieldExiste(pt, "Financiamento") Then
-        nombreCampoFin = "Financiamento"
-    End If
-    If Len(nombreCampoFin) = 0 Then
-        Debug.Print "[SLICER] No existe campo Financiamiento/Financiamento."
-        Exit Function
-    End If
-
-    On Error GoTo EH
-    Set sc = Nothing
-    etapaSlicer = "creando SlicerCache (Add sin nombre)"
-    Debug.Print "[SLICER] Antes de SlicerCaches.Add | etapa=" & etapaSlicer & " | campo=" & nombreCampoFin
-    Set sc = wbOut.SlicerCaches.Add(pt, nombreCampoFin)
-    If sc Is Nothing Then
-        etapaSlicer = "creando SlicerCache (Add con nombre)"
-        Debug.Print "[SLICER] Reintento SlicerCaches.Add con nombre | etapa=" & etapaSlicer
-        Set sc = wbOut.SlicerCaches.Add(pt, nombreCampoFin, "Slicer_Financiamiento")
-    End If
-    If sc Is Nothing Then
-        Debug.Print "[SLICER] No fue posible crear SlicerCache."
-        GoTo EH
-    End If
-
-    wsReporte.Columns("A").ColumnWidth = 28.14
-    leftPos = wsReporte.Range("A5").Left
-    topPos = wsReporte.Range("A5").Top
-    ancho = wsReporte.Range("A5").Width
-    alto = wsReporte.Range("A5:A14").Height
-
-    etapaSlicer = "creando slicer visual"
-    Debug.Print "[SLICER] Antes de sc.Slicers.Add | etapa=" & etapaSlicer
-    Set sl = sc.Slicers.Add(wsReporte, , "slFinanciamiento", nombreCampoFin, leftPos, topPos, ancho, alto)
-
-    etapaSlicer = "configurando propiedades de slicer"
-    Debug.Print "[SLICER] Antes de configurar propiedades | etapa=" & etapaSlicer
-    With sl
-        .NumberOfColumns = 1
-        .DisplayHeader = True
-        .ColumnWidth = ancho - 12
-        .RowHeight = 16
-    End With
-
-    For Each it In sc.SlicerItems
-        nombreItem = Trim$(CStr(it.Name))
-        If StrComp(nombreItem, "(Dummy)", vbTextCompare) = 0 Or StrComp(nombreItem, DUMMY_MARCA, vbTextCompare) = 0 Then
-            On Error Resume Next
-            it.Selected = False
-            On Error GoTo EH
-        End If
-    Next it
-
-    etapaSlicer = "configurando shape"
-    Debug.Print "[SLICER] Antes de configurar shape | etapa=" & etapaSlicer
-    With sl.Shape
-        .Placement = xlMove
-        .PrintObject = True
-        .Locked = True
-    End With
-
-    etapaSlicer = "aplicando estilo"
-    Debug.Print "[SLICER] Antes de aplicar estilo | etapa=" & etapaSlicer
-    AplicarEstiloSlicerAzul sl
-    Debug.Print "[SLICER] creado=SI campo=" & nombreCampoFin
-    CrearSlicerFinanciamiento = True
-    Exit Function
-EH:
-    Debug.Print "[SLICER] creado=NO | etapa=" & etapaSlicer & _
-                " | Err.Number=" & Err.Number & _
-                " | Err.Description=" & Err.Description & _
-                " | TypeName(sc)=" & TypeName(sc) & _
-                " | TypeName(sl)=" & TypeName(sl)
-    Err.Clear
-    On Error GoTo 0
-    CrearSlicerFinanciamiento = False
-End Function
 
 Private Sub ArmarEncabezadoVisual(ByVal ws As Worksheet, ByVal anio As Long, ByVal mesCierre As Long)
     Dim mes As String, arrMeses As Variant
@@ -408,53 +306,12 @@ Private Sub ColapsarPivotInicial(ByVal pt As PivotTable)
     Next pi
     On Error GoTo 0
 
-    On Error Resume Next
-    pt.PivotFields(campoNivel1).PivotItems(DUMMY_MARCA).Visible = False
-    On Error GoTo 0
-End Sub
-
-Private Sub AplicarEstiloSlicerAzul(ByVal sl As Slicer)
-    On Error Resume Next
-    sl.Style = "SlicerStyleLight2"
-    If Err.Number <> 0 Then
-        Err.Clear
-        sl.Style = "SlicerStyleLight6"
-    End If
-    On Error GoTo 0
 End Sub
 
 Private Function CmToPt(ByVal cm As Double) As Double
     CmToPt = cm * 28.3464567
 End Function
 
-Private Sub AgregarFilasDummyMeses(ByVal wsBase As Worksheet)
-    Dim i As Long, lastRow As Long, m As Variant
-    Dim existe As Boolean
-
-    existe = False
-    lastRow = UltimaFilaConDatos(wsBase)
-    If lastRow >= 2 Then
-        For i = 2 To lastRow
-            If CStr(wsBase.Cells(i, 2).Value) = DUMMY_MARCA Then
-                existe = True
-                Exit For
-            End If
-        Next i
-    End If
-    If existe Then Exit Sub
-
-    m = MesesES()
-    For i = 0 To 11
-        lastRow = lastRow + 1
-        wsBase.Cells(lastRow, 1).Value = "(Dummy)"
-        wsBase.Cells(lastRow, 2).Value = DUMMY_MARCA
-        wsBase.Cells(lastRow, 3).Value = ""
-        wsBase.Cells(lastRow, 4).Value = ""
-        wsBase.Cells(lastRow, 5).Value = i + 1
-        wsBase.Cells(lastRow, 6).Value = CStr(m(i))
-        wsBase.Cells(lastRow, 7).Value = 0#
-    Next i
-End Sub
 
 ' --- resto sin cambios ---
 
