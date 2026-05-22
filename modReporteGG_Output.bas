@@ -67,6 +67,13 @@ Public Sub CrearTablaDinamicaOSalidaAgrupada(ByVal wbOut As Workbook, ByVal wsBa
     End If
     Set pfImporte = pt.PivotFields("Importe")
     pt.AddDataField pfImporte, "EJECUCIÓN " & anio, xlSum
+    
+    If PivotFieldExiste(pt, "Financiamiento") Then
+        With pt.PivotFields("Financiamiento")
+            .Orientation = xlPageField
+            .Position = 1
+        End With
+    End If
 
     pt.ManualUpdate = False
     manualUpdateActivo = False
@@ -86,7 +93,10 @@ Public Sub CrearTablaDinamicaOSalidaAgrupada(ByVal wbOut As Workbook, ByVal wsBa
     If Not pt.DataBodyRange Is Nothing Then pt.DataBodyRange.NumberFormat = "#,##0"
 
     AplicarFormatoReporteGG ws, pt, anio
-    CrearSlicerFinanciamiento wbOut, ws, pt
+    etapaVisual = "creando slicer de Financiamiento"
+    If Not CrearSlicerFinanciamiento(wbOut, ws, pt) Then
+        Debug.Print "[SLICER] No se creó slicer; se conserva Financiamiento como PageField."
+    End If
     Exit Sub
 
 EH:
@@ -107,18 +117,21 @@ EH:
               " | Detalle: " & errDescPivot
 End Sub
 
-Public Sub CrearSlicerFinanciamiento(ByVal wbOut As Workbook, ByVal wsReporte As Worksheet, ByVal pt As PivotTable)
+Public Function CrearSlicerFinanciamiento(ByVal wbOut As Workbook, ByVal wsReporte As Worksheet, ByVal pt As PivotTable) As Boolean
     Dim sc As SlicerCache, sl As Slicer
     Dim topPos As Double, leftPos As Double, ancho As Double, alto As Double
     Dim it As SlicerItem, nombreItem As String
     Dim nombreCampoFin As String
+    Dim etapaSlicer As String
 
-    On Error GoTo EH
+    CrearSlicerFinanciamiento = False
+    etapaSlicer = "eliminando slicer anterior"
     On Error Resume Next
+    Debug.Print "[SLICER] Etapa: " & etapaSlicer
     wbOut.SlicerCaches("Slicer_Financiamiento").Delete
     wsReporte.Shapes("slFinanciamiento").Delete
     wsReporte.Shapes("shpFinanciamientoFallback").Delete
-    On Error GoTo EH
+    On Error GoTo 0
 
     nombreCampoFin = ""
     If PivotFieldExiste(pt, "Financiamiento") Then
@@ -127,14 +140,24 @@ Public Sub CrearSlicerFinanciamiento(ByVal wbOut As Workbook, ByVal wsReporte As
         nombreCampoFin = "Financiamento"
     End If
     If Len(nombreCampoFin) = 0 Then
-        Err.Raise vbObjectError + 742, "CrearSlicerFinanciamiento", "No existe el campo de financiamiento en la tabla dinámica."
+        Debug.Print "[SLICER] No existe campo Financiamiento/Financiamento."
+        Exit Function
     End If
 
-    Set sc = Nothing
-    On Error Resume Next
-    Set sc = wbOut.SlicerCaches.Add(pt, nombreCampoFin, "Slicer_Financiamiento")
     On Error GoTo EH
-    If sc Is Nothing Then Err.Raise vbObjectError + 743, "CrearSlicerFinanciamiento", "No fue posible crear SlicerCache de " & nombreCampoFin & "."
+    Set sc = Nothing
+    etapaSlicer = "creando SlicerCache (Add sin nombre)"
+    Debug.Print "[SLICER] Antes de SlicerCaches.Add | etapa=" & etapaSlicer & " | campo=" & nombreCampoFin
+    Set sc = wbOut.SlicerCaches.Add(pt, nombreCampoFin)
+    If sc Is Nothing Then
+        etapaSlicer = "creando SlicerCache (Add con nombre)"
+        Debug.Print "[SLICER] Reintento SlicerCaches.Add con nombre | etapa=" & etapaSlicer
+        Set sc = wbOut.SlicerCaches.Add(pt, nombreCampoFin, "Slicer_Financiamiento")
+    End If
+    If sc Is Nothing Then
+        Debug.Print "[SLICER] No fue posible crear SlicerCache."
+        GoTo EH
+    End If
 
     wsReporte.Columns("A").ColumnWidth = 28.14
     leftPos = wsReporte.Range("A5").Left
@@ -142,8 +165,12 @@ Public Sub CrearSlicerFinanciamiento(ByVal wbOut As Workbook, ByVal wsReporte As
     ancho = wsReporte.Range("A5").Width
     alto = wsReporte.Range("A5:A14").Height
 
+    etapaSlicer = "creando slicer visual"
+    Debug.Print "[SLICER] Antes de sc.Slicers.Add | etapa=" & etapaSlicer
     Set sl = sc.Slicers.Add(wsReporte, , "slFinanciamiento", nombreCampoFin, leftPos, topPos, ancho, alto)
 
+    etapaSlicer = "configurando propiedades de slicer"
+    Debug.Print "[SLICER] Antes de configurar propiedades | etapa=" & etapaSlicer
     With sl
         .NumberOfColumns = 1
         .DisplayHeader = True
@@ -160,19 +187,30 @@ Public Sub CrearSlicerFinanciamiento(ByVal wbOut As Workbook, ByVal wsReporte As
         End If
     Next it
 
+    etapaSlicer = "configurando shape"
+    Debug.Print "[SLICER] Antes de configurar shape | etapa=" & etapaSlicer
     With sl.Shape
         .Placement = xlMove
         .PrintObject = True
         .Locked = True
     End With
 
+    etapaSlicer = "aplicando estilo"
+    Debug.Print "[SLICER] Antes de aplicar estilo | etapa=" & etapaSlicer
     AplicarEstiloSlicerAzul sl
     Debug.Print "[SLICER] creado=SI campo=" & nombreCampoFin
-    Exit Sub
+    CrearSlicerFinanciamiento = True
+    Exit Function
 EH:
-    Debug.Print "[SLICER] creado=NO"
-    Err.Raise vbObjectError + 744, "CrearSlicerFinanciamiento", "No fue posible crear slicer de Financiamiento: " & Err.Description
-End Sub
+    Debug.Print "[SLICER] creado=NO | etapa=" & etapaSlicer & _
+                " | Err.Number=" & Err.Number & _
+                " | Err.Description=" & Err.Description & _
+                " | TypeName(sc)=" & TypeName(sc) & _
+                " | TypeName(sl)=" & TypeName(sl)
+    Err.Clear
+    On Error GoTo 0
+    CrearSlicerFinanciamiento = False
+End Function
 
 Private Sub ArmarEncabezadoVisual(ByVal ws As Worksheet, ByVal anio As Long, ByVal mesCierre As Long)
     Dim mes As String, arrMeses As Variant
