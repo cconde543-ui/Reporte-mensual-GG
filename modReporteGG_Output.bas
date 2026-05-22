@@ -30,9 +30,10 @@ Public Sub CrearTablaDinamicaOSalidaAgrupada(ByVal wbOut As Workbook, ByVal wsBa
     etapaVisual = "validando base agregada"
     ValidarBaseAgregada wsBase
     encabezadosBase = EncabezadosBaseAgregada(wsBase)
-    NormalizarBaseParaPivot wsBase
-    DiagnosticarYMantenerMesesBase wsBase
+    NormalizarYValidarMesesBase wsBase
     Set rg = wsBase.Range("A1").CurrentRegion
+    sourceAddress = rg.Address(ReferenceStyle:=xlR1C1, External:=True)
+    DiagnosticarBaseAgregadaPrePivot wsBase, sourceAddress
 
     etapaVisual = "creando hoja de reporte"
     On Error Resume Next
@@ -46,7 +47,6 @@ Public Sub CrearTablaDinamicaOSalidaAgrupada(ByVal wbOut As Workbook, ByVal wsBa
     CrearHojaReporteVisual ws, anio, mesCierre
 
     etapaVisual = "creando pivot cache"
-    sourceAddress = rg.Address(ReferenceStyle:=xlR1C1, External:=True)
     Debug.Print "[PIVOT] SourceData=" & sourceAddress
     Set pivotCacheObj = wbOut.PivotCaches.Create(SourceType:=xlDatabase, SourceData:=sourceAddress)
     pivotCacheObj.MissingItemsLimit = xlMissingItemsNone
@@ -75,12 +75,6 @@ Public Sub CrearTablaDinamicaOSalidaAgrupada(ByVal wbOut As Workbook, ByVal wsBa
     Set pfImporte = pt.PivotFields("Importe")
     pt.AddDataField pfImporte, "EJECUCIÓN " & anio, xlSum
 
-    campoActual = campoMesNombre
-    accionActual = "asignando campo de mes como xlColumnField"
-    orientacionActual = xlColumnField
-    campoMesColumnaUsado = ConfigurarCampoMesColumnaConFallback(pt, campoMesNombre, campoMesNum, msgMesFallback)
-    If Len(msgMesFallback) > 0 Then Debug.Print msgMesFallback
-
     campoActual = campoNivel1
     accionActual = "asignando " & campoNivel1 & " como xlRowField"
     orientacionActual = xlRowField
@@ -95,6 +89,12 @@ Public Sub CrearTablaDinamicaOSalidaAgrupada(ByVal wbOut As Workbook, ByVal wsBa
     accionActual = "asignando " & campoNivel3 & " como xlRowField"
     orientacionActual = xlRowField
     ConfigurarCampoPivotSeguro pt, campoNivel3, xlRowField, 3
+
+    campoActual = campoMesNombre
+    accionActual = "asignando " & campoMesNombre & " como xlColumnField"
+    orientacionActual = xlColumnField
+    campoMesColumnaUsado = ConfigurarCampoMesColumnaConFallback(pt, campoMesNombre, campoMesNum, msgMesFallback)
+    If Len(msgMesFallback) > 0 Then Debug.Print msgMesFallback
 
     If PivotFieldExiste(pt, "Financiamiento") Then
         With pt.PivotFields("Financiamiento")
@@ -546,13 +546,11 @@ EH:
               "). MesNum también falló (Err.Number=" & CStr(Err.Number) & ", Detalle=" & Err.Description & ")."
 End Function
 
-Private Sub DiagnosticarYMantenerMesesBase(ByVal wsBase As Worksheet)
+Private Sub NormalizarYValidarMesesBase(ByVal wsBase As Worksheet)
     Dim colMesNum As Long, colMesNombre As Long, lastRow As Long, i As Long
     Dim mesTxt As String, mesNumVal As Variant
-    Dim dictMeses As Object
-    Dim vaciosMesNombre As Long, invalidosMesNum As Long
-    Dim claves As Variant
-    Set dictMeses = CreateObject("Scripting.Dictionary")
+    Dim mesesValidos As Object
+    Set mesesValidos = MesesValidosDict()
 
     colMesNum = 5
     colMesNombre = 6
@@ -562,6 +560,39 @@ Private Sub DiagnosticarYMantenerMesesBase(ByVal wsBase As Worksheet)
         mesTxt = LCase$(Trim$(CStr(wsBase.Cells(i, colMesNombre).Value)))
         mesTxt = Replace(mesTxt, "septiembre", "setiembre")
         wsBase.Cells(i, colMesNombre).Value = mesTxt
+
+        If Len(mesTxt) = 0 Then
+            Err.Raise vbObjectError + 760, "NormalizarYValidarMesesBase", "MesNombre vacío en fila " & CStr(i) & "."
+        End If
+        If Not mesesValidos.Exists(mesTxt) Then
+            Err.Raise vbObjectError + 761, "NormalizarYValidarMesesBase", "MesNombre inválido ('" & mesTxt & "') en fila " & CStr(i) & "."
+        End If
+
+        mesNumVal = wsBase.Cells(i, colMesNum).Value
+        If Not IsNumeric(mesNumVal) Then
+            Err.Raise vbObjectError + 762, "NormalizarYValidarMesesBase", "MesNum no numérico en fila " & CStr(i) & "."
+        End If
+        If CLng(mesNumVal) < 1 Or CLng(mesNumVal) > 12 Then
+            Err.Raise vbObjectError + 763, "NormalizarYValidarMesesBase", "MesNum fuera de rango (" & CStr(mesNumVal) & ") en fila " & CStr(i) & "."
+        End If
+    Next i
+End Sub
+
+Private Sub DiagnosticarBaseAgregadaPrePivot(ByVal wsBase As Worksheet, ByVal sourceAddress As String)
+    Dim colMesNum As Long, colMesNombre As Long, lastRow As Long, lastCol As Long, i As Long
+    Dim mesTxt As String, mesNumVal As Variant
+    Dim dictMeses As Object
+    Dim vaciosMesNombre As Long, invalidosMesNum As Long
+    Dim claves As Variant, maxPreview As Long, j As Long
+    Set dictMeses = CreateObject("Scripting.Dictionary")
+
+    colMesNum = 5
+    colMesNombre = 6
+    lastRow = UltimaFilaConDatos(wsBase)
+    lastCol = UltimaColConDatos(wsBase)
+
+    For i = 2 To lastRow
+        mesTxt = LCase$(Trim$(CStr(wsBase.Cells(i, colMesNombre).Value)))
         If Len(mesTxt) = 0 Then
             vaciosMesNombre = vaciosMesNombre + 1
         ElseIf Not dictMeses.Exists(mesTxt) Then
@@ -569,24 +600,40 @@ Private Sub DiagnosticarYMantenerMesesBase(ByVal wsBase As Worksheet)
         End If
 
         mesNumVal = wsBase.Cells(i, colMesNum).Value
-        If Not IsNumeric(mesNumVal) Then
-            invalidosMesNum = invalidosMesNum + 1
-        ElseIf CLng(mesNumVal) < 1 Or CLng(mesNumVal) > 12 Then
+        If (Not IsNumeric(mesNumVal)) Or (CLng(mesNumVal) < 1 Or CLng(mesNumVal) > 12) Then
             invalidosMesNum = invalidosMesNum + 1
         End If
     Next i
 
-    Debug.Print "[PIVOT] Base_Agregada filas: " & CStr(lastRow - 1)
-    Debug.Print "[PIVOT] MesNombre únicos: " & CStr(dictMeses.Count)
+    Debug.Print "[PIVOT] Base_Agregada filas=" & CStr(lastRow - 1) & " columnas=" & CStr(lastCol)
+    Debug.Print "[PIVOT] SourceData=" & sourceAddress
+    Debug.Print "[PIVOT] MesNombre vacíos=" & CStr(vaciosMesNombre)
+    Debug.Print "[PIVOT] MesNum inválidos=" & CStr(invalidosMesNum)
     If dictMeses.Count > 0 Then
         claves = dictMeses.Keys
-        Debug.Print "[PIVOT] MesNombre lista: " & Join(claves, ", ")
+        Debug.Print "[PIVOT] MesNombre únicos=" & Join(claves, ", ")
     Else
-        Debug.Print "[PIVOT] MesNombre lista: (sin valores)"
+        Debug.Print "[PIVOT] MesNombre únicos=(sin valores)"
     End If
-    Debug.Print "[PIVOT] MesNombre vacíos: " & CStr(vaciosMesNombre)
-    Debug.Print "[PIVOT] MesNum inválidos: " & CStr(invalidosMesNum)
+
+    maxPreview = Application.WorksheetFunction.Min(10, lastRow - 1)
+    For j = 2 To maxPreview + 1
+        Debug.Print "[PIVOT] Row" & CStr(j) & ": " & _
+                    CStr(wsBase.Cells(j, 1).Value) & " | " & CStr(wsBase.Cells(j, 2).Value) & " | " & _
+                    CStr(wsBase.Cells(j, 3).Value) & " | " & CStr(wsBase.Cells(j, 4).Value) & " | " & _
+                    CStr(wsBase.Cells(j, 5).Value) & " | " & CStr(wsBase.Cells(j, 6).Value) & " | " & _
+                    CStr(wsBase.Cells(j, 7).Value)
+    Next j
 End Sub
+
+Private Function MesesValidosDict() As Object
+    Dim d As Object, m As Variant
+    Set d = CreateObject("Scripting.Dictionary")
+    For Each m In Array("enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "setiembre", "octubre", "noviembre", "diciembre")
+        d(m) = True
+    Next m
+    Set MesesValidosDict = d
+End Function
 
 Private Function OrientacionPivotTexto(ByVal orientacion As XlPivotFieldOrientation) As String
     Select Case orientacion
