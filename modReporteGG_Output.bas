@@ -101,6 +101,7 @@ Public Sub CrearTablaDinamicaOSalidaAgrupada(ByVal wbOut As Workbook, ByVal wsBa
 
     ColapsarPivotInicial pt
     If Not pt.DataBodyRange Is Nothing Then pt.DataBodyRange.NumberFormat = "#,##0"
+    AgregarSlicerFinanciamiento wbOut, ws, pt
     Exit Sub
 
 EH:
@@ -380,7 +381,65 @@ End Sub
 
 Private Sub CrearHojaReporteVisual(ByVal ws As Worksheet, ByVal anio As Long, ByVal mesCierre As Long)
     PrepararHojaReporte ws
+    ws.Columns("A").ColumnWidth = 28
     ArmarEncabezadoVisual ws, anio, mesCierre
+End Sub
+
+Private Sub AgregarSlicerFinanciamiento(ByVal wb As Workbook, ByVal ws As Worksheet, ByVal pt As PivotTable)
+    Const CAMPO_FINANCIAMIENTO As String = "Financiamiento"
+    Const NOMBRE_SLICER As String = "slFinanciamiento"
+
+    Dim sc As SlicerCache
+    Dim sl As Slicer
+    Dim scItem As SlicerCache
+    Dim existeCache As Boolean
+
+    On Error GoTo SalidaSilenciosa
+
+    If wb Is Nothing Then Exit Sub
+    If ws Is Nothing Then Exit Sub
+    If pt Is Nothing Then Exit Sub
+    If Not PivotFieldExiste(pt, CAMPO_FINANCIAMIENTO) Then Exit Sub
+
+    On Error Resume Next
+    Set sl = ws.Slicers(NOMBRE_SLICER)
+    On Error GoTo SalidaSilenciosa
+
+    If sl Is Nothing Then
+        For Each scItem In wb.SlicerCaches
+            If StrComp(scItem.SourceName, CAMPO_FINANCIAMIENTO, vbTextCompare) = 0 Then
+                Set sc = scItem
+                existeCache = True
+                Exit For
+            End If
+        Next scItem
+
+        If Not existeCache Then
+            Set sc = wb.SlicerCaches.Add2(pt, CAMPO_FINANCIAMIENTO)
+        Else
+            On Error Resume Next
+            sc.PivotTables.AddPivotTable pt
+            On Error GoTo SalidaSilenciosa
+        End If
+
+        Set sl = sc.Slicers.Add(ws, , NOMBRE_SLICER, "Financiamiento", ws.Range("A5").Left, ws.Range("A5").Top, ws.Columns("A").Width, 180)
+    Else
+        Set sc = sl.SlicerCache
+        On Error Resume Next
+        sc.PivotTables.AddPivotTable pt
+        On Error GoTo SalidaSilenciosa
+    End If
+
+    With sl
+        .Caption = "Financiamiento"
+        .DisplayHeader = True
+        .Top = ws.Range("A5").Top
+        .Left = ws.Range("A5").Left
+        .Width = ws.Columns("A").Width
+        .Height = 180
+    End With
+
+SalidaSilenciosa:
 End Sub
 
 Private Sub NormalizarYValidarMesesBase(ByVal wsBase As Worksheet)
