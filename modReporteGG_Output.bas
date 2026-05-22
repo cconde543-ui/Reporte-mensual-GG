@@ -573,45 +573,125 @@ Private Function EncabezadosBaseAgregada(ByVal wsBase As Worksheet) As String
     EncabezadosBaseAgregada = Join(arr, ", ")
 End Function
 
-Public Sub CrearHojaPorcEjecucion(ByVal wbOut As Workbook, ByVal wsBase As Worksheet, ByVal anio As Long, ByVal mesCierre As Long)
+Public Sub CrearHojaPorcEjecucion(ByVal wbOut As Workbook, ByVal wsBase As Worksheet, ByVal anio As Long, ByVal mesCierre As Long, ByRef etapaVisual As String)
     Dim ws As Worksheet, pc As PivotCache, pt As PivotTable, rg As Range
+    Dim dfEjecutado As PivotField
+    Dim dfAsignado As PivotField
+    Dim dfPct As PivotField
+
+    On Error GoTo EH
+
+    etapaVisual = "validando base % ejecución"
+    ValidarBasePorcEjec wsBase
+
+    etapaVisual = "creando hoja % ejecución"
     On Error Resume Next
     Application.DisplayAlerts = False
     wbOut.Worksheets("% ejecución " & anio).Delete
     Application.DisplayAlerts = True
-    On Error GoTo 0
+    On Error GoTo EH
     Set ws = wbOut.Worksheets.Add(After:=wbOut.Worksheets(wbOut.Worksheets.Count))
     ws.Name = "% ejecución " & anio
     PrepararHojaReporte ws
     ws.Columns("A").ColumnWidth = 28
 
     Set rg = wsBase.Range("A1").CurrentRegion
+    etapaVisual = "creando PivotCache % ejecución"
     Set pc = wbOut.PivotCaches.Create(SourceType:=xlDatabase, SourceData:=rg.Address(ReferenceStyle:=xlR1C1, External:=True))
+    etapaVisual = "creando PivotTable % ejecución"
     Set pt = pc.CreatePivotTable(TableDestination:=ws.Range("B5"), TableName:="ptPorcEjecGG")
 
+    etapaVisual = "configurando filas % ejecución"
     ConfigurarCampoPivotSeguro pt, "Clasificación", xlRowField, 1
     ConfigurarCampoPivotSeguro pt, "Tipo", xlRowField, 2
     ConfigurarCampoPivotSeguro pt, "Concepto", xlRowField, 3
+    etapaVisual = "configurando filtro Financiamiento % ejecución"
     ConfigurarCampoPivotSeguro pt, "Financiamiento", xlPageField, 1
 
-    pt.AddDataField pt.PivotFields("Ejecutado"), "Ejecutado", xlSum
-    pt.AddDataField pt.PivotFields("Asignado"), "Asignado " & anio, xlSum
-    On Error Resume Next
-    pt.CalculatedFields.Add "% de ejecución", "=Ejecutado/Asignado"
-    On Error GoTo 0
-    pt.AddDataField pt.PivotFields("% de ejecución"), "% ejec.", xlSum
+    etapaVisual = "validando campos de valores % ejecución"
+    If Not PivotFieldExiste(pt, "Ejecutado") Then
+        Err.Raise vbObjectError + 1301, "CrearHojaPorcEjecucion", "No existe el campo 'Ejecutado' en Base_Porc_Ejec."
+    End If
+    If Not PivotFieldExiste(pt, "Asignado") Then
+        Err.Raise vbObjectError + 1302, "CrearHojaPorcEjecucion", "No existe el campo 'Asignado' en Base_Porc_Ejec."
+    End If
+
+    etapaVisual = "creando campo calculado % ejecución"
+    If Not PivotFieldExiste(pt, "% de ejecución") Then
+        pt.CalculatedFields.Add "% de ejecución", "=Ejecutado/Asignado"
+    End If
+    If Not PivotFieldExiste(pt, "% de ejecución") Then
+        Err.Raise vbObjectError + 1303, "CrearHojaPorcEjecucion", "No se pudo crear el campo calculado '% de ejecución'."
+    End If
+
+    etapaVisual = "agregando valores % ejecución"
+    Set dfEjecutado = pt.AddDataField(pt.PivotFields("Ejecutado"), "Ejecutado ", xlSum)
+    Set dfAsignado = pt.AddDataField(pt.PivotFields("Asignado"), "Asignado " & CStr(anio), xlSum)
+    Set dfPct = pt.AddDataField(pt.PivotFields("% de ejecución"), " % ejec.", xlSum)
 
     pt.RowAxisLayout xlCompactRow
     pt.DisplayFieldCaptions = False
     pt.ColumnGrand = True: pt.RowGrand = True
     pt.NullString = "": pt.DisplayNullString = True
     ColapsarPivotInicial pt
-    pt.DataFields(1).NumberFormat = "#,##0"
-    pt.DataFields(2).NumberFormat = "#,##0"
-    pt.DataFields(3).NumberFormat = "0.0%"
+    etapaVisual = "formateando valores % ejecución"
+    dfEjecutado.NumberFormat = "#,##0"
+    dfAsignado.NumberFormat = "#,##0"
+    dfPct.NumberFormat = "0.0%"
 
+    etapaVisual = "agregando slicer % ejecución"
     AgregarSlicerFinanciamiento wbOut, ws, pt
+    etapaVisual = "ajustando encabezado % ejecución"
     AjustarEncabezadoVisualAlPivot ws, pt, "Informe de Seguimiento Presupuestal " & UCase$(MesesES()(mesCierre - 1)) & " " & anio & " - % de ejec. acumulada sobre la asignación presupuestal"
+    Exit Sub
+EH:
+    Err.Raise Err.Number, "CrearHojaPorcEjecucion", _
+        "Error creando hoja % ejecución. Etapa: " & etapaVisual & _
+        " | Campos disponibles pivot: " & CamposDisponiblesPivot(pt) & _
+        " | Err.Number: " & CStr(Err.Number) & _
+        " | Err.Description: " & Err.Description
+End Sub
+
+
+Private Sub ValidarBasePorcEjec(ByVal wsBase As Worksheet)
+    Dim headers As Variant
+    Dim i As Long
+    Dim lastRow As Long
+    Dim lastCol As Long
+    Dim vE As Variant
+    Dim vA As Variant
+
+    If wsBase Is Nothing Then
+        Err.Raise vbObjectError + 1310, "ValidarBasePorcEjec", "La hoja Base_Porc_Ejec es Nothing."
+    End If
+
+    lastRow = UltimaFilaConDatos(wsBase)
+    lastCol = UltimaColConDatos(wsBase)
+    If lastRow < 2 Then
+        Err.Raise vbObjectError + 1311, "ValidarBasePorcEjec", "Base_Porc_Ejec debe tener al menos 2 filas (encabezado + datos)."
+    End If
+    If lastCol < 7 Then
+        Err.Raise vbObjectError + 1312, "ValidarBasePorcEjec", "Base_Porc_Ejec debe tener al menos 7 columnas."
+    End If
+
+    headers = Array("Clasificación", "Tipo", "Concepto", "Ejecutado", "Asignado", "% ejecutado", "Financiamiento")
+    For i = 0 To 6
+        If CStr(wsBase.Cells(1, i + 1).Value) <> CStr(headers(i)) Then
+            Err.Raise vbObjectError + 1313, "ValidarBasePorcEjec", "Encabezado inválido en columna " & CStr(i + 1) & ". Esperado: '" & CStr(headers(i)) & "'. Encontrado: '" & CStr(wsBase.Cells(1, i + 1).Value) & "'."
+        End If
+    Next i
+
+    For i = 2 To lastRow
+        vE = wsBase.Cells(i, 4).Value
+        vA = wsBase.Cells(i, 5).Value
+
+        If Len(Trim$(CStr(vE))) > 0 And Not IsNumeric(vE) Then
+            Err.Raise vbObjectError + 1314, "ValidarBasePorcEjec", "Valor no numérico en columna Ejecutado, fila " & CStr(i) & "."
+        End If
+        If Len(Trim$(CStr(vA))) > 0 And Not IsNumeric(vA) Then
+            Err.Raise vbObjectError + 1315, "ValidarBasePorcEjec", "Valor no numérico en columna Asignado, fila " & CStr(i) & "."
+        End If
+    Next i
 End Sub
 
 Private Sub AjustarEncabezadoVisualAlPivot(ByVal ws As Worksheet, ByVal pt As PivotTable, ByVal titulo As String)
