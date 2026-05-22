@@ -391,8 +391,10 @@ Private Sub AgregarSlicerFinanciamiento(ByVal wb As Workbook, ByVal ws As Worksh
 
     Dim sc As SlicerCache
     Dim sl As Slicer
-    Dim scItem As SlicerCache
-    Dim existeCache As Boolean
+    Dim topPos As Double
+    Dim leftPos As Double
+    Dim ancho As Double
+    Dim alto As Double
 
     On Error GoTo SalidaSilenciosa
 
@@ -402,45 +404,58 @@ Private Sub AgregarSlicerFinanciamiento(ByVal wb As Workbook, ByVal ws As Worksh
     If Not PivotFieldExiste(pt, CAMPO_FINANCIAMIENTO) Then Exit Sub
 
     On Error Resume Next
-    Set sl = ws.Slicers(NOMBRE_SLICER)
+    ws.Shapes(NOMBRE_SLICER).Delete
     On Error GoTo SalidaSilenciosa
 
-    If sl Is Nothing Then
-        For Each scItem In wb.SlicerCaches
-            If StrComp(scItem.SourceName, CAMPO_FINANCIAMIENTO, vbTextCompare) = 0 Then
-                Set sc = scItem
-                existeCache = True
-                Exit For
-            End If
-        Next scItem
+    Set sc = CrearSlicerCacheParaCampo(wb, pt, CAMPO_FINANCIAMIENTO)
+    If sc Is Nothing Then Exit Sub
 
-        If Not existeCache Then
-            Set sc = wb.SlicerCaches.Add2(pt, CAMPO_FINANCIAMIENTO)
-        Else
-            On Error Resume Next
-            sc.PivotTables.AddPivotTable pt
-            On Error GoTo SalidaSilenciosa
-        End If
+    On Error Resume Next
+    sc.PivotTables.AddPivotTable pt
+    On Error GoTo SalidaSilenciosa
 
-        Set sl = sc.Slicers.Add(ws, , NOMBRE_SLICER, "Financiamiento", ws.Range("A5").Left, ws.Range("A5").Top, ws.Columns("A").Width, 180)
-    Else
-        Set sc = sl.SlicerCache
-        On Error Resume Next
-        sc.PivotTables.AddPivotTable pt
-        On Error GoTo SalidaSilenciosa
-    End If
+    topPos = ws.Range("A5").Top
+    leftPos = ws.Range("A5").Left
+    ancho = ws.Range("A:A").Width
+    alto = 180
+
+    Set sl = sc.Slicers.Add(ws, , NOMBRE_SLICER, "Financiamiento", topPos, leftPos, ancho, alto)
 
     With sl
         .Caption = "Financiamiento"
         .DisplayHeader = True
-        .Top = ws.Range("A5").Top
-        .Left = ws.Range("A5").Left
-        .Width = ws.Columns("A").Width
-        .Height = 180
+        .Top = topPos
+        .Left = leftPos
+        .Width = ancho
+        .Height = alto
+        .NumberOfColumns = 1
     End With
 
 SalidaSilenciosa:
 End Sub
+
+Private Function CrearSlicerCacheParaCampo(ByVal wb As Workbook, ByVal pt As PivotTable, ByVal nombreCampo As String) As SlicerCache
+    Dim sc As SlicerCache
+
+    On Error Resume Next
+
+    For Each sc In wb.SlicerCaches
+        If StrComp(sc.SourceName, nombreCampo, vbTextCompare) = 0 Then
+            Set CrearSlicerCacheParaCampo = sc
+            Exit Function
+        End If
+    Next sc
+
+    Err.Clear
+    Set CrearSlicerCacheParaCampo = wb.SlicerCaches.Add2(pt, nombreCampo)
+
+    If CrearSlicerCacheParaCampo Is Nothing Then
+        Err.Clear
+        Set CrearSlicerCacheParaCampo = wb.SlicerCaches.Add(pt, nombreCampo)
+    End If
+
+    On Error GoTo 0
+End Function
 
 Private Sub NormalizarYValidarMesesBase(ByVal wsBase As Worksheet)
     Dim colMesNum As Long, colMesNombre As Long, lastRow As Long, i As Long
