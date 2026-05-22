@@ -11,15 +11,21 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     Dim mesCierre As Long
     Dim archivoEjec As String
     Dim archivoCod As String
+    Dim archivoAsignados As String
     Dim wbE As Workbook
     Dim wbC As Workbook
     Dim wbOut As Workbook
+    Dim wbA As Workbook
     Dim wsE As Worksheet
     Dim wsC As Worksheet
     Dim wsBase As Worksheet
+    Dim wsA As Worksheet
+    Dim wsBasePorc As Worksheet
     Dim dictCod As Object
     Dim dictAgg As Object
     Dim diag As Object
+    Dim dictAsignado As Object
+    Dim dictPorcEjec As Object
     Dim rutaFinal As String
     Dim etapaVisual As String
 
@@ -35,6 +41,7 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     Dim ultimaColBase As String
     Dim archivoEjecMsg As String
     Dim archivoCodMsg As String
+    Dim archivoAsignadosMsg As String
     Dim salidaMsg As String
 
     procedimiento = "Generar_Reporte_GG_Desde_Panel"
@@ -62,6 +69,8 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     Set dictCod = CreateObject("Scripting.Dictionary")
     Set dictAgg = CreateObject("Scripting.Dictionary")
     Set diag = CreateObject("Scripting.Dictionary")
+    Set dictAsignado = CreateObject("Scripting.Dictionary")
+    Set dictPorcEjec = CreateObject("Scripting.Dictionary")
 
     etapaActual = "buscando archivo de ejecuciones"
     archivoEjec = ObtenerArchivoMasReciente(RUTA_CARPETA_EJECUCIONES)
@@ -79,17 +88,34 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     Set wbE = Workbooks.Open(archivoEjec, ReadOnly:=True)
 
     etapaActual = "abriendo codiguera"
-    Set wbC = Workbooks.Open(archivoCod, ReadOnly:=True)
+    Set wbC = Workbooks.Open(archivoCod, ReadOnly:=False)
+    If wbC.ReadOnly Then
+        Err.Raise vbObjectError + 116, procedimiento, "No se pudo actualizar la codiguera porque está abierta en solo lectura o bloqueada por otro usuario."
+    End If
+
+    etapaActual = "abriendo asignados"
+    Set wbA = Workbooks.Open(archivoAsignados, ReadOnly:=True)
 
     etapaActual = "leyendo hojas de origen"
     Set wsE = ObtenerHojaEjecuciones(wbE)
     Set wsC = ObtenerHojaCodiguera(wbC)
+    Set wsA = wbA.Worksheets(1)
 
     etapaActual = "leyendo codiguera"
     LeerCodiguera wsC, dictCod, diag
 
     etapaActual = "leyendo ejecuciones y acumulando"
     LeerEjecucionesYAcumular wsE, anio, mesCierre, dictCod, dictAgg, diag
+    LeerAsignadosYAcumular wsA, dictCod, dictAsignado, diag, wbC, anio, archivoAsignados
+
+    If diag.Exists("asignados_faltantes") Then
+        etapaActual = "guardando codiguera por nuevas llaves de asignados"
+        wbC.Save
+        EscribirDiagnostico ThisWorkbook, diag, archivoEjec, archivoCod, anio, mesCierre
+        wbE.Close False: wbA.Close False: wbC.Close True
+        MsgBox "Se agregaron nuevas llaves presupuestales del archivo de asignados a la codiguera. Debe clasificarlas, marcar Incluir_en_Informe cuando corresponda y volver a generar el reporte.", vbExclamation
+        Exit Sub
+    End If
 
     etapaActual = "completando meses faltantes"
     CompletarMesesAnioEnDictAgg dictAgg
@@ -105,7 +131,12 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     etapaActual = "creando reporte visual"
     etapaVisual = "iniciando"
     CrearTablaDinamicaOSalidaAgrupada wbOut, wsBase, anio, mesCierre, etapaVisual
+    Set wsBasePorc = wbOut.Worksheets.Add(After:=wbOut.Worksheets(wbOut.Worksheets.Count))
+    wsBasePorc.Name = "Base_Porc_Ejec"
+    ConstruirBasePorcEjec wsBasePorc, dictAgg, dictAsignado, mesCierre
+    CrearHojaPorcEjecucion wbOut, wsBasePorc, anio, mesCierre
     wsBase.Visible = xlSheetVeryHidden
+    wsBasePorc.Visible = xlSheetVeryHidden
 
     etapaActual = "guardando reporte liviano"
     rutaFinal = GuardarReporteLiviano(wbOut, anio, mesCierre)
@@ -116,6 +147,7 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     etapaActual = "cerrando archivos"
     wbOut.Close False
     wbE.Close False
+    wbA.Close False
     wbC.Close False
 
     MsgBox "Reporte generado: " & rutaFinal, vbInformation
@@ -184,6 +216,7 @@ EH:
           "Nombre hoja reporte: " & "Ejec. Mensual " & anio & vbCrLf & _
           "Archivo ejecuciones: " & archivoEjecMsg & vbCrLf & _
           "Archivo codiguera: " & archivoCodMsg & vbCrLf & _
+          "Archivo asignados: " & archivoAsignadosMsg & vbCrLf & _
           "Salida: " & salidaMsg
 
     Debug.Print String(100, "-")
@@ -193,10 +226,41 @@ EH:
     On Error Resume Next
     If Not wbOut Is Nothing Then wbOut.Close False
     If Not wbE Is Nothing Then wbE.Close False
+    If Not wbA Is Nothing Then wbA.Close False
     If Not wbC Is Nothing Then wbC.Close False
     On Error GoTo 0
 
     MsgBox msg, vbCritical
+End Sub
+
+Public Sub LeerAsignadosYAcumular(ByVal ws As Worksheet, ByVal dictCod As Object, ByRef dictAsignado As Object, ByRef diag As Object, Optional ByVal wbCodiguera As Workbook, Optional ByVal anioFiltro As Long = 0, Optional ByVal archivoAsignados As String = "")
+    Dim arr As Variant, headers As Object, i As Long, clave As String, info As Variant, keyAgg As String, monto As Double
+    Dim colAnio As Long, anioFila As Long
+    arr = ws.Range(ws.Cells(1, 1), ws.Cells(UltimaFilaConDatos(ws), UltimaColConDatos(ws))).Value2
+    Set headers = MapearEncabezados(arr)
+
+    ValidarColumnasAsignados headers
+    colAnio = ObtenerColumnaOpcional(headers, Array("año", "anio", "ejercicio", "ej"))
+
+    For i = 2 To UBound(arr, 1)
+        If colAnio > 0 And anioFiltro > 0 Then
+            If IsNumeric(arr(i, colAnio)) Then
+                anioFila = CLng(arr(i, colAnio))
+                If anioFila <> anioFiltro Then GoTo SiguienteFila
+            End If
+        End If
+        clave = ConstruirClavePresupuestal(arr(i, ObtenerColumna(headers, Array("finac"))), arr(i, ObtenerColumna(headers, Array("der-f"))), arr(i, ObtenerColumna(headers, Array("pg"))), arr(i, ObtenerColumna(headers, Array("spg"))), arr(i, ObtenerColumna(headers, Array("proy"))), arr(i, ObtenerColumna(headers, Array("rubro"))), arr(i, ObtenerColumna(headers, Array("r. aux"))), arr(i, ObtenerColumna(headers, Array("ue"))), arr(i, ObtenerColumna(headers, Array("dep"))), arr(i, ObtenerColumna(headers, Array("obra"))), arr(i, ObtenerColumna(headers, Array("der. obra"))), arr(i, ObtenerColumna(headers, Array("serv"))), arr(i, ObtenerColumna(headers, Array("sniip"))))
+        If dictCod.Exists(clave) Then
+            info = dictCod(clave)
+            keyAgg = CStr(info(0)) & "|" & CStr(info(1)) & "|" & CStr(info(2)) & "|" & CStr(info(3))
+            monto = CDbl(0 + arr(i, ObtenerColumna(headers, Array("asignado"))))
+            If Not dictAsignado.Exists(keyAgg) Then dictAsignado.Add keyAgg, 0#
+            dictAsignado(keyAgg) = dictAsignado(keyAgg) + monto
+        Else
+            RegistrarYAgregarLlaveAsignadoFaltante wbCodiguera, diag, clave, arr, headers, i, archivoAsignados
+        End If
+SiguienteFila:
+    Next i
 End Sub
 
 Public Sub LeerCodiguera(ByVal ws As Worksheet, ByRef dictCod As Object, ByRef diag As Object)
@@ -311,7 +375,7 @@ EH:
 End Function
 
 Public Sub EscribirDiagnostico(ByVal wb As Workbook, ByVal diag As Object, ByVal archivoEjec As String, ByVal archivoCod As String, ByVal anio As Long, ByVal mesNum As Long)
-    Dim ws As Worksheet
+    Dim ws As Worksheet, d As Object, k As Variant, f As Long, it As Variant
     On Error Resume Next
     Application.DisplayAlerts = False
     wb.Worksheets(DIAG_SHEET_NAME).Delete
@@ -325,5 +389,76 @@ Public Sub EscribirDiagnostico(ByVal wb As Workbook, ByVal diag As Object, ByVal
     ws.Cells(3, 1).Value = "Archivo codiguera": ws.Cells(3, 2).Value = archivoCod
     ws.Cells(4, 1).Value = "Año": ws.Cells(4, 2).Value = anio
     ws.Cells(5, 1).Value = "Mes cierre": ws.Cells(5, 2).Value = mesNum
+    If diag.Exists("asignados_faltantes") Then
+        ws.Cells(8, 1).Value = "Llaves de asignados no encontradas en codiguera"
+        ws.Range("A9:S9").Value = Array("Origen", "Archivo", "Fila origen", "Clave normalizada", "Llave presupuestal", "Finac", "Der-F", "PG", "Spg", "Proy", "Rubro", "R. Aux", "UE", "Dep", "Obra", "Der. Obra", "Serv", "SNIIP", "Estado")
+        f = 10
+        Set d = diag("asignados_faltantes")
+        For Each k In d.Keys
+            it = d(k)
+            ws.Range("A" & f & ":S" & f).Value = it
+            f = f + 1
+        Next k
+    End If
     ws.Columns("A:B").AutoFit
+End Sub
+    etapaActual = "buscando asignados por fecha de creación"
+    archivoAsignados = ObtenerArchivoMasRecientePorFechaCreacion(RUTA_CARPETA_ASIGNADOS_GASTOS)
+
+    If Len(archivoAsignados) > 0 Then
+        archivoAsignadosMsg = archivoAsignados
+    Else
+        archivoAsignadosMsg = "(no detectado)"
+    End If
+
+Private Function ObtenerColumnaOpcional(ByVal headers As Object, ByVal aliases As Variant) As Long
+    Dim i As Long, a As String
+    For i = LBound(aliases) To UBound(aliases)
+        a = LCase$(LimpiarTexto(CStr(aliases(i))))
+        If headers.Exists(a) Then ObtenerColumnaOpcional = CLng(headers(a)): Exit Function
+    Next i
+End Function
+
+Private Sub ValidarColumnasAsignados(ByVal headers As Object)
+    Dim req As Variant, i As Long
+    req = Array("finac", "der-f", "pg", "spg", "proy", "rubro", "r. aux", "ue", "dep", "obra", "der. obra", "serv", "sniip", "asignado")
+    For i = LBound(req) To UBound(req)
+        If Not headers.Exists(CStr(req(i))) Then
+            If CStr(req(i)) = "asignado" Then
+                Err.Raise vbObjectError + 1201, "LeerAsignadosYAcumular", "No se encontró la columna 'Asignado' en el archivo de asignados. No se puede generar la hoja % ejecución."
+            Else
+                Err.Raise vbObjectError + 1202, "LeerAsignadosYAcumular", "No se encontró la columna '" & CStr(req(i)) & "' en el archivo de asignados. No se puede construir la llave presupuestal."
+            End If
+        End If
+    Next i
+End Sub
+
+Private Sub RegistrarYAgregarLlaveAsignadoFaltante(ByVal wbCodiguera As Workbook, ByRef diag As Object, ByVal clave As String, ByRef arr As Variant, ByVal headers As Object, ByVal fila As Long, ByVal archivoAsignados As String)
+    Dim wsC As Worksheet, hdrC As Object, lastR As Long, newR As Long, sec As Collection, rowInfo As Variant
+    If Not diag.Exists("asignados_faltantes") Then Set diag("asignados_faltantes") = CreateObject("Scripting.Dictionary")
+    If diag("asignados_faltantes").Exists(clave) Then Exit Sub
+    rowInfo = Array("Asignados", archivoAsignados, fila, clave, arr(fila, ObtenerColumna(headers, Array("finac"))), arr(fila, ObtenerColumna(headers, Array("der-f"))), arr(fila, ObtenerColumna(headers, Array("pg"))), arr(fila, ObtenerColumna(headers, Array("spg"))), arr(fila, ObtenerColumna(headers, Array("proy"))), arr(fila, ObtenerColumna(headers, Array("rubro"))), arr(fila, ObtenerColumna(headers, Array("r. aux"))), arr(fila, ObtenerColumna(headers, Array("ue"))), arr(fila, ObtenerColumna(headers, Array("dep"))), arr(fila, ObtenerColumna(headers, Array("obra"))), arr(fila, ObtenerColumna(headers, Array("der. obra"))), arr(fila, ObtenerColumna(headers, Array("serv"))), arr(fila, ObtenerColumna(headers, Array("sniip"))), "Agregada a codiguera - pendiente clasificar")
+    diag("asignados_faltantes")(clave) = rowInfo
+
+    If wbCodiguera Is Nothing Then Exit Sub
+    Set wsC = ObtenerHojaCodiguera(wbCodiguera)
+    lastR = UltimaFilaConDatos(wsC): newR = lastR + 1
+    wsC.Rows(lastR).Copy: wsC.Rows(newR).PasteSpecial xlPasteFormats: wsC.Rows(newR).PasteSpecial xlPasteValidation
+    Application.CutCopyMode = False
+    Set hdrC = MapearEncabezados(wsC.Range(wsC.Cells(1, 1), wsC.Cells(1, UltimaColConDatos(wsC))).Value2)
+    wsC.Cells(newR, ObtenerColumna(hdrC, Array("finac"))).Value = arr(fila, ObtenerColumna(headers, Array("finac")))
+    wsC.Cells(newR, ObtenerColumna(hdrC, Array("der-f"))).Value = arr(fila, ObtenerColumna(headers, Array("der-f")))
+    wsC.Cells(newR, ObtenerColumna(hdrC, Array("pg"))).Value = arr(fila, ObtenerColumna(headers, Array("pg")))
+    wsC.Cells(newR, ObtenerColumna(hdrC, Array("spg"))).Value = arr(fila, ObtenerColumna(headers, Array("spg")))
+    wsC.Cells(newR, ObtenerColumna(hdrC, Array("proy"))).Value = arr(fila, ObtenerColumna(headers, Array("proy")))
+    wsC.Cells(newR, ObtenerColumna(hdrC, Array("rubro"))).Value = arr(fila, ObtenerColumna(headers, Array("rubro")))
+    wsC.Cells(newR, ObtenerColumna(hdrC, Array("r. aux"))).Value = arr(fila, ObtenerColumna(headers, Array("r. aux")))
+    wsC.Cells(newR, ObtenerColumna(hdrC, Array("ue"))).Value = arr(fila, ObtenerColumna(headers, Array("ue")))
+    wsC.Cells(newR, ObtenerColumna(hdrC, Array("dep"))).Value = arr(fila, ObtenerColumna(headers, Array("dep")))
+    wsC.Cells(newR, ObtenerColumna(hdrC, Array("obra"))).Value = arr(fila, ObtenerColumna(headers, Array("obra")))
+    wsC.Cells(newR, ObtenerColumna(hdrC, Array("der. obra"))).Value = arr(fila, ObtenerColumna(headers, Array("der. obra")))
+    wsC.Cells(newR, ObtenerColumna(hdrC, Array("serv"))).Value = arr(fila, ObtenerColumna(headers, Array("serv")))
+    wsC.Cells(newR, ObtenerColumna(hdrC, Array("sniip"))).Value = arr(fila, ObtenerColumna(headers, Array("sniip")))
+    wsC.Cells(newR, ObtenerColumna(hdrC, Array("clave llave presupuestal"))).Value = clave
+    wsC.Cells(newR, ObtenerColumna(hdrC, Array("llave presupuestal"))).Value = "Ej " & Year(Date) & ", Finac " & arr(fila, ObtenerColumna(headers, Array("finac"))) & ", Der-F " & arr(fila, ObtenerColumna(headers, Array("der-f")))
 End Sub

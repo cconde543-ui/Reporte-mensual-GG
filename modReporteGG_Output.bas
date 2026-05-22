@@ -102,6 +102,7 @@ Public Sub CrearTablaDinamicaOSalidaAgrupada(ByVal wbOut As Workbook, ByVal wsBa
     ColapsarPivotInicial pt
     If Not pt.DataBodyRange Is Nothing Then pt.DataBodyRange.NumberFormat = "#,##0;-#,##0;;@"
     AgregarSlicerFinanciamiento wbOut, ws, pt
+    AjustarEncabezadoVisualAlPivot ws, pt, "Informe de Seguimiento Presupuestal " & UCase$(MesesES()(mesCierre - 1)) & " " & anio & " - Ejecución mensual y acumulada"
     Exit Sub
 
 EH:
@@ -118,6 +119,31 @@ EH:
               " | Encabezados Base_Agregada: " & encabezadosBase & _
               " | Err.Number: " & CStr(errNumPivot) & _
               " | Err.Description: " & errDescPivot
+End Sub
+
+Public Sub ConstruirBasePorcEjec(ByVal ws As Worksheet, ByVal dictAgg As Object, ByVal dictAsignado As Object, ByVal mesCierre As Long)
+    Dim dEj As Object, k As Variant, p() As String, k4 As String, fila As Long, ejec As Double, asig As Double
+    Set dEj = CreateObject("Scripting.Dictionary")
+    ws.Range("A1:G1").Value = Array("Clasificación", "Tipo", "Concepto", "Ejecutado", "Asignado", "% ejecutado", "Financiamiento")
+    For Each k In dictAgg.Keys
+        p = Split(CStr(k), "|")
+        If CLng(p(4)) <= mesCierre Then
+            k4 = p(0) & "|" & p(1) & "|" & p(2) & "|" & p(3)
+            If Not dEj.Exists(k4) Then dEj.Add k4, 0#
+            dEj(k4) = dEj(k4) + CDbl(dictAgg(k))
+        End If
+    Next k
+    fila = 2
+    For Each k In dEj.Keys
+        p = Split(CStr(k), "|")
+        ejec = CDbl(dEj(k))
+        If dictAsignado.Exists(CStr(k)) Then asig = CDbl(dictAsignado(k)) Else asig = 0#
+        ws.Cells(fila, 1).Value = p(1): ws.Cells(fila, 2).Value = p(2): ws.Cells(fila, 3).Value = p(3)
+        ws.Cells(fila, 4).Value = ejec: ws.Cells(fila, 5).Value = asig
+        If asig = 0 Then ws.Cells(fila, 6).Value = 0 Else ws.Cells(fila, 6).Value = ejec / asig
+        ws.Cells(fila, 7).Value = p(0)
+        fila = fila + 1
+    Next k
 End Sub
 
 Private Sub ConfigurarNivel3ConFallback(ByVal pt As PivotTable, ByVal campoNivel3 As String, ByVal posicion As Long)
@@ -546,3 +572,84 @@ Private Function EncabezadosBaseAgregada(ByVal wsBase As Worksheet) As String
     Next i
     EncabezadosBaseAgregada = Join(arr, ", ")
 End Function
+
+Public Sub CrearHojaPorcEjecucion(ByVal wbOut As Workbook, ByVal wsBase As Worksheet, ByVal anio As Long, ByVal mesCierre As Long)
+    Dim ws As Worksheet, pc As PivotCache, pt As PivotTable, rg As Range
+    On Error Resume Next
+    Application.DisplayAlerts = False
+    wbOut.Worksheets("% ejecución " & anio).Delete
+    Application.DisplayAlerts = True
+    On Error GoTo 0
+    Set ws = wbOut.Worksheets.Add(After:=wbOut.Worksheets(wbOut.Worksheets.Count))
+    ws.Name = "% ejecución " & anio
+    PrepararHojaReporte ws
+    ws.Columns("A").ColumnWidth = 28
+
+    Set rg = wsBase.Range("A1").CurrentRegion
+    Set pc = wbOut.PivotCaches.Create(SourceType:=xlDatabase, SourceData:=rg.Address(ReferenceStyle:=xlR1C1, External:=True))
+    Set pt = pc.CreatePivotTable(TableDestination:=ws.Range("B5"), TableName:="ptPorcEjecGG")
+
+    ConfigurarCampoPivotSeguro pt, "Clasificación", xlRowField, 1
+    ConfigurarCampoPivotSeguro pt, "Tipo", xlRowField, 2
+    ConfigurarCampoPivotSeguro pt, "Concepto", xlRowField, 3
+    ConfigurarCampoPivotSeguro pt, "Financiamiento", xlPageField, 1
+
+    pt.AddDataField pt.PivotFields("Ejecutado"), "Ejecutado", xlSum
+    pt.AddDataField pt.PivotFields("Asignado"), "Asignado " & anio, xlSum
+    On Error Resume Next
+    pt.CalculatedFields.Add "% de ejecución", "=Ejecutado/Asignado"
+    On Error GoTo 0
+    pt.AddDataField pt.PivotFields("% de ejecución"), "% ejec.", xlSum
+
+    pt.RowAxisLayout xlCompactRow
+    pt.DisplayFieldCaptions = False
+    pt.ColumnGrand = True: pt.RowGrand = True
+    pt.NullString = "": pt.DisplayNullString = True
+    ColapsarPivotInicial pt
+    pt.DataFields(1).NumberFormat = "#,##0"
+    pt.DataFields(2).NumberFormat = "#,##0"
+    pt.DataFields(3).NumberFormat = "0.0%"
+
+    AgregarSlicerFinanciamiento wbOut, ws, pt
+    AjustarEncabezadoVisualAlPivot ws, pt, "Informe de Seguimiento Presupuestal " & UCase$(MesesES()(mesCierre - 1)) & " " & anio & " - % de ejec. acumulada sobre la asignación presupuestal"
+End Sub
+
+Private Sub AjustarEncabezadoVisualAlPivot(ByVal ws As Worksheet, ByVal pt As PivotTable, ByVal titulo As String)
+    Dim lastPivotCol As Long
+    Dim rngBanda As Range, rngTitulo As Range, shp As Shape
+    If pt Is Nothing Then Exit Sub
+    lastPivotCol = pt.TableRange2.Column + pt.TableRange2.Columns.Count - 1
+    Set rngBanda = ws.Range(ws.Cells(1, 1), ws.Cells(1, lastPivotCol))
+    Set rngTitulo = ws.Range(ws.Cells(3, 1), ws.Cells(3, lastPivotCol))
+
+    ws.Rows(1).RowHeight = 50.25: ws.Rows(2).RowHeight = 15: ws.Rows(3).RowHeight = 24
+    rngTitulo.UnMerge: rngTitulo.Merge
+    rngTitulo.Value = titulo
+    With rngTitulo
+        .HorizontalAlignment = xlLeft: .VerticalAlignment = xlCenter: .WrapText = True
+        .Font.Name = "Calibri Light": .Font.Size = 13: .Font.Bold = True: .Font.Color = RGB(0, 32, 96)
+    End With
+    With rngTitulo.Borders(xlEdgeBottom)
+        .LineStyle = xlContinuous: .Weight = xlMedium: .Color = RGB(0, 32, 96)
+    End With
+
+    On Error Resume Next
+    ws.Shapes("shpBandaAzul").Delete
+    ws.Shapes("imgLogoBPS").Delete
+    On Error GoTo 0
+
+    Set shp = ws.Shapes.AddShape(msoShapeRectangle, rngBanda.Left, rngBanda.Top, rngBanda.Width, rngBanda.Height)
+    shp.Name = "shpBandaAzul": shp.Fill.ForeColor.RGB = RGB(0, 84, 147): shp.Line.Visible = msoFalse: shp.ZOrder msoSendToBack
+
+    InsertarLogoBPS_EnRango ws, rngBanda
+End Sub
+
+Private Sub InsertarLogoBPS_EnRango(ByVal ws As Worksheet, ByVal rngBanda As Range)
+    Dim shp As Shape, logoH As Double
+    If Dir$(LOGO_BPS_PATH, vbNormal) = "" Then Exit Sub
+    logoH = ws.Rows(1).Height - 6
+    Set shp = ws.Shapes.AddPicture(LOGO_BPS_PATH, msoFalse, msoTrue, 0, 0, -1, logoH)
+    shp.Name = "imgLogoBPS": shp.LockAspectRatio = msoTrue
+    shp.Top = ws.Rows(1).Top + (ws.Rows(1).Height - shp.Height) / 2
+    shp.Left = rngBanda.Left + rngBanda.Width - shp.Width - 6
+End Sub
