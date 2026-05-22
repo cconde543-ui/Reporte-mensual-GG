@@ -69,6 +69,62 @@ Public Function ConstruirClavePresupuestal(ByVal finac As Variant, ByVal derF As
     ConstruirClavePresupuestal = Join(Array(NormalizarCampoClave(finac), NormalizarCampoClave(derF), NormalizarCampoClave(pg), NormalizarCampoClave(spg), NormalizarCampoClave(proy), NormalizarCampoClave(rubro), NormalizarCampoClave(rAux), NormalizarCampoClave(ue), NormalizarCampoClave(dep), NormalizarCampoClave(obra), NormalizarCampoClave(derObra), NormalizarCampoClave(serv), NormalizarCampoClave(snip)), "|")
 End Function
 
+Private Function NormalizarComponenteClaveCodiguera(ByVal valor As Variant) As String
+    Dim s As String, t As String, i As Long, ch As String, prefijo As String
+
+    If IsError(valor) Or IsNull(valor) Then
+        NormalizarComponenteClaveCodiguera = "0"
+        Exit Function
+    End If
+
+    s = CStr(valor)
+    s = Replace(s, ChrW$(160), " ")
+    s = LimpiarTexto(s)
+    If Len(s) = 0 Then
+        NormalizarComponenteClaveCodiguera = "0"
+        Exit Function
+    End If
+
+    If InStr(1, s, "-") > 0 Then
+        prefijo = LimpiarTexto(Split(s, "-")(0))
+        If Len(prefijo) > 0 Then s = prefijo
+    End If
+
+    t = ""
+    For i = 1 To Len(s)
+        ch = Mid$(s, i, 1)
+        If ch Like "[0-9]" Then
+            t = t & ch
+        Else
+            Exit For
+        End If
+    Next i
+    If Len(t) > 0 Then s = t
+
+    If IsNumeric(s) Then
+        NormalizarComponenteClaveCodiguera = CStr(Fix(CDbl(s)))
+    Else
+        NormalizarComponenteClaveCodiguera = s
+    End If
+End Function
+
+Public Function ConstruirClaveLlavePresupuestalCodiguera(ByVal finac As Variant, ByVal derF As Variant, ByVal pg As Variant, ByVal spg As Variant, ByVal proy As Variant, ByVal rubro As Variant, ByVal rAux As Variant, ByVal ue As Variant, ByVal dep As Variant, ByVal obra As Variant, ByVal derObra As Variant, ByVal serv As Variant, ByVal sniip As Variant) As String
+    ConstruirClaveLlavePresupuestalCodiguera = Join(Array( _
+        NormalizarComponenteClaveCodiguera(finac), _
+        NormalizarComponenteClaveCodiguera(derF), _
+        NormalizarComponenteClaveCodiguera(pg), _
+        NormalizarComponenteClaveCodiguera(spg), _
+        NormalizarComponenteClaveCodiguera(proy), _
+        NormalizarComponenteClaveCodiguera(rubro), _
+        NormalizarComponenteClaveCodiguera(rAux), _
+        NormalizarComponenteClaveCodiguera(ue), _
+        NormalizarComponenteClaveCodiguera(dep), _
+        NormalizarComponenteClaveCodiguera(obra), _
+        NormalizarComponenteClaveCodiguera(derObra), _
+        NormalizarComponenteClaveCodiguera(serv), _
+        NormalizarComponenteClaveCodiguera(sniip)), "-")
+End Function
+
 Public Function TryObtenerFechaValorSeguro(ByVal valorFuente As Variant, ByRef fechaOut As Date) As Boolean
     Dim texto As String, partes() As String, numero As Double
     On Error GoTo EH
