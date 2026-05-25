@@ -769,12 +769,12 @@ EH_ADD:
         " | Err.Description=" & Err.Description
 End Sub
 
-Private Function AgregarDataFieldSeguro( _
+Private Sub AgregarDataFieldSeguro( _
     ByVal pt As PivotTable, _
     ByVal sourceFieldName As String, _
     ByVal caption As String, _
     ByVal funcion As XlConsolidationFunction, _
-    ByVal formatoNumero As String) As PivotField
+    ByVal formatoNumero As String)
 
     Dim nAntes As Long
     Dim pfSource As PivotField
@@ -804,8 +804,7 @@ Private Function AgregarDataFieldSeguro( _
         pfData.NumberFormat = formatoNumero
     End If
 
-    Set AgregarDataFieldSeguro = pfData
-End Function
+End Sub
 
 Private Function CampoCalculadoExiste(ByVal pt As PivotTable, ByVal nombreCampo As String) As Boolean
     Dim pf As PivotField
@@ -817,12 +816,12 @@ Private Function CampoCalculadoExiste(ByVal pt As PivotTable, ByVal nombreCampo 
     On Error GoTo 0
 End Function
 
-Private Function AgregarDataFieldCalculadoSeguro( _
+Private Sub AgregarDataFieldCalculadoSeguro( _
     ByVal pt As PivotTable, _
     ByVal calculatedFieldName As String, _
     ByVal caption As String, _
     ByVal funcion As XlConsolidationFunction, _
-    ByVal formatoNumero As String) As PivotField
+    ByVal formatoNumero As String)
 
     Dim nAntes As Long
     Dim pfSource As PivotField
@@ -852,8 +851,7 @@ Private Function AgregarDataFieldCalculadoSeguro( _
         pfData.NumberFormat = formatoNumero
     End If
 
-    Set AgregarDataFieldCalculadoSeguro = pfData
-End Function
+End Sub
 
 
 Private Sub ValidarBasePorcEjec(ByVal wsBase As Worksheet)
