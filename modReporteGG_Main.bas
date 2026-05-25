@@ -115,24 +115,16 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     etapaActual = "leyendo hojas de origen"
     Set wsE = ObtenerHojaEjecuciones(wbE)
     Set wsC = ObtenerHojaCodiguera(wbC)
-    Set wsA = wbA.Worksheets(1)
+    Set wsA = ObtenerHojaAsignados(wbA)
 
     etapaActual = "leyendo codiguera"
     LeerCodiguera wsC, dictCod, dictLlavesCodiguera, diag
 
     etapaActual = "leyendo ejecuciones y acumulando"
     LeerEjecucionesYAcumular wsE, anio, mesCierre, dictCod, dictAgg, diag
+
+    etapaActual = "leyendo asignados y acumulando"
     LeerAsignadosYAcumular wsA, dictCod, dictLlavesCodiguera, dictAsignado, diag, wbC, anio, archivoAsignados
-
-    If dictAsignado.Count = 0 Then
-        Err.Raise vbObjectError + 1250, procedimiento, _
-            "No se acumuló ningún asignado. Revise archivo de asignados, año, claves presupuestales e Incluir_en_Informe. Archivo: " & archivoAsignados
-    End If
-
-    If SumaValoresDiccionario(dictAsignado) = 0 Then
-        Err.Raise vbObjectError + 1251, procedimiento, _
-            "El total asignado acumulado es cero. La hoja % ejecución no puede generarse correctamente. Archivo: " & archivoAsignados
-    End If
 
     If diag.Exists("asignados_faltantes") Then
         etapaActual = "guardando codiguera por nuevas llaves de asignados"
@@ -141,6 +133,20 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
         wbE.Close False: wbA.Close False: wbC.Close True
         MsgBox "Se agregaron nuevas llaves presupuestales del archivo de asignados a la codiguera. Debe clasificarlas, marcar Incluir_en_Informe cuando corresponda y volver a generar el reporte.", vbExclamation
         Exit Sub
+    End If
+
+    If dictAsignado.Count = 0 Then
+        EscribirDiagnostico ThisWorkbook, diag, archivoEjec, archivoCod, anio, mesCierre
+        Err.Raise vbObjectError + 1250, procedimiento, _
+            "No se acumuló ningún asignado. Se escribió Diagnostico_Llaves con el resumen de asignados. Revise archivo de asignados, año, claves presupuestales e Incluir_en_Informe. Archivo: " & archivoAsignados & vbCrLf & _
+            ResumenAsignadosParaError(diag)
+    End If
+
+    If SumaValoresDiccionario(dictAsignado) = 0 Then
+        EscribirDiagnostico ThisWorkbook, diag, archivoEjec, archivoCod, anio, mesCierre
+        Err.Raise vbObjectError + 1251, procedimiento, _
+            "El total asignado acumulado es cero. Se escribió Diagnostico_Llaves con el resumen de asignados. Revise archivo de asignados, año, claves presupuestales e Incluir_en_Informe. Archivo: " & archivoAsignados & vbCrLf & _
+            ResumenAsignadosParaError(diag)
     End If
 
     etapaActual = "completando meses faltantes"
@@ -277,7 +283,7 @@ Public Sub LeerAsignadosYAcumular(ByVal ws As Worksheet, ByVal dictCod As Object
     Dim colAnio As Long, anioFila As Long
     Dim filasAsignadosLeidas As Long, filasAsignadosAnio As Long
     Dim filasAsignadosConClaveEnDictCod As Long, filasAsignadosClaveExistePeroNoIncluida As Long, filasAsignadosNuevas As Long
-    Dim sumaAsignadoArchivo As Double, sumaAsignadoAcumulado As Double
+    Dim sumaAsignadoArchivo As Double, sumaAsignadoAnio As Double, sumaAsignadoAcumulado As Double
 
     arr = ws.Range(ws.Cells(1, 1), ws.Cells(UltimaFilaConDatos(ws), UltimaColConDatos(ws))).Value2
     Set headers = MapearEncabezados(arr)
@@ -299,6 +305,7 @@ Public Sub LeerAsignadosYAcumular(ByVal ws As Worksheet, ByVal dictCod As Object
         End If
 
         filasAsignadosAnio = filasAsignadosAnio + 1
+        sumaAsignadoAnio = sumaAsignadoAnio + monto
         clave = ConstruirClaveLlavePresupuestalCodiguera(arr(i, ObtenerColumna(headers, Array("finac"))), arr(i, ObtenerColumna(headers, Array("der-f"))), arr(i, ObtenerColumna(headers, Array("pg"))), arr(i, ObtenerColumna(headers, Array("spg"))), arr(i, ObtenerColumna(headers, Array("proy"))), arr(i, ObtenerColumna(headers, Array("rubro"))), arr(i, ObtenerColumna(headers, Array("r. aux"))), arr(i, ObtenerColumna(headers, Array("ue"))), arr(i, ObtenerColumna(headers, Array("dep"))), arr(i, ObtenerColumna(headers, Array("obra"))), arr(i, ObtenerColumna(headers, Array("der. obra"))), arr(i, ObtenerColumna(headers, Array("serv"))), arr(i, ObtenerColumna(headers, Array("sniip"))))
 
         If dictCod.Exists(clave) Then
@@ -310,8 +317,10 @@ Public Sub LeerAsignadosYAcumular(ByVal ws As Worksheet, ByVal dictCod As Object
             filasAsignadosConClaveEnDictCod = filasAsignadosConClaveEnDictCod + 1
         ElseIf dictLlavesCodiguera.Exists(clave) Then
             filasAsignadosClaveExistePeroNoIncluida = filasAsignadosClaveExistePeroNoIncluida + 1
+            AgregarMuestraAsignadoNoAcumulado diag, "Existe en codiguera pero no está incluida en informe", i, clave, monto
         Else
             filasAsignadosNuevas = filasAsignadosNuevas + 1
+            AgregarMuestraAsignadoNoAcumulado diag, "Nueva llave no encontrada en codiguera", i, clave, monto
             RegistrarYAgregarLlaveAsignadoFaltante wbCodiguera, diag, clave, arr, headers, i, archivoAsignados
             If Not dictLlavesCodiguera.Exists(clave) Then dictLlavesCodiguera.Add clave, True
         End If
@@ -326,6 +335,7 @@ SiguienteFila:
         filasAsignadosClaveExistePeroNoIncluida, _
         filasAsignadosNuevas, _
         sumaAsignadoArchivo, _
+        sumaAsignadoAnio, _
         sumaAsignadoAcumulado, _
         dictAsignado.Count _
     )
@@ -470,8 +480,9 @@ Public Sub EscribirDiagnostico(ByVal wb As Workbook, ByVal diag As Object, ByVal
         ws.Cells(11, 1).Value = "Filas clave en codiguera no incluidas": ws.Cells(11, 2).Value = it(4)
         ws.Cells(12, 1).Value = "Filas nuevas": ws.Cells(12, 2).Value = it(5)
         ws.Cells(13, 1).Value = "Total Asignado leído": ws.Cells(13, 2).Value = it(6)
-        ws.Cells(14, 1).Value = "Total Asignado acumulado": ws.Cells(14, 2).Value = it(7)
-        ws.Cells(15, 1).Value = "Claves acumuladas dictAsignado": ws.Cells(15, 2).Value = it(8)
+        ws.Cells(14, 1).Value = "Total Asignado del año": ws.Cells(14, 2).Value = it(7)
+        ws.Cells(15, 1).Value = "Total Asignado acumulado": ws.Cells(15, 2).Value = it(8)
+        ws.Cells(16, 1).Value = "Claves acumuladas dictAsignado": ws.Cells(16, 2).Value = it(9)
     End If
     If diag.Exists("asignados_faltantes") Then
         ws.Cells(17, 1).Value = "Llaves de asignados no encontradas en codiguera"
@@ -484,8 +495,47 @@ Public Sub EscribirDiagnostico(ByVal wb As Workbook, ByVal diag As Object, ByVal
             f = f + 1
         Next k
     End If
+    If diag.Exists("asignados_muestra_no_acumulados") Then
+        ws.Cells(17, 7).Value = "Muestra de asignados no acumulados"
+        ws.Range("G18:J18").Value = Array("Estado", "Fila origen", "Clave normalizada", "Asignado")
+        f = 19
+        For Each it In diag("asignados_muestra_no_acumulados")
+            ws.Cells(f, 7).Value = it(0)
+            ws.Cells(f, 8).Value = it(1)
+            ws.Cells(f, 9).Value = it(2)
+            ws.Cells(f, 10).Value = it(3)
+            f = f + 1
+        Next it
+    End If
     ws.Columns("A:B").AutoFit
+    ws.Columns("G:J").AutoFit
 End Sub
+
+Private Function ResumenAsignadosParaError(ByVal diag As Object) As String
+    Dim it As Variant
+    Dim mensaje As String
+
+    If diag Is Nothing Then Exit Function
+    If Not diag.Exists("asignados_resumen") Then Exit Function
+
+    it = diag("asignados_resumen")
+
+    mensaje = "Filas asignados leídas: " & CStr(it(1)) & vbCrLf & _
+              "Filas asignados del año: " & CStr(it(2)) & vbCrLf & _
+              "Claves acumuladas en dictCod: " & CStr(it(3)) & vbCrLf & _
+              "Claves existentes pero no incluidas: " & CStr(it(4)) & vbCrLf & _
+              "Claves nuevas: " & CStr(it(5)) & vbCrLf & _
+              "Total Asignado leído: " & Format(it(6), "#,##0") & vbCrLf & _
+              "Total Asignado del año: " & Format(it(7), "#,##0") & vbCrLf & _
+              "Total Asignado acumulado: " & Format(it(8), "#,##0") & vbCrLf & _
+              "Cantidad claves dictAsignado: " & CStr(it(9))
+
+    If CLng(0 + it(2)) = 0 Then
+        mensaje = mensaje & vbCrLf & "Atención: el archivo de asignados no tiene filas para el año seleccionado. Revise si el archivo corresponde al año del reporte."
+    End If
+
+    ResumenAsignadosParaError = mensaje
+End Function
 
 Private Function SumaValoresDiccionario(ByVal d As Object) As Double
     Dim k As Variant
@@ -514,6 +564,20 @@ Private Sub ValidarColumnasAsignados(ByVal headers As Object)
             End If
         End If
     Next i
+End Sub
+
+Private Sub AgregarMuestraAsignadoNoAcumulado(ByRef diag As Object, ByVal estado As String, ByVal fila As Long, ByVal clave As String, ByVal monto As Double)
+    Dim col As Collection
+    If Not diag.Exists("asignados_muestra_no_acumulados") Then
+        Set col = New Collection
+        diag.Add "asignados_muestra_no_acumulados", col
+    Else
+        Set col = diag("asignados_muestra_no_acumulados")
+    End If
+
+    If col.Count < 20 Then
+        col.Add Array(estado, fila, clave, monto)
+    End If
 End Sub
 
 Private Function NormalizarClaveCodigueraDesdeTexto(ByVal valor As Variant) As String

@@ -219,6 +219,33 @@ EH:
     Err.Raise Err.Number, "ObtenerHojaEjecuciones", "No fue posible obtener hoja de ejecuciones en: " & wb.Name
 End Function
 
+Public Function ObtenerHojaAsignados(ByVal wb As Workbook) As Worksheet
+    Dim ws As Worksheet
+    Dim headers As Object
+    Dim req As Variant
+    Dim i As Long
+    Dim lastCol As Long
+    Dim arrHeader As Variant
+
+    req = Array("finac", "der-f", "pg", "spg", "proy", "rubro", "r. aux", "ue", "dep", "obra", "der. obra", "serv", "sniip", "asignado")
+
+    For Each ws In wb.Worksheets
+        lastCol = UltimaColConDatos(ws)
+        If lastCol > 0 Then
+            arrHeader = ws.Range(ws.Cells(1, 1), ws.Cells(1, lastCol)).Value2
+            Set headers = MapearEncabezados(arrHeader)
+            For i = LBound(req) To UBound(req)
+                If Not headers.Exists(CStr(req(i))) Then GoTo SiguienteHoja
+            Next i
+            Set ObtenerHojaAsignados = ws
+            Exit Function
+        End If
+SiguienteHoja:
+    Next ws
+
+    Err.Raise vbObjectError + 1203, "ObtenerHojaAsignados", "No se encontró una hoja válida de asignados con las columnas requeridas en: " & wb.Name
+End Function
+
 Public Sub AsegurarCarpetaExiste(ByVal ruta As String)
     On Error GoTo EH
     Dim fso As Object: Set fso = CreateObject("Scripting.FileSystemObject")
