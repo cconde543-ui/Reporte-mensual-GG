@@ -258,26 +258,51 @@ End Sub
 
 Public Function ObtenerArchivoMasRecientePorFechaCreacion(ByVal carpeta As String) As String
     On Error GoTo EH
-    Dim fso As Object, archivo As Object, folderObj As Object
-    Dim ultimaFecha As Date, ext As String
+    Dim fso As Object
+    Dim archivo As Object
+    Dim folderObj As Object
+    Dim mejorArchivo As String
+    Dim mejorCreacion As Date
+    Dim mejorModificacion As Date
+    Dim ext As String
+    Dim fechaCreacion As Date
+    Dim fechaModificacion As Date
 
     Set fso = CreateObject("Scripting.FileSystemObject")
     If Not fso.FolderExists(carpeta) Then Exit Function
 
     Set folderObj = fso.GetFolder(carpeta)
-    ultimaFecha = #1/1/1900#
 
     For Each archivo In folderObj.Files
         ext = LCase$(fso.GetExtensionName(archivo.Name))
+
         If Left$(archivo.Name, 2) <> "~$" Then
             If ext = "xls" Or ext = "xlsx" Or ext = "xlsm" Then
-                If archivo.DateCreated > ultimaFecha Then
-                    ultimaFecha = archivo.DateCreated
-                    ObtenerArchivoMasRecientePorFechaCreacion = archivo.Path
+
+                fechaCreacion = archivo.DateCreated
+                fechaModificacion = archivo.DateLastModified
+
+                If Len(mejorArchivo) = 0 Then
+                    mejorArchivo = archivo.Path
+                    mejorCreacion = fechaCreacion
+                    mejorModificacion = fechaModificacion
+                ElseIf fechaCreacion > mejorCreacion Then
+                    mejorArchivo = archivo.Path
+                    mejorCreacion = fechaCreacion
+                    mejorModificacion = fechaModificacion
+                ElseIf fechaCreacion = mejorCreacion Then
+                    If fechaModificacion > mejorModificacion Then
+                        mejorArchivo = archivo.Path
+                        mejorCreacion = fechaCreacion
+                        mejorModificacion = fechaModificacion
+                    End If
                 End If
+
             End If
         End If
     Next archivo
+
+    ObtenerArchivoMasRecientePorFechaCreacion = mejorArchivo
 
     If Len(ObtenerArchivoMasRecientePorFechaCreacion) = 0 Then
         Err.Raise vbObjectError + 1902, "ObtenerArchivoMasRecientePorFechaCreacion", "No se encontró archivo xls/xlsx/xlsm en carpeta de asignados: " & carpeta
@@ -285,4 +310,84 @@ Public Function ObtenerArchivoMasRecientePorFechaCreacion(ByVal carpeta As Strin
     Exit Function
 EH:
     Err.Raise Err.Number, "ObtenerArchivoMasRecientePorFechaCreacion", "Error buscando archivo por fecha de creación en: " & carpeta & " | " & Err.Description
+End Function
+
+Public Function DiagnosticoArchivosAsignados(ByVal carpeta As String) As String
+    On Error GoTo EH
+    Dim fso As Object
+    Dim folderObj As Object
+    Dim archivo As Object
+    Dim mejorArchivo As String
+    Dim mejorCreacion As Date
+    Dim mejorModificacion As Date
+    Dim ext As String
+    Dim fechaCreacion As Date
+    Dim fechaModificacion As Date
+    Dim motivoSeleccion As String
+    Dim detalle As String
+    Dim seleccionado As String
+    Dim motivoFila As String
+
+    Set fso = CreateObject("Scripting.FileSystemObject")
+
+    If Not fso.FolderExists(carpeta) Then
+        DiagnosticoArchivosAsignados = "Carpeta no existe: " & carpeta
+        Exit Function
+    End If
+
+    Set folderObj = fso.GetFolder(carpeta)
+
+    For Each archivo In folderObj.Files
+        ext = LCase$(fso.GetExtensionName(archivo.Name))
+        If Left$(archivo.Name, 2) <> "~$" Then
+            If ext = "xls" Or ext = "xlsx" Or ext = "xlsm" Then
+                fechaCreacion = archivo.DateCreated
+                fechaModificacion = archivo.DateLastModified
+
+                If Len(mejorArchivo) = 0 Then
+                    mejorArchivo = archivo.Path
+                    mejorCreacion = fechaCreacion
+                    mejorModificacion = fechaModificacion
+                    motivoSeleccion = "mayor DateCreated"
+                ElseIf fechaCreacion > mejorCreacion Then
+                    mejorArchivo = archivo.Path
+                    mejorCreacion = fechaCreacion
+                    mejorModificacion = fechaModificacion
+                    motivoSeleccion = "mayor DateCreated"
+                ElseIf fechaCreacion = mejorCreacion Then
+                    If fechaModificacion > mejorModificacion Then
+                        mejorArchivo = archivo.Path
+                        mejorCreacion = fechaCreacion
+                        mejorModificacion = fechaModificacion
+                        motivoSeleccion = "desempate por DateLastModified"
+                    End If
+                End If
+            End If
+        End If
+    Next archivo
+
+    For Each archivo In folderObj.Files
+        ext = LCase$(fso.GetExtensionName(archivo.Name))
+        If Left$(archivo.Name, 2) <> "~$" Then
+            If ext = "xls" Or ext = "xlsx" Or ext = "xlsm" Then
+                seleccionado = IIf(StrComp(archivo.Path, mejorArchivo, vbTextCompare) = 0, "SI", "NO")
+                motivoFila = ""
+                If seleccionado = "SI" Then motivoFila = motivoSeleccion
+
+                detalle = detalle & archivo.Name & _
+                          " | DateCreated=" & Format$(archivo.DateCreated, "yyyy-mm-dd hh:nn:ss") & _
+                          " | DateLastModified=" & Format$(archivo.DateLastModified, "yyyy-mm-dd hh:nn:ss") & _
+                          " | SELECCIONADO=" & seleccionado & _
+                          IIf(Len(motivoFila) > 0, " | Motivo=" & motivoFila, "") & vbCrLf
+            End If
+        End If
+    Next archivo
+
+    DiagnosticoArchivosAsignados = "Carpeta: " & carpeta & vbCrLf & _
+                                   "Archivo seleccionado: " & IIf(Len(mejorArchivo) > 0, mejorArchivo, "(ninguno)") & vbCrLf & _
+                                   "Criterio: mayor DateCreated; si empata, mayor DateLastModified" & vbCrLf & _
+                                   detalle
+    Exit Function
+EH:
+    Err.Raise Err.Number, "DiagnosticoArchivosAsignados", "Error armando diagnóstico de asignados en: " & carpeta & " | " & Err.Description
 End Function
