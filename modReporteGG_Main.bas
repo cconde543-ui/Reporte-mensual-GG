@@ -49,6 +49,10 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     procedimiento = "Generar_Reporte_GG_Desde_Panel"
     Debug.Print "Inicio Generar_Reporte_GG_Desde_Panel: " & Now
 
+    On Error Resume Next
+    If Len(ThisWorkbook.Path) > 0 Then ChDir ThisWorkbook.Path
+    On Error GoTo EH
+
     etapaActual = "leyendo parámetros del panel"
     Set wsPanel = ObtenerHojaPanelReportes()
 
@@ -76,22 +80,22 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     Set dictPorcEjec = CreateObject("Scripting.Dictionary")
 
     etapaActual = "buscando archivo de ejecuciones"
-    archivoEjec = ObtenerArchivoMasReciente(RUTA_CARPETA_EJECUCIONES)
+    archivoEjec = ObtenerArchivoMasReciente(RutaCarpetaEjecucionesActiva())
     If Len(archivoEjec) = 0 Then
-        Err.Raise vbObjectError + 102, procedimiento, "No se encontró archivo de ejecuciones en: " & RUTA_CARPETA_EJECUCIONES
+        Err.Raise vbObjectError + 102, procedimiento, "No se encontró archivo de ejecuciones en: " & RutaCarpetaEjecucionesActiva()
     End If
 
     etapaActual = "buscando codiguera"
-    archivoCod = ResolverArchivoCodiguera(RUTA_CODIGUERA)
+    archivoCod = ResolverArchivoCodiguera(RutaCodigueraActiva())
     If Len(archivoCod) = 0 Then
-        Err.Raise vbObjectError + 103, procedimiento, "No se encontró archivo de codiguera en: " & RUTA_CODIGUERA
+        Err.Raise vbObjectError + 103, procedimiento, "No se encontró archivo de codiguera en: " & RutaCodigueraActiva()
     End If
 
     etapaActual = "buscando asignados por fecha de creación"
-    archivoAsignados = ObtenerArchivoMasRecientePorFechaCreacion(RUTA_CARPETA_ASIGNADOS_GASTOS)
+    archivoAsignados = ObtenerArchivoMasRecientePorFechaCreacion(RutaCarpetaAsignadosGastosActiva())
 
     If Len(archivoAsignados) = 0 Then
-        Err.Raise vbObjectError + 117, procedimiento, "No se encontró archivo de asignados en: " & RUTA_CARPETA_ASIGNADOS_GASTOS
+        Err.Raise vbObjectError + 117, procedimiento, "No se encontró archivo de asignados en: " & RutaCarpetaAsignadosGastosActiva()
     End If
 
     archivoAsignadosMsg = archivoAsignados
@@ -221,7 +225,7 @@ EH:
     If Len(rutaFinal) > 0 Then
         salidaMsg = rutaFinal
     Else
-        salidaMsg = RUTA_REPORTES_GENERADOS
+        salidaMsg = RutaReportesGeneradosActiva()
     End If
 
     msg = "Error al generar reporte." & vbCrLf & vbCrLf & _
@@ -240,7 +244,9 @@ EH:
           "Archivo ejecuciones: " & archivoEjecMsg & vbCrLf & _
           "Archivo codiguera: " & archivoCodMsg & vbCrLf & _
           "Archivo asignados: " & archivoAsignadosMsg & vbCrLf & _
-          "Salida: " & salidaMsg
+          "Salida: " & salidaMsg & vbCrLf & _
+          "Carpeta base local: " & ThisWorkbook.Path & vbCrLf & _
+          DiagnosticoRutasActivas()
 
     Debug.Print String(100, "-")
     Debug.Print msg
@@ -388,11 +394,13 @@ End Sub
 
 Public Function GuardarReporteLiviano(ByVal wbOut As Workbook, ByVal anio As Long, ByVal mesNum As Long) As String
     Dim ruta As String, fileName As String
+    Dim carpetaSalida As String
     On Error GoTo EH
 
-    AsegurarCarpetaExiste RUTA_REPORTES_GENERADOS
+    carpetaSalida = RutaReportesGeneradosActiva()
+    AsegurarCarpetaExiste carpetaSalida
     fileName = "Informe_GG_Ejecucion_Mensual_" & anio & "_" & Format$(mesNum, "00") & "_" & Format$(Now, "yyyymmdd_hhnn") & ".xlsx"
-    ruta = RUTA_REPORTES_GENERADOS & "\" & fileName
+    ruta = CombinarRuta(carpetaSalida, fileName)
     wbOut.SaveAs ruta, xlOpenXMLWorkbook
     GuardarReporteLiviano = ruta
     Exit Function
