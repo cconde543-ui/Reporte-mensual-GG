@@ -602,9 +602,6 @@ Public Sub CrearHojaPorcEjecucion(ByVal wbOut As Workbook, ByVal wsBase As Works
     ConfigurarCampoPivotSeguro pt, "Clasificación", xlRowField, 1
     ConfigurarCampoPivotSeguro pt, "Tipo", xlRowField, 2
     ConfigurarCampoPivotSeguro pt, "Concepto", xlRowField, 3
-    etapaVisual = "configurando filtro Financiamiento % ejecución"
-    ConfigurarCampoPivotSeguro pt, "Financiamiento", xlPageField, 1
-
     etapaVisual = "validando campos de valores % ejecución"
     If Not PivotFieldExiste(pt, "Ejecutado") Then
         Err.Raise vbObjectError + 1301, "CrearHojaPorcEjecucion", "No existe el campo 'Ejecutado' en Base_Porc_Ejec."
@@ -627,6 +624,12 @@ Public Sub CrearHojaPorcEjecucion(ByVal wbOut As Workbook, ByVal wsBase As Works
     Call AgregarDataFieldSeguro(pt, "% de ejecución", " % ejec.", xlSum, "0.0%")
 
     pt.RefreshTable
+
+    If PivotFieldExiste(pt, "Financiamiento") Then
+        On Error Resume Next
+        pt.PivotFields("Financiamiento").Orientation = xlHidden
+        On Error GoTo EH
+    End If
 
     pt.RowAxisLayout xlCompactRow
     pt.DisplayFieldCaptions = False
@@ -731,11 +734,17 @@ Private Sub AjustarEncabezadoVisualAlPivot(ByVal ws As Worksheet, ByVal pt As Pi
     Dim lastPivotCol As Long
     Dim rngBanda As Range, rngTitulo As Range, shp As Shape
     If pt Is Nothing Then Exit Sub
-    lastPivotCol = pt.TableRange2.Column + pt.TableRange2.Columns.Count - 1
+    lastPivotCol = pt.TableRange1.Column + pt.TableRange1.Columns.Count - 1
     Set rngBanda = ws.Range(ws.Cells(1, 1), ws.Cells(1, lastPivotCol))
     Set rngTitulo = ws.Range(ws.Cells(3, 1), ws.Cells(3, lastPivotCol))
 
     ws.Rows(1).RowHeight = 50.25: ws.Rows(2).RowHeight = 15: ws.Rows(3).RowHeight = 24
+    If Not Intersect(rngTitulo, pt.TableRange2) Is Nothing Then
+        Err.Raise vbObjectError + 1501, "AjustarEncabezadoVisualAlPivot", _
+            "El rango del título " & rngTitulo.Address(False, False) & _
+            " intersecta con la tabla dinámica " & pt.TableRange2.Address(False, False) & _
+            ". No se puede fusionar el encabezado porque afectaría la PivotTable."
+    End If
     rngTitulo.UnMerge: rngTitulo.Merge
     rngTitulo.Value = titulo
     With rngTitulo
