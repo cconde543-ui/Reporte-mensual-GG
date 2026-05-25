@@ -124,6 +124,16 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     LeerEjecucionesYAcumular wsE, anio, mesCierre, dictCod, dictAgg, diag
     LeerAsignadosYAcumular wsA, dictCod, dictLlavesCodiguera, dictAsignado, diag, wbC, anio, archivoAsignados
 
+    If dictAsignado.Count = 0 Then
+        Err.Raise vbObjectError + 1250, procedimiento, _
+            "No se acumuló ningún asignado. Revise archivo de asignados, año, claves presupuestales e Incluir_en_Informe. Archivo: " & archivoAsignados
+    End If
+
+    If SumaValoresDiccionario(dictAsignado) = 0 Then
+        Err.Raise vbObjectError + 1251, procedimiento, _
+            "El total asignado acumulado es cero. La hoja % ejecución no puede generarse correctamente. Archivo: " & archivoAsignados
+    End If
+
     If diag.Exists("asignados_faltantes") Then
         etapaActual = "guardando codiguera por nuevas llaves de asignados"
         wbC.Save
@@ -265,6 +275,10 @@ End Sub
 Public Sub LeerAsignadosYAcumular(ByVal ws As Worksheet, ByVal dictCod As Object, ByVal dictLlavesCodiguera As Object, ByRef dictAsignado As Object, ByRef diag As Object, Optional ByVal wbCodiguera As Workbook, Optional ByVal anioFiltro As Long = 0, Optional ByVal archivoAsignados As String = "")
     Dim arr As Variant, headers As Object, i As Long, clave As String, info As Variant, keyAgg As String, monto As Double
     Dim colAnio As Long, anioFila As Long
+    Dim filasAsignadosLeidas As Long, filasAsignadosAnio As Long
+    Dim filasAsignadosConClaveEnDictCod As Long, filasAsignadosClaveExistePeroNoIncluida As Long, filasAsignadosNuevas As Long
+    Dim sumaAsignadoArchivo As Double, sumaAsignadoAcumulado As Double
+
     arr = ws.Range(ws.Cells(1, 1), ws.Cells(UltimaFilaConDatos(ws), UltimaColConDatos(ws))).Value2
     Set headers = MapearEncabezados(arr)
 
@@ -272,25 +286,49 @@ Public Sub LeerAsignadosYAcumular(ByVal ws As Worksheet, ByVal dictCod As Object
     colAnio = ObtenerColumnaOpcional(headers, Array("año", "anio", "ejercicio", "ej"))
 
     For i = 2 To UBound(arr, 1)
+        filasAsignadosLeidas = filasAsignadosLeidas + 1
+
+        monto = CDbl(0 + arr(i, ObtenerColumna(headers, Array("asignado"))))
+        sumaAsignadoArchivo = sumaAsignadoArchivo + monto
+
         If colAnio > 0 And anioFiltro > 0 Then
             If IsNumeric(arr(i, colAnio)) Then
                 anioFila = CLng(arr(i, colAnio))
                 If anioFila <> anioFiltro Then GoTo SiguienteFila
             End If
         End If
+
+        filasAsignadosAnio = filasAsignadosAnio + 1
         clave = ConstruirClaveLlavePresupuestalCodiguera(arr(i, ObtenerColumna(headers, Array("finac"))), arr(i, ObtenerColumna(headers, Array("der-f"))), arr(i, ObtenerColumna(headers, Array("pg"))), arr(i, ObtenerColumna(headers, Array("spg"))), arr(i, ObtenerColumna(headers, Array("proy"))), arr(i, ObtenerColumna(headers, Array("rubro"))), arr(i, ObtenerColumna(headers, Array("r. aux"))), arr(i, ObtenerColumna(headers, Array("ue"))), arr(i, ObtenerColumna(headers, Array("dep"))), arr(i, ObtenerColumna(headers, Array("obra"))), arr(i, ObtenerColumna(headers, Array("der. obra"))), arr(i, ObtenerColumna(headers, Array("serv"))), arr(i, ObtenerColumna(headers, Array("sniip"))))
+
         If dictCod.Exists(clave) Then
             info = dictCod(clave)
             keyAgg = CStr(info(0)) & "|" & CStr(info(1)) & "|" & CStr(info(2)) & "|" & CStr(info(3))
-            monto = CDbl(0 + arr(i, ObtenerColumna(headers, Array("asignado"))))
             If Not dictAsignado.Exists(keyAgg) Then dictAsignado.Add keyAgg, 0#
             dictAsignado(keyAgg) = dictAsignado(keyAgg) + monto
-        ElseIf Not dictLlavesCodiguera.Exists(clave) Then
+            sumaAsignadoAcumulado = sumaAsignadoAcumulado + monto
+            filasAsignadosConClaveEnDictCod = filasAsignadosConClaveEnDictCod + 1
+        ElseIf dictLlavesCodiguera.Exists(clave) Then
+            filasAsignadosClaveExistePeroNoIncluida = filasAsignadosClaveExistePeroNoIncluida + 1
+        Else
+            filasAsignadosNuevas = filasAsignadosNuevas + 1
             RegistrarYAgregarLlaveAsignadoFaltante wbCodiguera, diag, clave, arr, headers, i, archivoAsignados
             If Not dictLlavesCodiguera.Exists(clave) Then dictLlavesCodiguera.Add clave, True
         End If
 SiguienteFila:
     Next i
+
+    diag("asignados_resumen") = Array( _
+        archivoAsignados, _
+        filasAsignadosLeidas, _
+        filasAsignadosAnio, _
+        filasAsignadosConClaveEnDictCod, _
+        filasAsignadosClaveExistePeroNoIncluida, _
+        filasAsignadosNuevas, _
+        sumaAsignadoArchivo, _
+        sumaAsignadoAcumulado, _
+        dictAsignado.Count _
+    )
 End Sub
 
 Public Sub LeerCodiguera(ByVal ws As Worksheet, ByRef dictCod As Object, ByRef dictLlavesCodiguera As Object, ByRef diag As Object)
@@ -423,10 +461,22 @@ Public Sub EscribirDiagnostico(ByVal wb As Workbook, ByVal diag As Object, ByVal
     ws.Cells(3, 1).Value = "Archivo codiguera": ws.Cells(3, 2).Value = archivoCod
     ws.Cells(4, 1).Value = "Año": ws.Cells(4, 2).Value = anio
     ws.Cells(5, 1).Value = "Mes cierre": ws.Cells(5, 2).Value = mesNum
+    If diag.Exists("asignados_resumen") Then
+        it = diag("asignados_resumen")
+        ws.Cells(7, 1).Value = "Archivo asignados detectado": ws.Cells(7, 2).Value = it(0)
+        ws.Cells(8, 1).Value = "Filas archivo asignados": ws.Cells(8, 2).Value = it(1)
+        ws.Cells(9, 1).Value = "Filas usadas año seleccionado": ws.Cells(9, 2).Value = it(2)
+        ws.Cells(10, 1).Value = "Filas con clave en dictCod": ws.Cells(10, 2).Value = it(3)
+        ws.Cells(11, 1).Value = "Filas clave en codiguera no incluidas": ws.Cells(11, 2).Value = it(4)
+        ws.Cells(12, 1).Value = "Filas nuevas": ws.Cells(12, 2).Value = it(5)
+        ws.Cells(13, 1).Value = "Total Asignado leído": ws.Cells(13, 2).Value = it(6)
+        ws.Cells(14, 1).Value = "Total Asignado acumulado": ws.Cells(14, 2).Value = it(7)
+        ws.Cells(15, 1).Value = "Claves acumuladas dictAsignado": ws.Cells(15, 2).Value = it(8)
+    End If
     If diag.Exists("asignados_faltantes") Then
-        ws.Cells(8, 1).Value = "Llaves de asignados no encontradas en codiguera"
-        ws.Range("A9:S9").Value = Array("Origen", "Archivo", "Fila origen", "Clave normalizada", "Llave presupuestal", "Finac", "Der-F", "PG", "Spg", "Proy", "Rubro", "R. Aux", "UE", "Dep", "Obra", "Der. Obra", "Serv", "SNIIP", "Estado")
-        f = 10
+        ws.Cells(17, 1).Value = "Llaves de asignados no encontradas en codiguera"
+        ws.Range("A18:S18").Value = Array("Origen", "Archivo", "Fila origen", "Clave normalizada", "Llave presupuestal", "Finac", "Der-F", "PG", "Spg", "Proy", "Rubro", "R. Aux", "UE", "Dep", "Obra", "Der. Obra", "Serv", "SNIIP", "Estado")
+        f = 19
         Set d = diag("asignados_faltantes")
         For Each k In d.Keys
             it = d(k)
@@ -436,6 +486,13 @@ Public Sub EscribirDiagnostico(ByVal wb As Workbook, ByVal diag As Object, ByVal
     End If
     ws.Columns("A:B").AutoFit
 End Sub
+
+Private Function SumaValoresDiccionario(ByVal d As Object) As Double
+    Dim k As Variant
+    For Each k In d.Keys
+        SumaValoresDiccionario = SumaValoresDiccionario + CDbl(d(k))
+    Next k
+End Function
 
 Private Function ObtenerColumnaOpcional(ByVal headers As Object, ByVal aliases As Variant) As Long
     Dim i As Long, a As String
