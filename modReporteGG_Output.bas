@@ -809,8 +809,10 @@ End Sub
 Private Function CampoCalculadoExiste(ByVal pt As PivotTable, ByVal nombreCampo As String) As Boolean
     Dim pf As PivotField
 
+    If pt Is Nothing Then Exit Function
+
     On Error Resume Next
-    Set pf = pt.CalculatedFields(nombreCampo)
+    Set pf = pt.PivotFields(nombreCampo)
     CampoCalculadoExiste = Not pf Is Nothing
     Set pf = Nothing
     On Error GoTo 0
@@ -835,7 +837,7 @@ Private Sub AgregarDataFieldCalculadoSeguro( _
         Err.Raise vbObjectError + 1461, "AgregarDataFieldCalculadoSeguro", "No existe el campo calculado '" & calculatedFieldName & "'."
     End If
 
-    Set pfSource = pt.CalculatedFields(calculatedFieldName)
+    Set pfSource = pt.PivotFields(calculatedFieldName)
 
     nAntes = pt.DataFields.Count
 
