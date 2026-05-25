@@ -303,18 +303,23 @@ End Sub
 
 Private Sub InsertarLogoBPS(ByVal ws As Worksheet)
     Dim shp As Shape
-    Dim logoH As Double, logoW As Double, topPos As Double, leftPos As Double
+    Dim logoH As Double
+    Dim logoW As Double
+    Dim topPos As Double
+    Dim leftPos As Double
     Dim rngBandaSuperior As Range
+    Dim rutaLogo As String
 
     On Error Resume Next
     ws.Shapes("imgLogoBPS").Delete
     On Error GoTo 0
 
-    If Dir$(LOGO_BPS_PATH, vbNormal) = "" Then Exit Sub
+    rutaLogo = RutaLogoBPSActiva()
+    If Len(rutaLogo) = 0 Then Exit Sub
 
     On Error GoTo EH
     logoH = ws.Rows(1).Height - 6
-    Set shp = ws.Shapes.AddPicture(LOGO_BPS_PATH, msoFalse, msoTrue, 0, 0, -1, logoH)
+    Set shp = ws.Shapes.AddPicture(rutaLogo, msoFalse, msoTrue, 0, 0, -1, logoH)
     shp.Name = "imgLogoBPS"
     shp.LockAspectRatio = msoTrue
     logoW = shp.Width
@@ -327,7 +332,75 @@ Private Sub InsertarLogoBPS(ByVal ws As Worksheet)
     shp.Placement = xlMove
     Exit Sub
 EH:
+    'Si falla el logo, no romper el reporte.
 End Sub
+
+Private Function ArchivoExisteSeguro(ByVal ruta As String) As Boolean
+    On Error GoTo Salida
+
+    Dim fso As Object
+
+    If Len(Trim$(ruta)) = 0 Then Exit Function
+
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    ArchivoExisteSeguro = fso.FileExists(ruta)
+
+Salida:
+End Function
+
+Private Function CarpetaPadreLocalOutput() As String
+    On Error GoTo Salida
+
+    Dim fso As Object
+
+    If Len(ThisWorkbook.Path) = 0 Then Exit Function
+
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    CarpetaPadreLocalOutput = fso.GetParentFolderName(ThisWorkbook.Path)
+
+Salida:
+End Function
+
+Private Function RutaLogoBPSActiva() As String
+    Dim base As String
+    Dim padre As String
+    Dim candidatos As Variant
+    Dim i As Long
+
+    base = ThisWorkbook.Path
+    padre = CarpetaPadreLocalOutput()
+
+    candidatos = Array( _
+        LOGO_BPS_PATH, _
+        base & "\Logo_BPS.jpg", _
+        base & "\Logo_BPS.png", _
+        base & "\Logo BPS.jpg", _
+        base & "\Logo BPS.png", _
+        base & "\Recursos\Logo_BPS.jpg", _
+        base & "\Recursos\Logo_BPS.png", _
+        base & "\Imagenes\Logo_BPS.jpg", _
+        base & "\Imagenes\Logo_BPS.png", _
+        base & "\Imágenes\Logo_BPS.jpg", _
+        base & "\Imágenes\Logo_BPS.png", _
+        padre & "\Logo_BPS.jpg", _
+        padre & "\Logo_BPS.png", _
+        padre & "\Logo BPS.jpg", _
+        padre & "\Logo BPS.png", _
+        padre & "\Recursos\Logo_BPS.jpg", _
+        padre & "\Recursos\Logo_BPS.png", _
+        padre & "\Imagenes\Logo_BPS.jpg", _
+        padre & "\Imagenes\Logo_BPS.png", _
+        padre & "\Imágenes\Logo_BPS.jpg", _
+        padre & "\Imágenes\Logo_BPS.png" _
+    )
+
+    For i = LBound(candidatos) To UBound(candidatos)
+        If ArchivoExisteSeguro(CStr(candidatos(i))) Then
+            RutaLogoBPSActiva = CStr(candidatos(i))
+            Exit Function
+        End If
+    Next i
+End Function
 
 Private Sub OrdenarMesesPivot(ByVal pt As PivotTable, ByVal campoMesNombre As String, ByVal campoMesNum As String)
     Dim pfNom As PivotField, pfNum As PivotField, m As Variant, i As Long
@@ -767,11 +840,32 @@ Private Sub AjustarEncabezadoVisualAlPivot(ByVal ws As Worksheet, ByVal pt As Pi
 End Sub
 
 Private Sub InsertarLogoBPS_EnRango(ByVal ws As Worksheet, ByVal rngBanda As Range)
-    Dim shp As Shape, logoH As Double
-    If Dir$(LOGO_BPS_PATH, vbNormal) = "" Then Exit Sub
+    Dim shp As Shape
+    Dim logoH As Double
+    Dim rutaLogo As String
+
+    If ws Is Nothing Then Exit Sub
+    If rngBanda Is Nothing Then Exit Sub
+
+    On Error Resume Next
+    ws.Shapes("imgLogoBPS").Delete
+    On Error GoTo 0
+
+    rutaLogo = RutaLogoBPSActiva()
+    If Len(rutaLogo) = 0 Then Exit Sub
+
+    On Error GoTo EH
+
     logoH = ws.Rows(1).Height - 6
-    Set shp = ws.Shapes.AddPicture(LOGO_BPS_PATH, msoFalse, msoTrue, 0, 0, -1, logoH)
-    shp.Name = "imgLogoBPS": shp.LockAspectRatio = msoTrue
+    Set shp = ws.Shapes.AddPicture(rutaLogo, msoFalse, msoTrue, 0, 0, -1, logoH)
+
+    shp.Name = "imgLogoBPS"
+    shp.LockAspectRatio = msoTrue
     shp.Top = ws.Rows(1).Top + (ws.Rows(1).Height - shp.Height) / 2
     shp.Left = rngBanda.Left + rngBanda.Width - shp.Width - 6
+    shp.Placement = xlMove
+
+    Exit Sub
+EH:
+    'Si falla el logo, no romper el reporte.
 End Sub
