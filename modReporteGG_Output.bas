@@ -480,15 +480,39 @@ End Sub
 
 Private Sub CrearHojaReporteVisual(ByVal ws As Worksheet, ByVal anio As Long, ByVal mesCierre As Long)
     PrepararHojaReporte ws
+    OcultarGridlinesHoja ws
     ws.Columns("A").ColumnWidth = 28
     ArmarEncabezadoVisual ws, anio, mesCierre
+    OcultarGridlinesHoja ws
+End Sub
+
+Private Sub OcultarGridlinesHoja(ByVal ws As Worksheet)
+    On Error Resume Next
     ws.Activate
     If Not ActiveWindow Is Nothing Then ActiveWindow.DisplayGridlines = False
+    On Error GoTo 0
 End Sub
+
+Private Function NombreObjetoSeguro(ByVal texto As String) As String
+    Dim s As String
+    s = texto
+    s = Replace(s, " ", "_")
+    s = Replace(s, "%", "pct")
+    s = Replace(s, ".", "_")
+    s = Replace(s, "-", "_")
+    s = Replace(s, "/", "_")
+    s = Replace(s, "\", "_")
+    s = Replace(s, "á", "a")
+    s = Replace(s, "é", "e")
+    s = Replace(s, "í", "i")
+    s = Replace(s, "ó", "o")
+    s = Replace(s, "ú", "u")
+    s = Replace(s, "ñ", "n")
+    NombreObjetoSeguro = s
+End Function
 
 Private Sub AgregarSlicerFinanciamiento(ByVal wb As Workbook, ByVal ws As Worksheet, ByVal pt As PivotTable)
     Const CAMPO_FINANCIAMIENTO As String = "Financiamiento"
-    Const NOMBRE_SLICER As String = "slFinanciamiento"
 
     Dim sc As SlicerCache
     Dim sl As Slicer
@@ -496,6 +520,8 @@ Private Sub AgregarSlicerFinanciamiento(ByVal wb As Workbook, ByVal ws As Worksh
     Dim leftPos As Double
     Dim ancho As Double
     Dim alto As Double
+    Dim nombreSlicer As String
+    Dim nombreCache As String
 
     On Error GoTo SalidaSilenciosa
 
@@ -504,23 +530,29 @@ Private Sub AgregarSlicerFinanciamiento(ByVal wb As Workbook, ByVal ws As Worksh
     If pt Is Nothing Then Exit Sub
     If Not PivotFieldExiste(pt, CAMPO_FINANCIAMIENTO) Then Exit Sub
 
+    nombreSlicer = "slFinanciamiento_" & NombreObjetoSeguro(ws.Name)
+    nombreCache = "scFinanciamiento_" & NombreObjetoSeguro(ws.Name)
+
     On Error Resume Next
-    ws.Shapes(NOMBRE_SLICER).Delete
+    ws.Shapes(nombreSlicer).Delete
     On Error GoTo SalidaSilenciosa
 
-    Set sc = CrearSlicerCacheParaCampo(wb, pt, CAMPO_FINANCIAMIENTO)
+    Set sc = Nothing
+    On Error Resume Next
+    Set sc = wb.SlicerCaches.Add2(pt, CAMPO_FINANCIAMIENTO, nombreCache)
+    If sc Is Nothing Then
+        Err.Clear
+        Set sc = wb.SlicerCaches.Add(pt, CAMPO_FINANCIAMIENTO)
+    End If
+    On Error GoTo SalidaSilenciosa
     If sc Is Nothing Then Exit Sub
-
-    On Error Resume Next
-    sc.PivotTables.AddPivotTable pt
-    On Error GoTo SalidaSilenciosa
 
     topPos = ws.Range("A5").Top
     leftPos = ws.Range("A5").Left
     ancho = ws.Range("A:A").Width
-    alto = 180
+    alto = ws.Range("A5:A14").Height
 
-    Set sl = sc.Slicers.Add(ws, , NOMBRE_SLICER, "Financiamiento", topPos, leftPos, ancho, alto)
+    Set sl = sc.Slicers.Add(ws, , nombreSlicer, "Financiamiento", topPos, leftPos, ancho, alto)
 
     With sl
         .Caption = "Financiamiento"
@@ -528,35 +560,13 @@ Private Sub AgregarSlicerFinanciamiento(ByVal wb As Workbook, ByVal ws As Worksh
         .Top = topPos
         .Left = leftPos
         .Width = ancho
-        .Height = alto
+        .Height = ws.Range("A5:A14").Height
         .NumberOfColumns = 1
     End With
 
 SalidaSilenciosa:
 End Sub
 
-Private Function CrearSlicerCacheParaCampo(ByVal wb As Workbook, ByVal pt As PivotTable, ByVal nombreCampo As String) As SlicerCache
-    Dim sc As SlicerCache
-
-    On Error Resume Next
-
-    For Each sc In wb.SlicerCaches
-        If StrComp(sc.SourceName, nombreCampo, vbTextCompare) = 0 Then
-            Set CrearSlicerCacheParaCampo = sc
-            Exit Function
-        End If
-    Next sc
-
-    Err.Clear
-    Set CrearSlicerCacheParaCampo = wb.SlicerCaches.Add2(pt, nombreCampo)
-
-    If CrearSlicerCacheParaCampo Is Nothing Then
-        Err.Clear
-        Set CrearSlicerCacheParaCampo = wb.SlicerCaches.Add(pt, nombreCampo)
-    End If
-
-    On Error GoTo 0
-End Function
 
 Private Sub NormalizarYValidarMesesBase(ByVal wsBase As Worksheet)
     Dim colMesNum As Long, colMesNombre As Long, lastRow As Long, i As Long
@@ -663,6 +673,7 @@ Public Sub CrearHojaPorcEjecucion(ByVal wbOut As Workbook, ByVal wsBase As Works
     Set ws = wbOut.Worksheets.Add(After:=wbOut.Worksheets(wbOut.Worksheets.Count))
     ws.Name = "% ejecución " & anio
     PrepararHojaReporte ws
+    OcultarGridlinesHoja ws
     ws.Columns("A").ColumnWidth = 28
 
     Set rg = wsBase.Range("A1").CurrentRegion
@@ -685,7 +696,7 @@ Public Sub CrearHojaPorcEjecucion(ByVal wbOut As Workbook, ByVal wsBase As Works
 
     etapaVisual = "creando campo calculado % ejecución"
     If Not PivotFieldExiste(pt, "% de ejecución") Then
-        pt.CalculatedFields.Add "% de ejecución", "=Ejecutado/Asignado"
+        pt.CalculatedFields.Add "% de ejecución", "=IF(Asignado=0,0,Ejecutado/Asignado)"
     End If
     If Not PivotFieldExiste(pt, "% de ejecución") Then
         Err.Raise vbObjectError + 1303, "CrearHojaPorcEjecucion", "No se pudo crear el campo calculado '% de ejecución'."
@@ -694,7 +705,7 @@ Public Sub CrearHojaPorcEjecucion(ByVal wbOut As Workbook, ByVal wsBase As Works
     etapaVisual = "agregando valores % ejecución"
     Call AgregarDataFieldSeguro(pt, "Ejecutado", "Ejecutado ", xlSum, "#,##0")
     Call AgregarDataFieldSeguro(pt, "Asignado", "Asignado " & CStr(anio), xlSum, "#,##0")
-    Call AgregarDataFieldSeguro(pt, "% de ejecución", " % ejec.", xlSum, "0.0%")
+    Call AgregarDataFieldSeguro(pt, "% de ejecución", " % ejec.", xlSum, "0.0%;-0.0%;;@")
 
     pt.RefreshTable
 
