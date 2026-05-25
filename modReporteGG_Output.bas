@@ -694,18 +694,18 @@ Public Sub CrearHojaPorcEjecucion(ByVal wbOut As Workbook, ByVal wsBase As Works
         Err.Raise vbObjectError + 1302, "CrearHojaPorcEjecucion", "No existe el campo 'Asignado' en Base_Porc_Ejec."
     End If
 
-    etapaVisual = "creando campo calculado % ejecución"
-    If Not PivotFieldExiste(pt, "% de ejecución") Then
-        pt.CalculatedFields.Add "% de ejecución", "=IF(Asignado=0,0,Ejecutado/Asignado)"
-    End If
-    If Not PivotFieldExiste(pt, "% de ejecución") Then
-        Err.Raise vbObjectError + 1303, "CrearHojaPorcEjecucion", "No se pudo crear el campo calculado '% de ejecución'."
-    End If
-
     etapaVisual = "agregando valores % ejecución"
     Call AgregarDataFieldSeguro(pt, "Ejecutado", "Ejecutado ", xlSum, "#,##0")
     Call AgregarDataFieldSeguro(pt, "Asignado", "Asignado " & CStr(anio), xlSum, "#,##0")
-    Call AgregarDataFieldSeguro(pt, "% de ejecución", " % ejec.", xlSum, "0.0%;-0.0%;;@")
+
+    etapaVisual = "creando campo calculado % ejecución"
+    Call AsegurarCampoCalculadoPctEjec(pt)
+
+    etapaVisual = "agregando valor % ejecución"
+    Call AgregarDataFieldCalculadoSeguro(pt, "PctEjec", " % ejec.", xlSum, "0.0%;-0.0%;;@")
+
+    pt.DisplayErrorString = True
+    pt.ErrorString = ""
 
     pt.RefreshTable
 
@@ -732,6 +732,41 @@ EH:
         " | Campos disponibles pivot: " & CamposDisponiblesPivot(pt) & _
         " | Err.Number: " & CStr(Err.Number) & _
         " | Err.Description: " & Err.Description
+End Sub
+
+Private Sub AsegurarCampoCalculadoPctEjec(ByVal pt As PivotTable)
+    Const CAMPO_CALC As String = "PctEjec"
+
+    If pt Is Nothing Then
+        Err.Raise vbObjectError + 1450, "AsegurarCampoCalculadoPctEjec", "PivotTable es Nothing."
+    End If
+
+    If Not PivotFieldExiste(pt, "Ejecutado") Then
+        Err.Raise vbObjectError + 1451, "AsegurarCampoCalculadoPctEjec", "No existe el campo fuente 'Ejecutado'."
+    End If
+
+    If Not PivotFieldExiste(pt, "Asignado") Then
+        Err.Raise vbObjectError + 1452, "AsegurarCampoCalculadoPctEjec", "No existe el campo fuente 'Asignado'."
+    End If
+
+    If Not CampoCalculadoExiste(pt, CAMPO_CALC) Then
+        On Error GoTo EH_ADD
+
+        pt.CalculatedFields.Add CAMPO_CALC, "=Ejecutado/Asignado", True
+
+        On Error GoTo 0
+    End If
+
+    If Not CampoCalculadoExiste(pt, CAMPO_CALC) Then
+        Err.Raise vbObjectError + 1453, "AsegurarCampoCalculadoPctEjec", "No se pudo crear el campo calculado interno 'PctEjec'."
+    End If
+
+    Exit Sub
+
+EH_ADD:
+    Err.Raise Err.Number, "AsegurarCampoCalculadoPctEjec", _
+        "Falló pt.CalculatedFields.Add para 'PctEjec'. Fórmula usada: =Ejecutado/Asignado | Err.Number=" & CStr(Err.Number) & _
+        " | Err.Description=" & Err.Description
 End Sub
 
 Private Function AgregarDataFieldSeguro( _
@@ -770,6 +805,54 @@ Private Function AgregarDataFieldSeguro( _
     End If
 
     Set AgregarDataFieldSeguro = pfData
+End Function
+
+Private Function CampoCalculadoExiste(ByVal pt As PivotTable, ByVal nombreCampo As String) As Boolean
+    Dim pf As PivotField
+
+    On Error Resume Next
+    Set pf = pt.CalculatedFields(nombreCampo)
+    CampoCalculadoExiste = Not pf Is Nothing
+    Set pf = Nothing
+    On Error GoTo 0
+End Function
+
+Private Function AgregarDataFieldCalculadoSeguro( _
+    ByVal pt As PivotTable, _
+    ByVal calculatedFieldName As String, _
+    ByVal caption As String, _
+    ByVal funcion As XlConsolidationFunction, _
+    ByVal formatoNumero As String) As PivotField
+
+    Dim nAntes As Long
+    Dim pfSource As PivotField
+    Dim pfData As PivotField
+
+    If pt Is Nothing Then
+        Err.Raise vbObjectError + 1460, "AgregarDataFieldCalculadoSeguro", "PivotTable es Nothing."
+    End If
+
+    If Not CampoCalculadoExiste(pt, calculatedFieldName) Then
+        Err.Raise vbObjectError + 1461, "AgregarDataFieldCalculadoSeguro", "No existe el campo calculado '" & calculatedFieldName & "'."
+    End If
+
+    Set pfSource = pt.CalculatedFields(calculatedFieldName)
+
+    nAntes = pt.DataFields.Count
+
+    pt.AddDataField pfSource, caption, funcion
+
+    If pt.DataFields.Count <= nAntes Then
+        Err.Raise vbObjectError + 1462, "AgregarDataFieldCalculadoSeguro", "No se agregó el campo calculado como valor '" & caption & "'."
+    End If
+
+    Set pfData = pt.DataFields(pt.DataFields.Count)
+
+    If Len(formatoNumero) > 0 Then
+        pfData.NumberFormat = formatoNumero
+    End If
+
+    Set AgregarDataFieldCalculadoSeguro = pfData
 End Function
 
 
