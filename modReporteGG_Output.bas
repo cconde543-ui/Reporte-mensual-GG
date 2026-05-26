@@ -103,6 +103,7 @@ Public Sub CrearTablaDinamicaOSalidaAgrupada(ByVal wbOut As Workbook, ByVal wsBa
     If Not pt.DataBodyRange Is Nothing Then pt.DataBodyRange.NumberFormat = "#,##0;-#,##0;;@"
     AgregarSlicerFinanciamiento wbOut, ws, pt
     AjustarEncabezadoVisualAlPivot ws, pt, "Informe de Seguimiento Presupuestal " & UCase$(MesesES()(mesCierre - 1)) & " " & anio & " - Ejecución mensual y acumulada"
+    OcultarGridlinesHoja ws
     Exit Sub
 
 EH:
@@ -481,7 +482,7 @@ End Sub
 Private Sub CrearHojaReporteVisual(ByVal ws As Worksheet, ByVal anio As Long, ByVal mesCierre As Long)
     PrepararHojaReporte ws
     OcultarGridlinesHoja ws
-    ws.Columns("A").ColumnWidth = 28
+    ws.Columns("A").ColumnWidth = 31
     ArmarEncabezadoVisual ws, anio, mesCierre
     OcultarGridlinesHoja ws
 End Sub
@@ -520,6 +521,8 @@ Private Sub AgregarSlicerFinanciamiento(ByVal wb As Workbook, ByVal ws As Worksh
     Dim leftPos As Double
     Dim ancho As Double
     Dim alto As Double
+    Dim margenIzq As Double
+    Dim margenDer As Double
     Dim nombreSlicer As String
     Dim nombreCache As String
 
@@ -548,9 +551,12 @@ Private Sub AgregarSlicerFinanciamiento(ByVal wb As Workbook, ByVal ws As Worksh
     If sc Is Nothing Then Exit Sub
 
     topPos = ws.Range("A5").Top
-    leftPos = ws.Range("A5").Left
-    ancho = ws.Range("A:A").Width
-    alto = ws.Range("A5:A14").Height
+    margenIzq = 3
+    margenDer = 10
+    leftPos = ws.Range("A5").Left + margenIzq
+    ancho = ws.Range("A:A").Width - margenIzq - margenDer
+    If ancho < 80 Then ancho = ws.Range("A:A").Width
+    alto = ws.Range("A5:A15").Height
 
     Set sl = sc.Slicers.Add(ws, , nombreSlicer, "Financiamiento", topPos, leftPos, ancho, alto)
 
@@ -560,8 +566,11 @@ Private Sub AgregarSlicerFinanciamiento(ByVal wb As Workbook, ByVal ws As Worksh
         .Top = topPos
         .Left = leftPos
         .Width = ancho
-        .Height = ws.Range("A5:A14").Height
+        .Height = ws.Range("A5:A15").Height
+        On Error Resume Next
+        .RowHeight = 16
         .NumberOfColumns = 1
+        On Error GoTo SalidaSilenciosa
     End With
 
 SalidaSilenciosa:
@@ -674,7 +683,7 @@ Public Sub CrearHojaPorcEjecucion(ByVal wbOut As Workbook, ByVal wsBase As Works
     ws.Name = "% ejecución " & anio
     PrepararHojaReporte ws
     OcultarGridlinesHoja ws
-    ws.Columns("A").ColumnWidth = 28
+    ws.Columns("A").ColumnWidth = 31
 
     Set rg = wsBase.Range("A1").CurrentRegion
     etapaVisual = "creando PivotCache % ejecución"
@@ -725,6 +734,7 @@ Public Sub CrearHojaPorcEjecucion(ByVal wbOut As Workbook, ByVal wsBase As Works
     AgregarSlicerFinanciamiento wbOut, ws, pt
     etapaVisual = "ajustando encabezado % ejecución"
     AjustarEncabezadoVisualAlPivot ws, pt, "Informe de Seguimiento Presupuestal " & UCase$(MesesES()(mesCierre - 1)) & " " & anio & " - % de ejec. acumulada sobre la asignación presupuestal"
+    OcultarGridlinesHoja ws
     Exit Sub
 EH:
     Err.Raise Err.Number, "CrearHojaPorcEjecucion", _
@@ -905,7 +915,12 @@ Private Sub AjustarEncabezadoVisualAlPivot(ByVal ws As Worksheet, ByVal pt As Pi
     Set rngBanda = ws.Range(ws.Cells(1, 1), ws.Cells(1, lastPivotCol))
     Set rngTitulo = ws.Range(ws.Cells(3, 1), ws.Cells(3, lastPivotCol))
 
-    ws.Rows(1).RowHeight = 50.25: ws.Rows(2).RowHeight = 15: ws.Rows(3).RowHeight = 24
+    ws.Rows(1).RowHeight = 50.25: ws.Rows(2).RowHeight = 15
+    If InStr(1, ws.Name, "% ejecución", vbTextCompare) > 0 Then
+        ws.Rows(3).RowHeight = 42
+    Else
+        ws.Rows(3).RowHeight = 24
+    End If
     If Not Intersect(rngTitulo, pt.TableRange2) Is Nothing Then
         Err.Raise vbObjectError + 1501, "AjustarEncabezadoVisualAlPivot", _
             "El rango del título " & rngTitulo.Address(False, False) & _
