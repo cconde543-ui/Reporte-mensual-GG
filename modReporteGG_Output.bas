@@ -916,7 +916,9 @@ Private Sub AjustarEncabezadoVisualAlPivot(ByVal ws As Worksheet, ByVal pt As Pi
     Set rngTitulo = ws.Range(ws.Cells(3, 1), ws.Cells(3, lastPivotCol))
 
     ws.Rows(1).RowHeight = 50.25: ws.Rows(2).RowHeight = 15
-    If InStr(1, ws.Name, "% ejecución", vbTextCompare) > 0 Then
+    If InStr(1, ws.Name, "Comparativo", vbTextCompare) > 0 Then
+        ws.Rows(3).RowHeight = 33.75
+    ElseIf InStr(1, ws.Name, "% ejecución", vbTextCompare) > 0 Then
         ws.Rows(3).RowHeight = 42
     Else
         ws.Rows(3).RowHeight = 24
@@ -977,4 +979,47 @@ Private Sub InsertarLogoBPS_EnRango(ByVal ws As Worksheet, ByVal rngBanda As Ran
     Exit Sub
 EH:
     'Si falla el logo, no romper el reporte.
+End Sub
+
+Public Sub CrearHojaComparativoAnual(ByVal wbOut As Workbook, ByVal wsBase As Worksheet, ByVal anioActual As Long, ByVal anioComparativo As Long, ByVal mesCierre As Long, ByRef etapaVisual As String)
+    Dim ws As Worksheet, ptCache As PivotCache, pt As PivotTable, nombreHoja As String
+    Dim rngBase As Range, titulo As String, formulaCalc As String
+    nombreHoja = "Comparativo " & anioActual & " vs. " & anioComparativo
+    On Error Resume Next
+    Application.DisplayAlerts = False
+    wbOut.Worksheets(nombreHoja).Delete
+    Application.DisplayAlerts = True
+    On Error GoTo 0
+    Set ws = wbOut.Worksheets.Add(After:=wbOut.Worksheets(1))
+    ws.Name = nombreHoja
+    PrepararHojaReporte ws
+    ActiveWindow.DisplayGridlines = False
+    ws.Columns("A").ColumnWidth = 31
+    Set rngBase = wsBase.Range("A1").CurrentRegion
+    Set ptCache = wbOut.PivotCaches.Create(SourceType:=xlDatabase, SourceData:=rngBase)
+    Set pt = ws.PivotTables.Add(PivotCache:=ptCache, TableDestination:=ws.Range("B5"), TableName:="ptComparativoGG")
+    With pt
+        .PivotFields("Clasificación").Orientation = xlRowField
+        .PivotFields("Tipo").Orientation = xlRowField
+        .PivotFields("concepto").Orientation = xlRowField
+        .AddDataField .PivotFields("Ejecutado " & anioActual & "."), "Suma de Ejecutado " & anioActual & ".", xlSum
+        .AddDataField .PivotFields("Ejecutado " & anioComparativo & " a valores " & anioActual & "."), "Suma de Ejecutado " & anioComparativo & " a valores " & anioActual & ".", xlSum
+        formulaCalc = "=('Ejecutado " & anioActual & ".'-'Ejecutado " & anioComparativo & " a valores " & anioActual & ".')/'Ejecutado " & anioComparativo & " a valores " & anioActual & ".'"
+        On Error Resume Next
+        .CalculatedFields("PctVariacion").Delete
+        On Error GoTo 0
+        .CalculatedFields.Add "PctVariacion", formulaCalc
+    End With
+    AgregarDataFieldCalculadoSeguro pt, "PctVariacion", "% de variación ", xlSum, "0.0%;-0.0%;;@"
+    pt.DataFields(1).NumberFormat = "#,##0;-#,##0;;@"
+    pt.DataFields(2).NumberFormat = "#,##0;-#,##0;;@"
+    pt.RowAxisLayout xlCompactRow
+    pt.DisplayFieldCaptions = False
+    pt.ColumnGrand = True: pt.RowGrand = True
+    pt.NullString = "": pt.DisplayNullString = True
+    pt.DisplayErrorString = True: pt.ErrorString = ""
+    ColapsarPivotInicial pt
+    AgregarSlicerFinanciamiento wbOut, ws, pt, ws.Range("A5").Left, ws.Range("A5").Top, ws.Range("A15").Top - ws.Range("A5").Top + ws.Range("A15").Height
+    titulo = "Informe de Seguimiento Presupuestal " & UCase$(MesesES()(mesCierre - 1)) & " " & anioActual & " - Ejecución acumulada y variación anual" & SufijoUnidadTitulo()
+    AjustarEncabezadoVisualAlPivot ws, pt, titulo
 End Sub
