@@ -1064,7 +1064,7 @@ Public Sub CrearHojaComparativoAnual(ByVal wbOut As Workbook, ByVal wsBase As Wo
     pt.NullString = "": pt.DisplayNullString = True
     pt.DisplayErrorString = True: pt.ErrorString = ""
     ColapsarPivotInicial pt
-    AgregarSlicerFinanciamiento wbOut, ws, pt, ws.Range("A5").Left, ws.Range("A5").Top, ws.Range("A15").Top - ws.Range("A5").Top + ws.Range("A15").Height
+    AgregarSlicerFinanciamiento wbOut, ws, pt
     titulo = "Informe de Seguimiento Presupuestal " & UCase$(MesesES()(mesCierre - 1)) & " " & anioActual & " - Ejecución acumulada y variación anual" & SufijoUnidadTitulo()
     AjustarEncabezadoVisualAlPivot ws, pt, titulo
 End Sub
