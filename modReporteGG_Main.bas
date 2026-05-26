@@ -15,6 +15,8 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     Dim anioComparativo As Long
     Dim archivoEjecComparativo As String
     Dim archivoAsignadosComparativo As String
+    Dim carpetaEjecComparativo As String
+    Dim carpetaAsignadosComparativo As String
     Dim wbE As Workbook
     Dim wbC As Workbook
     Dim wbOut As Workbook
@@ -56,6 +58,11 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     Dim archivoCodMsg As String
     Dim archivoAsignadosMsg As String
     Dim salidaMsg As String
+    Dim archivoEjecComparativoMsg As String
+    Dim archivoAsignadosComparativoMsg As String
+    Dim carpetaEjecComparativoMsg As String
+    Dim carpetaAsignadosComparativoMsg As String
+    Dim carpetaIndicesMsg As String
 
     procedimiento = "Generar_Reporte_GG_Desde_Panel"
     Debug.Print "Inicio Generar_Reporte_GG_Desde_Panel: " & Now
@@ -142,21 +149,60 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     etapaActual = "leyendo asignados y acumulando"
     LeerAsignadosYAcumular wsA, dictCod, dictLlavesCodiguera, dictAsignado, diag, wbC, anio, archivoAsignados
 
+    etapaActual = "resolviendo carpeta ejecuciones comparativo"
+    carpetaEjecComparativo = RutaCarpetaEjecucionesAnioActiva(anioComparativo)
+    carpetaEjecComparativoMsg = carpetaEjecComparativo
+    If Len(Dir(carpetaEjecComparativo, vbDirectory)) = 0 Then
+        Err.Raise vbObjectError + 1970, procedimiento, "No existe la carpeta de ejecuciones comparativo: " & carpetaEjecComparativo
+    End If
+
     etapaActual = "buscando archivo ejecuciones comparativo"
-    archivoEjecComparativo = ObtenerArchivoMasReciente(RutaCarpetaEjecucionesAnioActiva(anioComparativo))
-    If Len(archivoEjecComparativo) = 0 Then Err.Raise vbObjectError + 1970, procedimiento, "No se encontró archivo de ejecuciones comparativo en: " & RutaCarpetaEjecucionesAnioActiva(anioComparativo)
+    archivoEjecComparativo = ObtenerArchivoMasReciente(carpetaEjecComparativo)
+    archivoEjecComparativoMsg = archivoEjecComparativo
+    If Len(archivoEjecComparativo) = 0 Then
+        Err.Raise vbObjectError + 1971, procedimiento, "No se encontró archivo de ejecuciones comparativo en: " & carpetaEjecComparativo
+    End If
     diag("archivo_ejec_comparativo") = archivoEjecComparativo
     diag("anio_comparativo") = anioComparativo
 
+    etapaActual = "resolviendo carpeta asignados comparativo"
+    carpetaAsignadosComparativo = RutaCarpetaAsignadosGastosAnioActiva(anioComparativo)
+    carpetaAsignadosComparativoMsg = carpetaAsignadosComparativo
+    If Len(Dir(carpetaAsignadosComparativo, vbDirectory)) = 0 Then
+        Err.Raise vbObjectError + 1972, procedimiento, "No existe la carpeta de asignados comparativo: " & carpetaAsignadosComparativo
+    End If
+
     etapaActual = "buscando archivo asignados comparativo"
-    archivoAsignadosComparativo = ObtenerArchivoMasRecientePorFechaCreacion(RutaCarpetaAsignadosGastosAnioActiva(anioComparativo))
-    If Len(archivoAsignadosComparativo) = 0 Then Err.Raise vbObjectError + 1971, procedimiento, "No se encontró archivo de asignados comparativo en: " & RutaCarpetaAsignadosGastosAnioActiva(anioComparativo)
+    archivoAsignadosComparativo = ObtenerArchivoMasRecientePorFechaCreacion(carpetaAsignadosComparativo)
+    archivoAsignadosComparativoMsg = archivoAsignadosComparativo
+    If Len(archivoAsignadosComparativo) = 0 Then
+        Err.Raise vbObjectError + 1973, procedimiento, "No se encontró archivo de asignados comparativo en: " & carpetaAsignadosComparativo
+    End If
     diag("archivo_asignados_comparativo") = archivoAsignadosComparativo
 
+    etapaActual = "abriendo archivo ejecuciones comparativo"
     Set wbEComp = Workbooks.Open(archivoEjecComparativo, ReadOnly:=True)
+    If wbEComp Is Nothing Then
+        Err.Raise vbObjectError + 1974, procedimiento, "Workbooks.Open devolvió Nothing para archivo de ejecuciones comparativo: " & archivoEjecComparativo
+    End If
+
+    etapaActual = "abriendo archivo asignados comparativo"
     Set wbAComp = Workbooks.Open(archivoAsignadosComparativo, ReadOnly:=True)
+    If wbAComp Is Nothing Then
+        Err.Raise vbObjectError + 1975, procedimiento, "Workbooks.Open devolvió Nothing para archivo de asignados comparativo: " & archivoAsignadosComparativo
+    End If
+
+    etapaActual = "obteniendo hoja ejecuciones comparativo"
     Set wsEComp = ObtenerHojaEjecuciones(wbEComp)
+    If wsEComp Is Nothing Then
+        Err.Raise vbObjectError + 1976, procedimiento, "No se pudo obtener hoja de ejecuciones comparativo en: " & archivoEjecComparativo
+    End If
+
+    etapaActual = "obteniendo hoja asignados comparativo"
     Set wsAComp = ObtenerHojaAsignados(wbAComp)
+    If wsAComp Is Nothing Then
+        Err.Raise vbObjectError + 1977, procedimiento, "No se pudo obtener hoja de asignados comparativo en: " & archivoAsignadosComparativo
+    End If
 
     etapaActual = "validando asignados comparativo"
     ValidarAsignadosComparativoContraCodiguera wsAComp, dictCod, dictLlavesCodiguera, dictIndicePorClave, diag, wbC, anioComparativo, archivoAsignadosComparativo
@@ -295,6 +341,8 @@ EH:
         salidaMsg = RutaReportesGeneradosActiva()
     End If
 
+    carpetaIndicesMsg = RutaCarpetaIndicesActiva()
+
     msg = "Error al generar reporte." & vbCrLf & vbCrLf & _
           "Procedimiento: " & procedimiento & vbCrLf & _
           "Etapa: " & etapaActual & vbCrLf & _
@@ -311,6 +359,11 @@ EH:
           "Archivo ejecuciones: " & archivoEjecMsg & vbCrLf & _
           "Archivo codiguera: " & archivoCodMsg & vbCrLf & _
           "Archivo asignados: " & archivoAsignadosMsg & vbCrLf & _
+          "Carpeta ejecuciones comparativo: " & IIf(Len(carpetaEjecComparativoMsg) > 0, carpetaEjecComparativoMsg, "(no determinada)") & vbCrLf & _
+          "Archivo ejecuciones comparativo: " & IIf(Len(archivoEjecComparativoMsg) > 0, archivoEjecComparativoMsg, "(no detectado)") & vbCrLf & _
+          "Carpeta asignados comparativo: " & IIf(Len(carpetaAsignadosComparativoMsg) > 0, carpetaAsignadosComparativoMsg, "(no determinada)") & vbCrLf & _
+          "Archivo asignados comparativo: " & IIf(Len(archivoAsignadosComparativoMsg) > 0, archivoAsignadosComparativoMsg, "(no detectado)") & vbCrLf & _
+          "Carpeta índices: " & carpetaIndicesMsg & vbCrLf & _
           "Salida: " & salidaMsg & vbCrLf & _
           "Carpeta base local: " & ThisWorkbook.Path & vbCrLf & _
           DiagnosticoRutasActivas()
