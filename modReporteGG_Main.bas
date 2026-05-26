@@ -363,7 +363,7 @@ EH:
           "Archivo ejecuciones comparativo: " & IIf(Len(archivoEjecComparativoMsg) > 0, archivoEjecComparativoMsg, "(no detectado)") & vbCrLf & _
           "Carpeta asignados comparativo: " & IIf(Len(carpetaAsignadosComparativoMsg) > 0, carpetaAsignadosComparativoMsg, "(no determinada)") & vbCrLf & _
           "Archivo asignados comparativo: " & IIf(Len(archivoAsignadosComparativoMsg) > 0, archivoAsignadosComparativoMsg, "(no detectado)") & vbCrLf & _
-          "Carpeta índices: " & carpetaIndicesMsg & vbCrLf & _
+          "Carpeta índices: " & RutaCarpetaIndicesActiva() & vbCrLf & _
           "Salida: " & salidaMsg & vbCrLf & _
           "Carpeta base local: " & ThisWorkbook.Path & vbCrLf & _
           DiagnosticoRutasActivas()
