@@ -12,21 +12,32 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     Dim archivoEjec As String
     Dim archivoCod As String
     Dim archivoAsignados As String
+    Dim anioComparativo As Long
+    Dim archivoEjecComparativo As String
+    Dim archivoAsignadosComparativo As String
     Dim wbE As Workbook
     Dim wbC As Workbook
     Dim wbOut As Workbook
     Dim wbA As Workbook
+    Dim wbEComp As Workbook
+    Dim wbAComp As Workbook
     Dim wsE As Worksheet
     Dim wsC As Worksheet
     Dim wsBase As Worksheet
     Dim wsA As Worksheet
     Dim wsBasePorc As Worksheet
+    Dim wsEComp As Worksheet
+    Dim wsAComp As Worksheet
+    Dim wsBaseComp As Worksheet
     Dim dictCod As Object
     Dim dictAgg As Object
     Dim dictLlavesCodiguera As Object
     Dim diag As Object
     Dim dictAsignado As Object
     Dim dictPorcEjec As Object
+    Dim dictIndicePorClave As Object
+    Dim dictCompActual As Object
+    Dim dictCompAnteriorActualizado As Object
     Dim rutaFinal As String
     Dim etapaVisual As String
     Dim hojaReporteActual As String
@@ -78,6 +89,10 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     Set diag = CreateObject("Scripting.Dictionary")
     Set dictAsignado = CreateObject("Scripting.Dictionary")
     Set dictPorcEjec = CreateObject("Scripting.Dictionary")
+    Set dictIndicePorClave = CreateObject("Scripting.Dictionary")
+    Set dictCompActual = CreateObject("Scripting.Dictionary")
+    Set dictCompAnteriorActualizado = CreateObject("Scripting.Dictionary")
+    anioComparativo = anio - 1
 
     etapaActual = "buscando archivo de ejecuciones"
     archivoEjec = ObtenerArchivoMasReciente(RutaCarpetaEjecucionesActiva())
@@ -119,12 +134,39 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
 
     etapaActual = "leyendo codiguera"
     LeerCodiguera wsC, dictCod, dictLlavesCodiguera, diag
+    LeerCodigueraIndices wsC, dictIndicePorClave
 
     etapaActual = "leyendo ejecuciones y acumulando"
     LeerEjecucionesYAcumular wsE, anio, mesCierre, dictCod, dictAgg, diag
 
     etapaActual = "leyendo asignados y acumulando"
     LeerAsignadosYAcumular wsA, dictCod, dictLlavesCodiguera, dictAsignado, diag, wbC, anio, archivoAsignados
+
+    etapaActual = "buscando archivo ejecuciones comparativo"
+    archivoEjecComparativo = ObtenerArchivoMasReciente(RutaCarpetaEjecucionesAnioActiva(anioComparativo))
+    If Len(archivoEjecComparativo) = 0 Then Err.Raise vbObjectError + 1970, procedimiento, "No se encontró archivo de ejecuciones comparativo en: " & RutaCarpetaEjecucionesAnioActiva(anioComparativo)
+    diag("archivo_ejec_comparativo") = archivoEjecComparativo
+    diag("anio_comparativo") = anioComparativo
+
+    etapaActual = "buscando archivo asignados comparativo"
+    archivoAsignadosComparativo = ObtenerArchivoMasRecientePorFechaCreacion(RutaCarpetaAsignadosGastosAnioActiva(anioComparativo))
+    If Len(archivoAsignadosComparativo) = 0 Then Err.Raise vbObjectError + 1971, procedimiento, "No se encontró archivo de asignados comparativo en: " & RutaCarpetaAsignadosGastosAnioActiva(anioComparativo)
+    diag("archivo_asignados_comparativo") = archivoAsignadosComparativo
+
+    Set wbEComp = Workbooks.Open(archivoEjecComparativo, ReadOnly:=True)
+    Set wbAComp = Workbooks.Open(archivoAsignadosComparativo, ReadOnly:=True)
+    Set wsEComp = ObtenerHojaEjecuciones(wbEComp)
+    Set wsAComp = ObtenerHojaAsignados(wbAComp)
+
+    etapaActual = "validando asignados comparativo"
+    ValidarAsignadosComparativoContraCodiguera wsAComp, dictCod, dictLlavesCodiguera, dictIndicePorClave, diag, wbC, anioComparativo, archivoAsignadosComparativo
+    If diag.Exists("comparativo_asignados_faltantes") Then
+        wbC.Save
+        EscribirDiagnostico ThisWorkbook, diag, archivoEjec, archivoCod, anio, mesCierre
+        wbE.Close False: wbA.Close False: wbC.Close True: wbEComp.Close False: wbAComp.Close False
+        MsgBox "Se agregaron nuevas llaves presupuestales del archivo de asignados comparativo a la codiguera. Debe clasificarlas, indicar Indice, marcar Incluir_en_Informe cuando corresponda y volver a generar el reporte.", vbExclamation
+        Exit Sub
+    End If
 
     If diag.Exists("asignados_faltantes") Then
         etapaActual = "guardando codiguera por nuevas llaves de asignados"
@@ -168,12 +210,19 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     Set wsBasePorc = wbOut.Worksheets.Add(After:=wbOut.Worksheets(wbOut.Worksheets.Count))
     wsBasePorc.Name = "Base_Porc_Ejec"
     ConstruirBasePorcEjec wsBasePorc, dictAgg, dictAsignado, mesCierre
+    Set wsBaseComp = wbOut.Worksheets.Add(After:=wbOut.Worksheets(wbOut.Worksheets.Count))
+    wsBaseComp.Name = "Ejec comparada datos"
+    ConstruirDictComparativoActualDesdeDictAgg dictAgg, mesCierre, dictCompActual
+    LeerEjecucionesComparativoYAcumular wsEComp, anioComparativo, anio, mesCierre, dictCod, dictIndicePorClave, dictCompAnteriorActualizado, diag
+    ConstruirBaseEjecComparada wsBaseComp, dictCompActual, dictCompAnteriorActualizado, anio, anioComparativo
+    CrearHojaComparativoAnual wbOut, wsBaseComp, anio, anioComparativo, mesCierre, etapaVisual
     hojaReporteActual = "% ejecución " & anio
     etapaActual = "creando hoja % ejecución"
     etapaVisual = "iniciando hoja % ejecución"
     CrearHojaPorcEjecucion wbOut, wsBasePorc, anio, mesCierre, etapaVisual
     wsBase.Visible = xlSheetVeryHidden
     wsBasePorc.Visible = xlSheetVeryHidden
+    wsBaseComp.Visible = xlSheetVeryHidden
 
     etapaActual = "guardando reporte liviano"
     rutaFinal = GuardarReporteLiviano(wbOut, anio, mesCierre)
@@ -186,6 +235,8 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     wbE.Close False
     wbA.Close False
     wbC.Close False
+    wbEComp.Close False
+    wbAComp.Close False
 
     MsgBox "Reporte generado: " & rutaFinal, vbInformation
     Exit Sub
@@ -273,6 +324,8 @@ EH:
     If Not wbE Is Nothing Then wbE.Close False
     If Not wbA Is Nothing Then wbA.Close False
     If Not wbC Is Nothing Then wbC.Close False
+    If Not wbEComp Is Nothing Then wbEComp.Close False
+    If Not wbAComp Is Nothing Then wbAComp.Close False
     On Error GoTo 0
 
     MsgBox msg, vbCritical
@@ -509,7 +562,24 @@ Public Sub EscribirDiagnostico(ByVal wb As Workbook, ByVal diag As Object, ByVal
     End If
     ws.Columns("A:B").AutoFit
     ws.Columns("G:J").AutoFit
+    If diag.Exists("archivo_ejec_comparativo") Then ws.Cells(2, 4).Value = "Archivo ejecuciones comparativo": ws.Cells(2, 5).Value = diag("archivo_ejec_comparativo")
+    If diag.Exists("archivo_asignados_comparativo") Then ws.Cells(3, 4).Value = "Archivo asignados comparativo": ws.Cells(3, 5).Value = diag("archivo_asignados_comparativo")
+    If diag.Exists("anio_comparativo") Then ws.Cells(4, 4).Value = "Año comparativo": ws.Cells(4, 5).Value = diag("anio_comparativo")
 End Sub
+
+Public Sub LeerCodigueraIndices(ByVal ws As Worksheet, ByRef dictIndicePorClave As Object)
+    Dim arr As Variant, headers As Object, i As Long, clave As String
+    arr = ws.Range(ws.Cells(1, 1), ws.Cells(UltimaFilaConDatos(ws), UltimaColConDatos(ws))).Value2
+    Set headers = MapearEncabezados(arr)
+    For i = 2 To UBound(arr, 1)
+        clave = NormalizarClaveCodigueraDesdeTexto(arr(i, ObtenerColumna(headers, Array("clave llave presupuestal"))))
+        If Len(clave) > 0 Then dictIndicePorClave(clave) = Trim$(CStr(arr(i, ObtenerColumna(headers, Array("indice")))))
+    Next i
+End Sub
+
+Public Function ClavePeriodoIndice(ByVal anio As Long, ByVal mes As Long) As String
+    ClavePeriodoIndice = Format$(DateSerial(anio, mes, 1), "yyyy-mm")
+End Function
 
 Private Function ResumenAsignadosParaError(ByVal diag As Object) As String
     Dim it As Variant
@@ -648,4 +718,147 @@ Private Sub CompletarCodigoSiExiste(ByVal ws As Worksheet, ByVal headers As Obje
     Dim col As Long
     col = ObtenerColumnaOpcional(headers, Array(nombreColumna))
     If col > 0 Then ws.Cells(fila, col).Value = Split(ConstruirClaveLlavePresupuestalCodiguera(valor, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0), "-")(0)
+End Sub
+
+Public Function LeerValorIndice(ByVal rutaArchivoIndice As String, ByVal anio As Long, ByVal mes As Long) As Double
+    Dim wb As Workbook, ws As Worksheet, lr As Long, i As Long
+    Dim periodo As String, periodoFila As String, vA As Variant, vB As Variant
+    periodo = ClavePeriodoIndice(anio, mes)
+    Set wb = Workbooks.Open(rutaArchivoIndice, ReadOnly:=True)
+    Set ws = wb.Worksheets(1)
+    lr = UltimaFilaConDatos(ws)
+    For i = 1 To lr
+        vA = ws.Cells(i, 1).Value
+        If IsDate(vA) Then
+            periodoFila = Format$(CDate(vA), "yyyy-mm")
+        ElseIf IsNumeric(vA) And CDbl(vA) > 0 Then
+            periodoFila = Format$(DateSerial(1899, 12, 30) + CDbl(vA), "yyyy-mm")
+        Else
+            periodoFila = Left$(Trim$(CStr(vA)), 7)
+        End If
+        If periodoFila = periodo Then
+            vB = ws.Cells(i, 2).Value
+            wb.Close False
+            If Not IsNumeric(vB) Then Err.Raise vbObjectError + 1982, "LeerValorIndice", "El índice para " & periodo & " no es numérico. Archivo: " & rutaArchivoIndice
+            LeerValorIndice = CDbl(vB)
+            Exit Function
+        End If
+    Next i
+    wb.Close False
+    Err.Raise vbObjectError + 1981, "LeerValorIndice", "No se encuentra en la planilla el índice de " & LCase$(MesesES()(mes - 1)) & " de " & anio & ". Por favor, actualice el índice y vuelva a ejecutar. Archivo: " & rutaArchivoIndice
+End Function
+
+Public Function ObtenerFactorActualizacionIndice(ByVal tipoIndice As String, ByVal anioBase As Long, ByVal anioDestino As Long, ByVal mesCierre As Long, ByRef cacheFactores As Object) As Double
+    Dim t As String, key As String, ruta As String, idxBase As Double, idxDestino As Double
+    t = UCase$(Trim$(tipoIndice))
+    If t = "IPC GRAL" Or t = "IPC GENERAL" Then t = "IPC"
+    If t = "IMSN M B08" Then t = "IMSN"
+    key = t & "|" & anioBase & "|" & anioDestino & "|" & mesCierre
+    If cacheFactores.Exists(key) Then ObtenerFactorActualizacionIndice = cacheFactores(key): Exit Function
+    ruta = ResolverArchivoIndice(t)
+    idxDestino = LeerValorIndice(ruta, anioDestino, mesCierre)
+    idxBase = LeerValorIndice(ruta, anioBase, mesCierre)
+    If idxBase = 0 Then Err.Raise vbObjectError + 1983, "ObtenerFactorActualizacionIndice", "El índice base es 0 para " & t & " " & anioBase & "-" & Format$(mesCierre, "00") & "."
+    cacheFactores.Add key, idxDestino / idxBase
+    ObtenerFactorActualizacionIndice = cacheFactores(key)
+End Function
+
+Public Sub ConstruirDictComparativoActualDesdeDictAgg(ByVal dictAgg As Object, ByVal mesCierre As Long, ByRef dictCompActual As Object)
+    Dim k As Variant, p() As String, keyComp As String, m As Long
+    For Each k In dictAgg.Keys
+        p = Split(CStr(k), "|")
+        If UBound(p) >= 4 Then
+            m = CLng(p(4))
+            If m <= mesCierre Then
+                keyComp = p(0) & "|" & p(1) & "|" & p(2) & "|" & p(3)
+                If Not dictCompActual.Exists(keyComp) Then dictCompActual.Add keyComp, 0#
+                dictCompActual(keyComp) = dictCompActual(keyComp) + CDbl(dictAgg(k))
+            End If
+        End If
+    Next k
+End Sub
+
+Public Sub LeerEjecucionesComparativoYAcumular(ByVal ws As Worksheet, ByVal anioBase As Long, ByVal anioDestino As Long, ByVal mesCierre As Long, ByVal dictCod As Object, ByVal dictIndicePorClave As Object, ByRef dictCompAnteriorActualizado As Object, ByRef diag As Object)
+    Dim arr As Variant, headers As Object, i As Long, fechaValor As Date, clave As String, info As Variant
+    Dim keyAgg As String, importeMN As Double, tipoIndice As String, factor As Double
+    Dim cacheFactores As Object
+    Set cacheFactores = CreateObject("Scripting.Dictionary")
+    arr = ws.Range(ws.Cells(1, 1), ws.Cells(UltimaFilaConDatos(ws), UltimaColConDatos(ws))).Value2
+    Set headers = MapearEncabezados(arr)
+    For i = 2 To UBound(arr, 1)
+        If TryObtenerFechaValorSeguro(arr(i, ObtenerColumna(headers, Array("fecha valor"))), fechaValor) Then
+            If Year(fechaValor) = anioBase And Month(fechaValor) <= mesCierre Then
+                clave = ConstruirClaveLlavePresupuestalCodiguera(arr(i, ObtenerColumna(headers, Array("finac código numérico"))), arr(i, ObtenerColumna(headers, Array("der-f código numérico"))), arr(i, ObtenerColumna(headers, Array("pg código numérico"))), arr(i, ObtenerColumna(headers, Array("spg código numérico"))), arr(i, ObtenerColumna(headers, Array("proyecto", "proy"))), arr(i, ObtenerColumna(headers, Array("rubro código numérico"))), arr(i, ObtenerColumna(headers, Array("r. aux código numérico"))), arr(i, ObtenerColumna(headers, Array("ue código numérico"))), arr(i, ObtenerColumna(headers, Array("dep código numérico"))), arr(i, ObtenerColumna(headers, Array("obra código numérico"))), arr(i, ObtenerColumna(headers, Array("der. obra código numérico"))), arr(i, ObtenerColumna(headers, Array("serv código numérico"))), arr(i, ObtenerColumna(headers, Array("snip código numérico"))))
+                If dictCod.Exists(clave) Then
+                    If Not dictIndicePorClave.Exists(clave) Or Len(Trim$(CStr(dictIndicePorClave(clave)))) = 0 Then Err.Raise vbObjectError + 1990, "LeerEjecucionesComparativoYAcumular", "La llave " & clave & " está incluida en informe pero no tiene Indice informado en codiguera."
+                    tipoIndice = CStr(dictIndicePorClave(clave))
+                    factor = ObtenerFactorActualizacionIndice(tipoIndice, anioBase, anioDestino, mesCierre, cacheFactores)
+                    info = dictCod(clave)
+                    keyAgg = CStr(info(0)) & "|" & CStr(info(1)) & "|" & CStr(info(2)) & "|" & CStr(info(3))
+                    importeMN = CDbl(0 + arr(i, ObtenerColumna(headers, Array("importe moneda nacional")))) * factor
+                    If Not dictCompAnteriorActualizado.Exists(keyAgg) Then dictCompAnteriorActualizado.Add keyAgg, 0#
+                    dictCompAnteriorActualizado(keyAgg) = dictCompAnteriorActualizado(keyAgg) + importeMN
+                End If
+            End If
+        End If
+    Next i
+End Sub
+
+Public Sub ConstruirBaseEjecComparada(ByVal ws As Worksheet, ByVal dictCompActual As Object, ByVal dictCompAnteriorActualizado As Object, ByVal anioActual As Long, ByVal anioComparativo As Long)
+    Dim d As Object, k As Variant, f As Long, p() As String, vA As Double, vE As Double, factor As Double
+    Set d = CreateObject("Scripting.Dictionary")
+    ws.Cells.Clear
+    ws.Range("A1:G1").Value = Array("Clasificación", "Tipo", "concepto", "Ejecutado " & anioActual & ".", "Ejecutado " & anioComparativo & " a valores " & anioActual & ".", "Variación.", "Financiamiento")
+    For Each k In dictCompActual.Keys: d(k) = True: Next k
+    For Each k In dictCompAnteriorActualizado.Keys: d(k) = True: Next k
+    factor = FactorEscalaImporte()
+    f = 2
+    For Each k In d.Keys
+        p = Split(CStr(k), "|")
+        vA = 0#: vE = 0#
+        If dictCompActual.Exists(k) Then vA = CDbl(dictCompActual(k))
+        If dictCompAnteriorActualizado.Exists(k) Then vE = CDbl(dictCompAnteriorActualizado(k))
+        ws.Cells(f, 1).Value = p(1): ws.Cells(f, 2).Value = p(2): ws.Cells(f, 3).Value = p(3)
+        ws.Cells(f, 4).Value = vA / factor
+        ws.Cells(f, 5).Value = vE / factor
+        If vE <> 0 Then ws.Cells(f, 6).Value = (vA - vE) / vE
+        ws.Cells(f, 7).Value = p(0)
+        f = f + 1
+    Next k
+End Sub
+
+Public Sub ValidarAsignadosComparativoContraCodiguera(ByVal ws As Worksheet, ByVal dictCod As Object, ByVal dictLlavesCodiguera As Object, ByVal dictIndicePorClave As Object, ByRef diag As Object, ByVal wbCodiguera As Workbook, ByVal anioFiltro As Long, ByVal archivoAsignados As String)
+    Dim arr As Variant, headers As Object, i As Long, clave As String, idx As String
+    Dim colAnio As Long, anioFila As Long
+    arr = ws.Range(ws.Cells(1, 1), ws.Cells(UltimaFilaConDatos(ws), UltimaColConDatos(ws))).Value2
+    Set headers = MapearEncabezados(arr)
+    ValidarColumnasAsignados headers
+    colAnio = ObtenerColumnaOpcional(headers, Array("año", "anio", "ejercicio", "ej"))
+    For i = 2 To UBound(arr, 1)
+        If colAnio > 0 And anioFiltro > 0 Then
+            If IsNumeric(arr(i, colAnio)) Then
+                anioFila = CLng(arr(i, colAnio))
+                If anioFila <> anioFiltro Then GoTo SF
+            End If
+        End If
+        clave = ConstruirClaveLlavePresupuestalCodiguera(arr(i, ObtenerColumna(headers, Array("finac"))), arr(i, ObtenerColumna(headers, Array("der-f"))), arr(i, ObtenerColumna(headers, Array("pg"))), arr(i, ObtenerColumna(headers, Array("spg"))), arr(i, ObtenerColumna(headers, Array("proy"))), arr(i, ObtenerColumna(headers, Array("rubro"))), arr(i, ObtenerColumna(headers, Array("r. aux"))), arr(i, ObtenerColumna(headers, Array("ue"))), arr(i, ObtenerColumna(headers, Array("dep"))), arr(i, ObtenerColumna(headers, Array("obra"))), arr(i, ObtenerColumna(headers, Array("der. obra"))), arr(i, ObtenerColumna(headers, Array("serv"))), arr(i, ObtenerColumna(headers, Array("sniip"))))
+        If Not dictLlavesCodiguera.Exists(clave) Then
+            RegistrarYAgregarLlaveAsignadoFaltante wbCodiguera, diag, clave, arr, headers, i, archivoAsignados
+            If diag.Exists("asignados_faltantes") Then Set diag("comparativo_asignados_faltantes") = diag("asignados_faltantes")
+            If Not dictLlavesCodiguera.Exists(clave) Then dictLlavesCodiguera.Add clave, True
+        ElseIf Not dictCod.Exists(clave) Then
+            AgregarMuestraAsignadoNoAcumulado diag, "Comparativo: existe en codiguera pero no incluida", i, clave, CDbl(0 + arr(i, ObtenerColumna(headers, Array("asignado"))))
+        Else
+            If Not dictIndicePorClave.Exists(clave) Or Len(Trim$(CStr(dictIndicePorClave(clave)))) = 0 Then
+                Err.Raise vbObjectError + 1994, "ValidarAsignadosComparativoContraCodiguera", "La llave " & clave & " está incluida en informe pero no tiene Indice informado en codiguera."
+            End If
+            idx = UCase$(Trim$(CStr(dictIndicePorClave(clave))))
+            If idx = "IPC GRAL" Or idx = "IPC GENERAL" Then idx = "IPC"
+            If idx = "IMSN M B08" Then idx = "IMSN"
+            If idx <> "IPC" And idx <> "IMSN" Then
+                Err.Raise vbObjectError + 1995, "ValidarAsignadosComparativoContraCodiguera", "Índice inválido para llave " & clave & ": '" & dictIndicePorClave(clave) & "'. Archivo: " & archivoAsignados
+            End If
+        End If
+SF:
+    Next i
 End Sub

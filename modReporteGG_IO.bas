@@ -142,6 +142,78 @@ Public Function RutaCarpetaAsignadosGastosActiva() As String
     RutaCarpetaAsignadosGastosActiva = CombinarRuta(RutaBaseLocalReporteGG(), "Asignados\Gastos")
 End Function
 
+Public Function RutaCarpetaEjecucionesAnioActiva(ByVal anio As Long) As String
+    Dim rutaEsperada As String
+    rutaEsperada = CombinarRuta(RutaCarpetaEjecucionesActiva(), CStr(anio))
+    If CarpetaExiste(rutaEsperada) Then
+        RutaCarpetaEjecucionesAnioActiva = rutaEsperada
+    Else
+        RutaCarpetaEjecucionesAnioActiva = rutaEsperada
+    End If
+End Function
+
+Public Function RutaCarpetaAsignadosGastosAnioActiva(ByVal anio As Long) As String
+    Dim rutaEsperada As String
+    rutaEsperada = CombinarRuta(RutaCarpetaAsignadosGastosActiva(), CStr(anio))
+    If CarpetaExiste(rutaEsperada) Then
+        RutaCarpetaAsignadosGastosAnioActiva = rutaEsperada
+    Else
+        RutaCarpetaAsignadosGastosAnioActiva = rutaEsperada
+    End If
+End Function
+
+Public Function RutaCarpetaIndicesActiva() As String
+    Dim candidata As String
+    Dim rutaPadre As String
+
+    candidata = "D:\Escritorio\Reporte GG\Indices"
+    If CarpetaExiste(candidata) Then
+        RutaCarpetaIndicesActiva = candidata
+        Exit Function
+    End If
+
+    candidata = CombinarRuta(ThisWorkbook.Path, "Indices")
+    If CarpetaExiste(candidata) Then
+        RutaCarpetaIndicesActiva = candidata
+        Exit Function
+    End If
+
+    rutaPadre = Left$(ThisWorkbook.Path, InStrRev(ThisWorkbook.Path, "\") - 1)
+    If Len(rutaPadre) > 0 Then
+        candidata = CombinarRuta(rutaPadre, "Indices")
+        If CarpetaExiste(candidata) Then
+            RutaCarpetaIndicesActiva = candidata
+            Exit Function
+        End If
+    End If
+
+    RutaCarpetaIndicesActiva = CombinarRuta(ThisWorkbook.Path, "Indices")
+End Function
+
+Public Function ResolverArchivoIndice(ByVal tipoIndice As String) As String
+    Dim t As String
+    Dim rutaArchivo As String
+
+    t = UCase$(Trim$(tipoIndice))
+    If t = "IPC GRAL" Or t = "IPC GENERAL" Then t = "IPC"
+    If t = "IMSN M B08" Then t = "IMSN"
+
+    Select Case t
+        Case "IPC"
+            rutaArchivo = CombinarRuta(RutaCarpetaIndicesActiva(), "IPC gral y variaciones_base 2022.xlsx")
+        Case "IMSN"
+            rutaArchivo = CombinarRuta(RutaCarpetaIndicesActiva(), "IMSN M B08.xlsx")
+        Case Else
+            Err.Raise vbObjectError + 1960, "ResolverArchivoIndice", "Tipo de índice no válido: '" & tipoIndice & "'. Debe ser IPC o IMSN."
+    End Select
+
+    If Not ArchivoExiste(rutaArchivo) Then
+        Err.Raise vbObjectError + 1961, "ResolverArchivoIndice", "No se encontró el archivo de índice para '" & tipoIndice & "'. Archivo esperado: " & rutaArchivo
+    End If
+
+    ResolverArchivoIndice = rutaArchivo
+End Function
+
 Public Function RutaReportesGeneradosActiva() As String
     If CarpetaExiste(RUTA_REPORTES_GENERADOS) Then
         RutaReportesGeneradosActiva = RUTA_REPORTES_GENERADOS
