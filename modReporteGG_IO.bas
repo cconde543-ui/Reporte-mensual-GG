@@ -277,6 +277,7 @@ End Function
 
 Public Function ObtenerHojaCodiguera(ByVal wb As Workbook) As Worksheet
     On Error GoTo EH
+    If wb Is Nothing Then Err.Raise vbObjectError + 1100, "ObtenerHojaCodiguera", "El workbook recibido es Nothing."
     Set ObtenerHojaCodiguera = wb.Worksheets("Codiguera")
     Exit Function
 EH:
@@ -285,6 +286,7 @@ End Function
 
 Public Function ObtenerHojaEjecuciones(ByVal wb As Workbook) As Worksheet
     On Error GoTo EH
+    If wb Is Nothing Then Err.Raise vbObjectError + 1101, "ObtenerHojaEjecuciones", "El workbook recibido es Nothing."
     Set ObtenerHojaEjecuciones = wb.Worksheets(1)
     Exit Function
 EH:
@@ -298,24 +300,37 @@ Public Function ObtenerHojaAsignados(ByVal wb As Workbook) As Worksheet
     Dim i As Long
     Dim lastCol As Long
     Dim arrHeader As Variant
+    Dim hojasEncontradas As String
+    Dim columnasRequeridas As String
+
+    If wb Is Nothing Then
+        Err.Raise vbObjectError + 1200, "ObtenerHojaAsignados", "El workbook recibido es Nothing."
+    End If
 
     req = Array("finac", "der-f", "pg", "spg", "proy", "rubro", "r. aux", "ue", "dep", "obra", "der. obra", "serv", "sniip", "asignado")
+    columnasRequeridas = Join(req, ", ")
 
     For Each ws In wb.Worksheets
+        If Len(hojasEncontradas) > 0 Then hojasEncontradas = hojasEncontradas & ", "
+        hojasEncontradas = hojasEncontradas & ws.Name
+
         lastCol = UltimaColConDatos(ws)
-        If lastCol > 0 Then
-            arrHeader = ws.Range(ws.Cells(1, 1), ws.Cells(1, lastCol)).Value2
-            Set headers = MapearEncabezados(arrHeader)
-            For i = LBound(req) To UBound(req)
-                If Not headers.Exists(CStr(req(i))) Then GoTo SiguienteHoja
-            Next i
-            Set ObtenerHojaAsignados = ws
-            Exit Function
-        End If
+        If lastCol <= 0 Then GoTo SiguienteHoja
+
+        arrHeader = ws.Range(ws.Cells(1, 1), ws.Cells(1, lastCol)).Value2
+        Set headers = MapearEncabezados(arrHeader)
+        For i = LBound(req) To UBound(req)
+            If Not headers.Exists(CStr(req(i))) Then GoTo SiguienteHoja
+        Next i
+        Set ObtenerHojaAsignados = ws
+        Exit Function
 SiguienteHoja:
     Next ws
 
-    Err.Raise vbObjectError + 1203, "ObtenerHojaAsignados", "No se encontró una hoja válida de asignados con las columnas requeridas en: " & wb.Name
+    Err.Raise vbObjectError + 1203, "ObtenerHojaAsignados", _
+        "No se encontró una hoja válida de asignados en workbook: " & wb.Name & _
+        " | Hojas encontradas: " & hojasEncontradas & _
+        " | Columnas requeridas: " & columnasRequeridas
 End Function
 
 Public Sub AsegurarCarpetaExiste(ByVal ruta As String)
@@ -341,7 +356,14 @@ Public Function ObtenerArchivoMasRecientePorFechaCreacion(ByVal carpeta As Strin
     Dim fechaModificacion As Date
 
     Set fso = CreateObject("Scripting.FileSystemObject")
-    If Not fso.FolderExists(carpeta) Then Exit Function
+
+    If Len(Trim$(carpeta)) = 0 Then
+        Err.Raise vbObjectError + 1901, "ObtenerArchivoMasRecientePorFechaCreacion", "La carpeta recibida está vacía."
+    End If
+
+    If Not fso.FolderExists(carpeta) Then
+        Err.Raise vbObjectError + 1902, "ObtenerArchivoMasRecientePorFechaCreacion", "La carpeta no existe: " & carpeta
+    End If
 
     Set folderObj = fso.GetFolder(carpeta)
 
@@ -377,7 +399,7 @@ Public Function ObtenerArchivoMasRecientePorFechaCreacion(ByVal carpeta As Strin
     ObtenerArchivoMasRecientePorFechaCreacion = mejorArchivo
 
     If Len(ObtenerArchivoMasRecientePorFechaCreacion) = 0 Then
-        Err.Raise vbObjectError + 1902, "ObtenerArchivoMasRecientePorFechaCreacion", "No se encontró archivo xls/xlsx/xlsm en carpeta de asignados: " & carpeta
+        Err.Raise vbObjectError + 1903, "ObtenerArchivoMasRecientePorFechaCreacion", "No se encontró archivo xls/xlsx/xlsm en carpeta de asignados: " & carpeta
     End If
     Exit Function
 EH:
