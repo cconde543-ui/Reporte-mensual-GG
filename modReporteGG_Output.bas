@@ -779,6 +779,51 @@ EH_ADD:
         " | Err.Description=" & Err.Description
 End Sub
 
+Private Sub AsegurarCampoCalculadoPctVariacion( _
+    ByVal pt As PivotTable, _
+    ByVal campoEjecutadoActual As String, _
+    ByVal campoEjecutadoAnteriorActualizado As String)
+
+    Const CAMPO_CALC As String = "PctVariacion"
+
+    Dim formulaCalc As String
+
+    If pt Is Nothing Then
+        Err.Raise vbObjectError + 1470, "AsegurarCampoCalculadoPctVariacion", "PivotTable es Nothing."
+    End If
+
+    If Not PivotFieldExiste(pt, campoEjecutadoActual) Then
+        Err.Raise vbObjectError + 1471, "AsegurarCampoCalculadoPctVariacion", "No existe el campo fuente actual '" & campoEjecutadoActual & "'."
+    End If
+
+    If Not PivotFieldExiste(pt, campoEjecutadoAnteriorActualizado) Then
+        Err.Raise vbObjectError + 1472, "AsegurarCampoCalculadoPctVariacion", "No existe el campo fuente anterior actualizado '" & campoEjecutadoAnteriorActualizado & "'."
+    End If
+
+    formulaCalc = "=('" & campoEjecutadoActual & "'-'" & campoEjecutadoAnteriorActualizado & "')/'" & campoEjecutadoAnteriorActualizado & "'"
+
+    If Not CampoCalculadoExiste(pt, CAMPO_CALC) Then
+        On Error GoTo EH_ADD
+        pt.CalculatedFields.Add CAMPO_CALC, formulaCalc, True
+        On Error GoTo 0
+    End If
+
+    If Not CampoCalculadoExiste(pt, CAMPO_CALC) Then
+        Err.Raise vbObjectError + 1473, "AsegurarCampoCalculadoPctVariacion", "No se pudo crear el campo calculado interno 'PctVariacion'. Fórmula: " & formulaCalc
+    End If
+
+    Exit Sub
+
+EH_ADD:
+    Err.Raise Err.Number, "AsegurarCampoCalculadoPctVariacion", _
+        "Falló pt.CalculatedFields.Add para 'PctVariacion'. " & _
+        "Campo actual: '" & campoEjecutadoActual & "'. " & _
+        "Campo anterior actualizado: '" & campoEjecutadoAnteriorActualizado & "'. " & _
+        "Fórmula usada: " & formulaCalc & _
+        " | Err.Number=" & CStr(Err.Number) & _
+        " | Err.Description=" & Err.Description
+End Sub
+
 Private Sub AgregarDataFieldSeguro( _
     ByVal pt As PivotTable, _
     ByVal sourceFieldName As String, _
@@ -983,7 +1028,9 @@ End Sub
 
 Public Sub CrearHojaComparativoAnual(ByVal wbOut As Workbook, ByVal wsBase As Worksheet, ByVal anioActual As Long, ByVal anioComparativo As Long, ByVal mesCierre As Long, ByRef etapaVisual As String)
     Dim ws As Worksheet, ptCache As PivotCache, pt As PivotTable, nombreHoja As String
-    Dim rngBase As Range, titulo As String, formulaCalc As String
+    Dim rngBase As Range, titulo As String
+    Dim campoActual As String
+    Dim campoAnteriorAct As String
     nombreHoja = "Comparativo " & anioActual & " vs. " & anioComparativo
     On Error Resume Next
     Application.DisplayAlerts = False
@@ -998,18 +1045,16 @@ Public Sub CrearHojaComparativoAnual(ByVal wbOut As Workbook, ByVal wsBase As Wo
     Set rngBase = wsBase.Range("A1").CurrentRegion
     Set ptCache = wbOut.PivotCaches.Create(SourceType:=xlDatabase, SourceData:=rngBase)
     Set pt = ws.PivotTables.Add(PivotCache:=ptCache, TableDestination:=ws.Range("B5"), TableName:="ptComparativoGG")
+    campoActual = "Ejecutado " & CStr(anioActual) & "."
+    campoAnteriorAct = "Ejecutado " & CStr(anioComparativo) & " a valores " & CStr(anioActual) & "."
     With pt
-        .PivotFields("Clasificación").Orientation = xlRowField
-        .PivotFields("Tipo").Orientation = xlRowField
-        .PivotFields("concepto").Orientation = xlRowField
-        .AddDataField .PivotFields("Ejecutado " & anioActual & "."), "Suma de Ejecutado " & anioActual & ".", xlSum
-        .AddDataField .PivotFields("Ejecutado " & anioComparativo & " a valores " & anioActual & "."), "Suma de Ejecutado " & anioComparativo & " a valores " & anioActual & ".", xlSum
-        formulaCalc = "=('Ejecutado " & anioActual & ".'-'Ejecutado " & anioComparativo & " a valores " & anioActual & ".')/'Ejecutado " & anioComparativo & " a valores " & anioActual & ".'"
-        On Error Resume Next
-        .CalculatedFields("PctVariacion").Delete
-        On Error GoTo 0
-        .CalculatedFields.Add "PctVariacion", formulaCalc
+        ConfigurarCampoPivotSeguro pt, "Clasificación", xlRowField, 1
+        ConfigurarCampoPivotSeguro pt, "Tipo", xlRowField, 2
+        ConfigurarCampoPivotSeguro pt, "concepto", xlRowField, 3
     End With
+    Call AgregarDataFieldSeguro(pt, campoActual, "Suma de " & campoActual, xlSum, "#,##0;-#,##0;;@")
+    Call AgregarDataFieldSeguro(pt, campoAnteriorAct, "Suma de " & campoAnteriorAct, xlSum, "#,##0;-#,##0;;@")
+    Call AsegurarCampoCalculadoPctVariacion(pt, campoActual, campoAnteriorAct)
     AgregarDataFieldCalculadoSeguro pt, "PctVariacion", "% de variación ", xlSum, "0.0%;-0.0%;;@"
     pt.DataFields(1).NumberFormat = "#,##0;-#,##0;;@"
     pt.DataFields(2).NumberFormat = "#,##0;-#,##0;;@"
