@@ -170,6 +170,18 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     etapaActual = "leyendo ejecuciones y acumulando"
     LeerEjecucionesYAcumular wsE, anio, mesCierre, dictCod, dictAgg, diag
 
+    If dictAgg.Count = 0 Then
+        etapaActual = "validando ejecuciones acumuladas"
+        EscribirDiagnostico ThisWorkbook, diag, archivoEjec, archivoCod, anio, mesCierre
+
+        Dim detalleEjecVacias As String
+        detalleEjecVacias = "No se acumuló ninguna ejecución para el año " & anio & " hasta el mes " & mesCierre & "." & vbCrLf
+        detalleEjecVacias = detalleEjecVacias & "Archivo ejecuciones: " & archivoEjec & vbCrLf
+        detalleEjecVacias = detalleEjecVacias & "Revise Diagnostico_Llaves, sección Resumen ejecuciones." & vbCrLf
+
+        Err.Raise vbObjectError + 1260, procedimiento, detalleEjecVacias
+    End If
+
     etapaActual = "leyendo asignados y acumulando"
     LeerAsignadosYAcumular wsA, dictCod, dictLlavesCodiguera, dictAsignado, diag, wbC, anio, archivoAsignados
 
@@ -537,27 +549,124 @@ Public Sub LeerEjecucionesYAcumular(ByVal ws As Worksheet, ByVal anio As Long, B
     On Error GoTo EH
 
     Dim arr As Variant, headers As Object, i As Long, fechaValor As Date, clave As String, info As Variant, mesNum As Long, aggregateKey As String, importeMN As Double
+    Dim colFecha As Long, colFinac As Long, colDerF As Long, colPg As Long, colSpg As Long, colProy As Long
+    Dim colRubro As Long, colRAux As Long, colUe As Long, colDep As Long, colObra As Long, colDerObra As Long
+    Dim colServ As Long, colSnip As Long, colImporte As Long
+    Dim filasLeidas As Long, filasFechaOk As Long, filasFechaNoParseada As Long, filasAnio As Long
+    Dim filasHastaMes As Long, filasClaveEnDictCod As Long, filasClaveNoIncluida As Long
+    Dim sumaImporteLeido As Double, sumaImporteAnioMes As Double, sumaImporteAcumulado As Double
+    Dim fechaParseadaTexto As String
+    Dim resumenEjec As Variant
+
     arr = ws.Range(ws.Cells(1, 1), ws.Cells(UltimaFilaConDatos(ws), UltimaColConDatos(ws))).Value2
     Set headers = MapearEncabezados(arr)
+
+    colFecha = ObtenerColumna(headers, Array("fecha valor"))
+    colFinac = ObtenerColumna(headers, Array("finac código numérico"))
+    colDerF = ObtenerColumna(headers, Array("der-f código numérico"))
+    colPg = ObtenerColumna(headers, Array("pg código numérico"))
+    colSpg = ObtenerColumna(headers, Array("spg código numérico"))
+    colProy = ObtenerColumna(headers, Array("proyecto", "proy", "proyecto código numérico", "proy código numérico"))
+    colRubro = ObtenerColumna(headers, Array("rubro código numérico"))
+    colRAux = ObtenerColumna(headers, Array("r. aux código numérico"))
+    colUe = ObtenerColumna(headers, Array("ue código numérico"))
+    colDep = ObtenerColumna(headers, Array("dep código numérico"))
+    colObra = ObtenerColumna(headers, Array("obra código numérico"))
+    colDerObra = ObtenerColumna(headers, Array("der. obra código numérico"))
+    colServ = ObtenerColumna(headers, Array("serv código numérico"))
+    colSnip = ObtenerColumna(headers, Array("snip código numérico", "sniip código numérico", "snip", "sniip"))
+    colImporte = ObtenerColumna(headers, Array("importe moneda nacional"))
+
     For i = 2 To UBound(arr, 1)
-        If TryObtenerFechaValorSeguro(arr(i, ObtenerColumna(headers, Array("fecha valor"))), fechaValor) Then
-            If Year(fechaValor) = anio And Month(fechaValor) <= mesCierre Then
-                clave = ConstruirClaveLlavePresupuestalCodiguera(arr(i, ObtenerColumna(headers, Array("finac código numérico"))), arr(i, ObtenerColumna(headers, Array("der-f código numérico"))), arr(i, ObtenerColumna(headers, Array("pg código numérico"))), arr(i, ObtenerColumna(headers, Array("spg código numérico"))), arr(i, ObtenerColumna(headers, Array("proyecto", "proy"))), arr(i, ObtenerColumna(headers, Array("rubro código numérico"))), arr(i, ObtenerColumna(headers, Array("r. aux código numérico"))), arr(i, ObtenerColumna(headers, Array("ue código numérico"))), arr(i, ObtenerColumna(headers, Array("dep código numérico"))), arr(i, ObtenerColumna(headers, Array("obra código numérico"))), arr(i, ObtenerColumna(headers, Array("der. obra código numérico"))), arr(i, ObtenerColumna(headers, Array("serv código numérico"))), arr(i, ObtenerColumna(headers, Array("snip código numérico"))))
-                If dictCod.Exists(clave) Then
-                    info = dictCod(clave): mesNum = Month(fechaValor)
-                    importeMN = CDbl(0 + arr(i, ObtenerColumna(headers, Array("importe moneda nacional"))))
-                    aggregateKey = CStr(info(0)) & "|" & CStr(info(1)) & "|" & CStr(info(2)) & "|" & CStr(info(3)) & "|" & CStr(mesNum)
-                    If Not dictAgg.Exists(aggregateKey) Then dictAgg.Add aggregateKey, 0#
-                    dictAgg(aggregateKey) = dictAgg(aggregateKey) + importeMN
-                End If
-            End If
+        filasLeidas = filasLeidas + 1
+        fechaParseadaTexto = ""
+        importeMN = 0#
+
+        If Not TryDoubleSeguro(arr(i, colImporte), importeMN) Then
+            RegistrarMuestraEjecucionNoAcumulada diag, "Importe moneda nacional inválido", i, arr(i, colFecha), "", "", arr(i, colImporte)
+            GoTo SiguienteFila
         End If
+
+        sumaImporteLeido = sumaImporteLeido + importeMN
+
+        If Not TryObtenerFechaValorSeguro(arr(i, colFecha), fechaValor) Then
+            filasFechaNoParseada = filasFechaNoParseada + 1
+            RegistrarMuestraEjecucionNoAcumulada diag, "Fecha valor no parseada", i, arr(i, colFecha), "", "", importeMN
+            GoTo SiguienteFila
+        End If
+
+        filasFechaOk = filasFechaOk + 1
+        fechaParseadaTexto = Format$(fechaValor, "yyyy-mm-dd")
+
+        If Year(fechaValor) <> anio Then
+            RegistrarMuestraEjecucionNoAcumulada diag, "Fecha fuera del año seleccionado", i, arr(i, colFecha), fechaParseadaTexto, "", importeMN
+            GoTo SiguienteFila
+        End If
+
+        filasAnio = filasAnio + 1
+
+        If Month(fechaValor) > mesCierre Then
+            RegistrarMuestraEjecucionNoAcumulada diag, "Fecha posterior al mes de cierre", i, arr(i, colFecha), fechaParseadaTexto, "", importeMN
+            GoTo SiguienteFila
+        End If
+
+        filasHastaMes = filasHastaMes + 1
+        sumaImporteAnioMes = sumaImporteAnioMes + importeMN
+
+        clave = ConstruirClaveLlavePresupuestalCodiguera(arr(i, colFinac), arr(i, colDerF), arr(i, colPg), arr(i, colSpg), arr(i, colProy), arr(i, colRubro), arr(i, colRAux), arr(i, colUe), arr(i, colDep), arr(i, colObra), arr(i, colDerObra), arr(i, colServ), arr(i, colSnip))
+
+        If Not dictCod.Exists(clave) Then
+            filasClaveNoIncluida = filasClaveNoIncluida + 1
+            RegistrarMuestraEjecucionNoAcumulada diag, "Llave no incluida en codiguera/dictCod", i, arr(i, colFecha), fechaParseadaTexto, clave, importeMN
+            GoTo SiguienteFila
+        End If
+
+        filasClaveEnDictCod = filasClaveEnDictCod + 1
+        info = dictCod(clave)
+        mesNum = Month(fechaValor)
+        aggregateKey = CStr(info(0)) & "|" & CStr(info(1)) & "|" & CStr(info(2)) & "|" & CStr(info(3)) & "|" & CStr(mesNum)
+        If Not dictAgg.Exists(aggregateKey) Then dictAgg.Add aggregateKey, 0#
+        dictAgg(aggregateKey) = dictAgg(aggregateKey) + importeMN
+        sumaImporteAcumulado = sumaImporteAcumulado + importeMN
+
+SiguienteFila:
     Next i
+
+    resumenEjec = Array(filasLeidas, filasFechaOk, filasFechaNoParseada, filasAnio, filasHastaMes, filasClaveEnDictCod, filasClaveNoIncluida, sumaImporteLeido, sumaImporteAnioMes, sumaImporteAcumulado, dictAgg.Count)
+    diag("ejecuciones_resumen") = resumenEjec
+
     Exit Sub
 EH:
     Err.Raise Err.Number, "LeerEjecucionesYAcumular", "Error leyendo ejecuciones: " & Err.Description
 End Sub
 
+Private Sub RegistrarMuestraEjecucionNoAcumulada(ByRef diag As Object, ByVal motivo As String, ByVal filaOrigen As Long, ByVal fechaValorOriginal As Variant, ByVal fechaParseada As String, ByVal clave As String, ByVal importeMN As Variant)
+    Const MAX_TOTAL As Long = 50
+    Const MAX_POR_MOTIVO As Long = 30
+
+    Dim d As Object
+    Dim claveRegistro As String
+    Dim arr As Variant
+    Dim conteoMotivo As Long
+    Dim item As Variant
+
+    If diag Is Nothing Then Exit Sub
+
+    If Not diag.Exists("ejecuciones_muestra_no_acumuladas") Then Set diag("ejecuciones_muestra_no_acumuladas") = CreateObject("Scripting.Dictionary")
+    Set d = diag("ejecuciones_muestra_no_acumuladas")
+
+    If d.Count >= MAX_TOTAL Then Exit Sub
+
+    conteoMotivo = 0
+    For Each item In d.Items
+        If CStr(item(0)) = motivo Then conteoMotivo = conteoMotivo + 1
+    Next item
+    If conteoMotivo >= MAX_POR_MOTIVO Then Exit Sub
+
+    claveRegistro = CStr(d.Count + 1)
+    arr = Array(motivo, filaOrigen, TextoSeguro(fechaValorOriginal), fechaParseada, clave, importeMN)
+    d(claveRegistro) = arr
+End Sub
 
 Private Sub CompletarMesesAnioEnDictAgg(ByRef dictAgg As Object)
     Dim dictRows As Object
@@ -624,7 +733,7 @@ End Function
 
 Public Sub EscribirDiagnostico(ByVal wb As Workbook, ByVal diag As Object, ByVal archivoEjec As String, ByVal archivoCod As String, ByVal anio As Long, ByVal mesNum As Long)
     Dim ws As Worksheet, d As Object, k As Variant, it As Variant
-    Dim filaActual As Long
+    Dim filaActual As Long, muestraCount As Long
     On Error Resume Next
     Application.DisplayAlerts = False
     wb.Worksheets(DIAG_SHEET_NAME).Delete
@@ -648,6 +757,51 @@ Public Sub EscribirDiagnostico(ByVal wb As Workbook, ByVal diag As Object, ByVal
     If diag.Exists("anio_comparativo") Then ws.Cells(4, 4).Value = "Año comparativo": ws.Cells(4, 5).Value = diag("anio_comparativo")
 
     filaActual = filaActual + 1
+
+    If diag.Exists("ejecuciones_resumen") Then
+        it = diag("ejecuciones_resumen")
+
+        ws.Cells(filaActual, 1).Value = "Resumen ejecuciones"
+        ws.Cells(filaActual, 1).Font.Bold = True
+        filaActual = filaActual + 1
+
+        ws.Cells(filaActual, 1).Value = "Filas leídas ejecuciones": ws.Cells(filaActual, 2).Value = it(0): filaActual = filaActual + 1
+        ws.Cells(filaActual, 1).Value = "Filas con fecha parseada": ws.Cells(filaActual, 2).Value = it(1): filaActual = filaActual + 1
+        ws.Cells(filaActual, 1).Value = "Filas con fecha no parseada": ws.Cells(filaActual, 2).Value = it(2): filaActual = filaActual + 1
+        ws.Cells(filaActual, 1).Value = "Filas del año seleccionado": ws.Cells(filaActual, 2).Value = it(3): filaActual = filaActual + 1
+        ws.Cells(filaActual, 1).Value = "Filas hasta mes de cierre": ws.Cells(filaActual, 2).Value = it(4): filaActual = filaActual + 1
+        ws.Cells(filaActual, 1).Value = "Filas con llave incluida en dictCod": ws.Cells(filaActual, 2).Value = it(5): filaActual = filaActual + 1
+        ws.Cells(filaActual, 1).Value = "Filas con llave no incluida": ws.Cells(filaActual, 2).Value = it(6): filaActual = filaActual + 1
+        ws.Cells(filaActual, 1).Value = "Total importe leído": ws.Cells(filaActual, 2).Value = it(7): filaActual = filaActual + 1
+        ws.Cells(filaActual, 1).Value = "Total importe año/mes": ws.Cells(filaActual, 2).Value = it(8): filaActual = filaActual + 1
+        ws.Cells(filaActual, 1).Value = "Total importe acumulado": ws.Cells(filaActual, 2).Value = it(9): filaActual = filaActual + 1
+        ws.Cells(filaActual, 1).Value = "Claves acumuladas dictAgg": ws.Cells(filaActual, 2).Value = it(10): filaActual = filaActual + 1
+
+        filaActual = filaActual + 1
+    End If
+
+    If diag.Exists("ejecuciones_muestra_no_acumuladas") Then
+        ws.Cells(filaActual, 1).Value = "Muestra de ejecuciones no acumuladas"
+        ws.Cells(filaActual, 1).Font.Bold = True
+        filaActual = filaActual + 1
+
+        ws.Range("A" & filaActual & ":F" & filaActual).Value = Array("Motivo", "Fila origen", "Fecha valor original", "Fecha parseada", "Clave calculada", "Importe moneda nacional")
+        ws.Range("A" & filaActual & ":F" & filaActual).Font.Bold = True
+        ws.Range("A" & filaActual & ":F" & filaActual).Interior.Color = RGB(242, 242, 242)
+        filaActual = filaActual + 1
+
+        Set d = diag("ejecuciones_muestra_no_acumuladas")
+        muestraCount = 0
+        For Each k In d.Keys
+            it = d(k)
+            ws.Range("A" & filaActual & ":F" & filaActual).Value = it
+            filaActual = filaActual + 1
+            muestraCount = muestraCount + 1
+            If muestraCount >= 50 Then Exit For
+        Next k
+
+        filaActual = filaActual + 1
+    End If
 
     If diag.Exists("asignados_resumen") Then
         it = diag("asignados_resumen")

@@ -143,20 +143,89 @@ Public Function ConstruirClaveLlavePresupuestalCodiguera(ByVal finac As Variant,
 End Function
 
 Public Function TryObtenerFechaValorSeguro(ByVal valorFuente As Variant, ByRef fechaOut As Date) As Boolean
-    Dim texto As String, partes() As String, numero As Double
     On Error GoTo EH
+
+    Dim texto As String
+    Dim soloFecha As String
+    Dim partes() As String
+    Dim numero As Double
+    Dim a As Long, m As Long, d As Long
+
     If IsError(valorFuente) Then Exit Function
     If IsNull(valorFuente) Then Exit Function
     If IsEmpty(valorFuente) Then Exit Function
-    If IsDate(valorFuente) Then fechaOut = CDate(valorFuente): TryObtenerFechaValorSeguro = True: Exit Function
+
+    If IsDate(valorFuente) Then
+        fechaOut = CDate(valorFuente)
+        TryObtenerFechaValorSeguro = True
+        Exit Function
+    End If
+
     If IsNumeric(valorFuente) Then
         numero = CDbl(valorFuente)
-        If numero > 0 And numero < 2958466 Then fechaOut = CDate(DateSerial(1899, 12, 30) + numero): TryObtenerFechaValorSeguro = True: Exit Function
+
+        If numero > 20000101 And numero < 21001231 Then
+            texto = CStr(Fix(numero))
+            a = CLng(Left$(texto, 4))
+            m = CLng(Mid$(texto, 5, 2))
+            d = CLng(Right$(texto, 2))
+            fechaOut = DateSerial(a, m, d)
+            TryObtenerFechaValorSeguro = True
+            Exit Function
+        End If
+
+        If numero > 0 And numero < 2958466 Then
+            fechaOut = CDate(DateSerial(1899, 12, 30) + numero)
+            TryObtenerFechaValorSeguro = True
+            Exit Function
+        End If
     End If
+
     texto = LimpiarTexto(TextoSeguro(valorFuente))
-    If InStr(1, texto, "-") > 0 Then partes = Split(texto, "-"): If UBound(partes) = 2 Then fechaOut = DateSerial(CLng(partes(0)), CLng(partes(1)), CLng(partes(2))): TryObtenerFechaValorSeguro = True: Exit Function
-    If InStr(1, texto, "/") > 0 Then partes = Split(texto, "/"): If UBound(partes) = 2 Then fechaOut = DateSerial(CLng(partes(2)), CLng(partes(1)), CLng(partes(0))): TryObtenerFechaValorSeguro = True: Exit Function
+    If Len(texto) = 0 Then Exit Function
+
+    texto = Replace(texto, ".", "/")
+    texto = Replace(texto, "-", "/")
+
+    If InStr(1, texto, " ") > 0 Then
+        soloFecha = Split(texto, " ")(0)
+    Else
+        soloFecha = texto
+    End If
+
+    If Len(soloFecha) = 8 And IsNumeric(soloFecha) Then
+        a = CLng(Left$(soloFecha, 4))
+        m = CLng(Mid$(soloFecha, 5, 2))
+        d = CLng(Right$(soloFecha, 2))
+        fechaOut = DateSerial(a, m, d)
+        TryObtenerFechaValorSeguro = True
+        Exit Function
+    End If
+
+    partes = Split(soloFecha, "/")
+
+    If UBound(partes) = 2 Then
+        If Len(partes(0)) = 4 Then
+            a = CLng(partes(0))
+            m = CLng(partes(1))
+            d = CLng(partes(2))
+        Else
+            d = CLng(partes(0))
+            m = CLng(partes(1))
+            a = CLng(partes(2))
+        End If
+
+        If a >= 1900 And a <= 2100 And m >= 1 And m <= 12 And d >= 1 And d <= 31 Then
+            fechaOut = DateSerial(a, m, d)
+            TryObtenerFechaValorSeguro = True
+            Exit Function
+        End If
+    End If
+
+    Exit Function
+
 EH:
+    TryObtenerFechaValorSeguro = False
 End Function
 
 
@@ -213,6 +282,40 @@ Public Function TryLongSeguro(ByVal valor As Variant, ByRef salida As Long) As B
 EH:
     TryLongSeguro = False
 End Function
+
+Public Function TryDoubleSeguro(ByVal valor As Variant, ByRef salida As Double) As Boolean
+    On Error GoTo EH
+
+    Dim s As String
+
+    If IsError(valor) Then Exit Function
+    If IsNull(valor) Then Exit Function
+    If IsEmpty(valor) Then Exit Function
+
+    If IsNumeric(valor) Then
+        salida = CDbl(valor)
+        TryDoubleSeguro = True
+        Exit Function
+    End If
+
+    s = LimpiarTexto(TextoSeguro(valor))
+    If Len(s) = 0 Then Exit Function
+
+    s = Replace(s, "$", "")
+    s = Replace(s, " ", "")
+
+    If IsNumeric(s) Then
+        salida = CDbl(s)
+        TryDoubleSeguro = True
+        Exit Function
+    End If
+
+    Exit Function
+
+EH:
+    TryDoubleSeguro = False
+End Function
+
 Public Function MapearEncabezados(ByRef matriz As Variant) As Object
     Dim d As Object, col As Long, h As String
     Set d = CreateObject("Scripting.Dictionary")
