@@ -822,19 +822,19 @@ Private Sub RegistrarYAgregarLlaveAsignadoFaltante( _
     rowInfo(1) = archivoAsignados
     rowInfo(2) = fila
     rowInfo(3) = clave
-    rowInfo(4) = arr(fila, ObtenerColumna(headers, Array("finac")))
-    rowInfo(5) = arr(fila, ObtenerColumna(headers, Array("der-f")))
-    rowInfo(6) = arr(fila, ObtenerColumna(headers, Array("pg")))
-    rowInfo(7) = arr(fila, ObtenerColumna(headers, Array("spg")))
-    rowInfo(8) = arr(fila, ObtenerColumna(headers, Array("proy")))
-    rowInfo(9) = arr(fila, ObtenerColumna(headers, Array("rubro")))
-    rowInfo(10) = arr(fila, ObtenerColumna(headers, Array("r. aux")))
-    rowInfo(11) = arr(fila, ObtenerColumna(headers, Array("ue")))
-    rowInfo(12) = arr(fila, ObtenerColumna(headers, Array("dep")))
-    rowInfo(13) = arr(fila, ObtenerColumna(headers, Array("obra")))
-    rowInfo(14) = arr(fila, ObtenerColumna(headers, Array("der. obra")))
-    rowInfo(15) = arr(fila, ObtenerColumna(headers, Array("serv")))
-    rowInfo(16) = arr(fila, ObtenerColumna(headers, Array("sniip")))
+    rowInfo(4) = TextoSeguro(arr(fila, ObtenerColumna(headers, Array("finac"))))
+    rowInfo(5) = TextoSeguro(arr(fila, ObtenerColumna(headers, Array("der-f"))))
+    rowInfo(6) = TextoSeguro(arr(fila, ObtenerColumna(headers, Array("pg"))))
+    rowInfo(7) = TextoSeguro(arr(fila, ObtenerColumna(headers, Array("spg"))))
+    rowInfo(8) = TextoSeguro(arr(fila, ObtenerColumna(headers, Array("proy"))))
+    rowInfo(9) = TextoSeguro(arr(fila, ObtenerColumna(headers, Array("rubro"))))
+    rowInfo(10) = TextoSeguro(arr(fila, ObtenerColumna(headers, Array("r. aux"))))
+    rowInfo(11) = TextoSeguro(arr(fila, ObtenerColumna(headers, Array("ue"))))
+    rowInfo(12) = TextoSeguro(arr(fila, ObtenerColumna(headers, Array("dep"))))
+    rowInfo(13) = TextoSeguro(arr(fila, ObtenerColumna(headers, Array("obra"))))
+    rowInfo(14) = TextoSeguro(arr(fila, ObtenerColumna(headers, Array("der. obra"))))
+    rowInfo(15) = TextoSeguro(arr(fila, ObtenerColumna(headers, Array("serv"))))
+    rowInfo(16) = TextoSeguro(arr(fila, ObtenerColumna(headers, Array("sniip"))))
     rowInfo(17) = "Agregada a codiguera - pendiente clasificar"
 
     diag(claveDiag)(clave) = rowInfo
@@ -845,19 +845,19 @@ Private Sub RegistrarYAgregarLlaveAsignadoFaltante( _
     wsC.Rows(lastR).Copy: wsC.Rows(newR).PasteSpecial xlPasteFormats: wsC.Rows(newR).PasteSpecial xlPasteValidation
     Application.CutCopyMode = False
     Set hdrC = MapearEncabezados(wsC.Range(wsC.Cells(1, 1), wsC.Cells(1, UltimaColConDatos(wsC))).Value2)
-    wsC.Cells(newR, ObtenerColumna(hdrC, Array("finac"))).Value = arr(fila, ObtenerColumna(headers, Array("finac")))
-    wsC.Cells(newR, ObtenerColumna(hdrC, Array("der-f"))).Value = arr(fila, ObtenerColumna(headers, Array("der-f")))
-    wsC.Cells(newR, ObtenerColumna(hdrC, Array("pg"))).Value = arr(fila, ObtenerColumna(headers, Array("pg")))
-    wsC.Cells(newR, ObtenerColumna(hdrC, Array("spg"))).Value = arr(fila, ObtenerColumna(headers, Array("spg")))
-    wsC.Cells(newR, ObtenerColumna(hdrC, Array("proy"))).Value = arr(fila, ObtenerColumna(headers, Array("proy")))
-    wsC.Cells(newR, ObtenerColumna(hdrC, Array("rubro"))).Value = arr(fila, ObtenerColumna(headers, Array("rubro")))
-    wsC.Cells(newR, ObtenerColumna(hdrC, Array("r. aux"))).Value = arr(fila, ObtenerColumna(headers, Array("r. aux")))
-    wsC.Cells(newR, ObtenerColumna(hdrC, Array("ue"))).Value = arr(fila, ObtenerColumna(headers, Array("ue")))
-    wsC.Cells(newR, ObtenerColumna(hdrC, Array("dep"))).Value = arr(fila, ObtenerColumna(headers, Array("dep")))
-    wsC.Cells(newR, ObtenerColumna(hdrC, Array("obra"))).Value = arr(fila, ObtenerColumna(headers, Array("obra")))
-    wsC.Cells(newR, ObtenerColumna(hdrC, Array("der. obra"))).Value = arr(fila, ObtenerColumna(headers, Array("der. obra")))
-    wsC.Cells(newR, ObtenerColumna(hdrC, Array("serv"))).Value = arr(fila, ObtenerColumna(headers, Array("serv")))
-    wsC.Cells(newR, ObtenerColumna(hdrC, Array("sniip"))).Value = arr(fila, ObtenerColumna(headers, Array("sniip")))
+    wsC.Cells(newR, ObtenerColumna(hdrC, Array("finac"))).Value = TextoSeguro(arr(fila, ObtenerColumna(headers, Array("finac"))))
+    wsC.Cells(newR, ObtenerColumna(hdrC, Array("der-f"))).Value = TextoSeguro(arr(fila, ObtenerColumna(headers, Array("der-f"))))
+    wsC.Cells(newR, ObtenerColumna(hdrC, Array("pg"))).Value = TextoSeguro(arr(fila, ObtenerColumna(headers, Array("pg"))))
+    wsC.Cells(newR, ObtenerColumna(hdrC, Array("spg"))).Value = TextoSeguro(arr(fila, ObtenerColumna(headers, Array("spg"))))
+    wsC.Cells(newR, ObtenerColumna(hdrC, Array("proy"))).Value = TextoSeguro(arr(fila, ObtenerColumna(headers, Array("proy"))))
+    wsC.Cells(newR, ObtenerColumna(hdrC, Array("rubro"))).Value = TextoSeguro(arr(fila, ObtenerColumna(headers, Array("rubro"))))
+    wsC.Cells(newR, ObtenerColumna(hdrC, Array("r. aux"))).Value = TextoSeguro(arr(fila, ObtenerColumna(headers, Array("r. aux"))))
+    wsC.Cells(newR, ObtenerColumna(hdrC, Array("ue"))).Value = TextoSeguro(arr(fila, ObtenerColumna(headers, Array("ue"))))
+    wsC.Cells(newR, ObtenerColumna(hdrC, Array("dep"))).Value = TextoSeguro(arr(fila, ObtenerColumna(headers, Array("dep"))))
+    wsC.Cells(newR, ObtenerColumna(hdrC, Array("obra"))).Value = TextoSeguro(arr(fila, ObtenerColumna(headers, Array("obra"))))
+    wsC.Cells(newR, ObtenerColumna(hdrC, Array("der. obra"))).Value = TextoSeguro(arr(fila, ObtenerColumna(headers, Array("der. obra"))))
+    wsC.Cells(newR, ObtenerColumna(hdrC, Array("serv"))).Value = TextoSeguro(arr(fila, ObtenerColumna(headers, Array("serv"))))
+    wsC.Cells(newR, ObtenerColumna(hdrC, Array("sniip"))).Value = TextoSeguro(arr(fila, ObtenerColumna(headers, Array("sniip"))))
     wsC.Cells(newR, ObtenerColumna(hdrC, Array("clave llave presupuestal"))).Value = clave
     CompletarCodigoSiExiste wsC, hdrC, newR, "finac código numérico", arr(fila, ObtenerColumna(headers, Array("finac")))
     CompletarCodigoSiExiste wsC, hdrC, newR, "der-f código numérico", arr(fila, ObtenerColumna(headers, Array("der-f")))
@@ -879,32 +879,101 @@ Private Sub CompletarCodigoSiExiste(ByVal ws As Worksheet, ByVal headers As Obje
     If col > 0 Then ws.Cells(fila, col).Value = Split(ConstruirClaveLlavePresupuestalCodiguera(valor, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0), "-")(0)
 End Sub
 
+Private Function NormalizarPeriodoIndiceDesdeValor(ByVal valor As Variant) As String
+    On Error GoTo EH
+
+    Dim s As String
+    Dim n As Double
+
+    If IsError(valor) Then Exit Function
+    If IsNull(valor) Then Exit Function
+    If IsEmpty(valor) Then Exit Function
+
+    If IsDate(valor) Then
+        NormalizarPeriodoIndiceDesdeValor = Format$(CDate(valor), "yyyy-mm")
+        Exit Function
+    End If
+
+    If IsNumeric(valor) Then
+        n = CDbl(valor)
+        If n > 0 And n < 2958466 Then
+            NormalizarPeriodoIndiceDesdeValor = Format$(DateSerial(1899, 12, 30) + n, "yyyy-mm")
+            Exit Function
+        End If
+    End If
+
+    s = LimpiarTexto(TextoSeguro(valor))
+    s = Replace(s, "/", "-")
+
+    If Len(s) >= 7 Then
+        If Mid$(s, 5, 1) = "-" Then
+            NormalizarPeriodoIndiceDesdeValor = Left$(s, 7)
+            Exit Function
+        End If
+    End If
+
+    Exit Function
+EH:
+    NormalizarPeriodoIndiceDesdeValor = ""
+End Function
+
 Public Function LeerValorIndice(ByVal rutaArchivoIndice As String, ByVal anio As Long, ByVal mes As Long) As Double
-    Dim wb As Workbook, ws As Worksheet, lr As Long, i As Long
-    Dim periodo As String, periodoFila As String, vA As Variant, vB As Variant
+    On Error GoTo EH
+
+    Dim wb As Workbook
+    Dim ws As Worksheet
+    Dim lr As Long
+    Dim i As Long
+    Dim periodo As String
+    Dim periodoFila As String
+    Dim vA As Variant
+    Dim vB As Variant
+
     periodo = ClavePeriodoIndice(anio, mes)
+
     Set wb = Workbooks.Open(rutaArchivoIndice, ReadOnly:=True)
     Set ws = wb.Worksheets(1)
     lr = UltimaFilaConDatos(ws)
+
     For i = 1 To lr
-        vA = ws.Cells(i, 1).Value
-        If IsDate(vA) Then
-            periodoFila = Format$(CDate(vA), "yyyy-mm")
-        ElseIf IsNumeric(vA) And CDbl(vA) > 0 Then
-            periodoFila = Format$(DateSerial(1899, 12, 30) + CDbl(vA), "yyyy-mm")
-        Else
-            periodoFila = Left$(Trim$(CStr(vA)), 7)
-        End If
+        vA = ws.Cells(i, 1).Value2
+        periodoFila = NormalizarPeriodoIndiceDesdeValor(vA)
+
         If periodoFila = periodo Then
-            vB = ws.Cells(i, 2).Value
-            wb.Close False
-            If Not IsNumeric(vB) Then Err.Raise vbObjectError + 1982, "LeerValorIndice", "El índice para " & periodo & " no es numérico. Archivo: " & rutaArchivoIndice
+            vB = ws.Cells(i, 2).Value2
+
+            If IsError(vB) Or IsNull(vB) Or IsEmpty(vB) Then
+                wb.Close False
+                Err.Raise vbObjectError + 1982, "LeerValorIndice", "El índice para " & periodo & " está vacío o tiene error. Archivo: " & rutaArchivoIndice
+            End If
+
+            If Not IsNumeric(vB) Then
+                wb.Close False
+                Err.Raise vbObjectError + 1982, "LeerValorIndice", "El índice para " & periodo & " no es numérico. Valor encontrado: " & TextoSeguro(vB) & ". Archivo: " & rutaArchivoIndice
+            End If
+
             LeerValorIndice = CDbl(vB)
+            wb.Close False
             Exit Function
         End If
     Next i
+
     wb.Close False
-    Err.Raise vbObjectError + 1981, "LeerValorIndice", "No se encuentra en la planilla el índice de " & LCase$(MesesES()(mes - 1)) & " de " & anio & ". Por favor, actualice el índice y vuelva a ejecutar. Archivo: " & rutaArchivoIndice
+
+    Err.Raise vbObjectError + 1981, "LeerValorIndice", _
+        "No se encuentra en la planilla el índice de " & LCase$(MesesES()(mes - 1)) & " de " & anio & ". Por favor, actualice el índice y vuelva a ejecutar. Archivo: " & rutaArchivoIndice
+
+    Exit Function
+EH:
+    On Error Resume Next
+    If Not wb Is Nothing Then wb.Close False
+    On Error GoTo 0
+
+    Err.Raise Err.Number, "LeerValorIndice", _
+        "Error leyendo índice." & vbCrLf & _
+        "Archivo: " & rutaArchivoIndice & vbCrLf & _
+        "Periodo buscado: " & ClavePeriodoIndice(anio, mes) & vbCrLf & _
+        "Detalle: " & Err.Description
 End Function
 
 Public Function ObtenerFactorActualizacionIndice(ByVal tipoIndice As String, ByVal anioBase As Long, ByVal anioDestino As Long, ByVal mesCierre As Long, ByRef cacheFactores As Object) As Double
@@ -949,8 +1018,13 @@ Public Sub LeerEjecucionesComparativoYAcumular(ByVal ws As Worksheet, ByVal anio
             If Year(fechaValor) = anioBase And Month(fechaValor) <= mesCierre Then
                 clave = ConstruirClaveLlavePresupuestalCodiguera(arr(i, ObtenerColumna(headers, Array("finac código numérico"))), arr(i, ObtenerColumna(headers, Array("der-f código numérico"))), arr(i, ObtenerColumna(headers, Array("pg código numérico"))), arr(i, ObtenerColumna(headers, Array("spg código numérico"))), arr(i, ObtenerColumna(headers, Array("proyecto", "proy"))), arr(i, ObtenerColumna(headers, Array("rubro código numérico"))), arr(i, ObtenerColumna(headers, Array("r. aux código numérico"))), arr(i, ObtenerColumna(headers, Array("ue código numérico"))), arr(i, ObtenerColumna(headers, Array("dep código numérico"))), arr(i, ObtenerColumna(headers, Array("obra código numérico"))), arr(i, ObtenerColumna(headers, Array("der. obra código numérico"))), arr(i, ObtenerColumna(headers, Array("serv código numérico"))), arr(i, ObtenerColumna(headers, Array("snip código numérico"))))
                 If dictCod.Exists(clave) Then
-                    If Not dictIndicePorClave.Exists(clave) Or Len(Trim$(CStr(dictIndicePorClave(clave)))) = 0 Then Err.Raise vbObjectError + 1990, "LeerEjecucionesComparativoYAcumular", "La llave " & clave & " está incluida en informe pero no tiene Indice informado en codiguera."
-                    tipoIndice = CStr(dictIndicePorClave(clave))
+                    If Not dictIndicePorClave.Exists(clave) Then
+                        Err.Raise vbObjectError + 1990, "LeerEjecucionesComparativoYAcumular", "La llave " & clave & " está incluida en informe pero no tiene Indice informado en codiguera."
+                    End If
+                    tipoIndice = Trim$(TextoSeguro(dictIndicePorClave(clave)))
+                    If Len(tipoIndice) = 0 Then
+                        Err.Raise vbObjectError + 1990, "LeerEjecucionesComparativoYAcumular", "La llave " & clave & " está incluida en informe pero tiene Indice vacío en codiguera."
+                    End If
                     factor = ObtenerFactorActualizacionIndice(tipoIndice, anioBase, anioDestino, mesCierre, cacheFactores)
                     info = dictCod(clave)
                     keyAgg = CStr(info(0)) & "|" & CStr(info(1)) & "|" & CStr(info(2)) & "|" & CStr(info(3))
@@ -1096,9 +1170,17 @@ SiguienteFila:
 
 EH:
     Dim detalle As String
+    Dim nombreHoja As String
+
+    If ws Is Nothing Then
+        nombreHoja = "(Nothing)"
+    Else
+        nombreHoja = ws.Name
+    End If
+
     detalle = "Error validando asignados comparativo." & vbCrLf
     detalle = detalle & "Archivo: " & archivoAsignados & vbCrLf
-    detalle = detalle & "Hoja: " & IIf(ws Is Nothing, "(Nothing)", ws.Name) & vbCrLf
+    detalle = detalle & "Hoja: " & nombreHoja & vbCrLf
     detalle = detalle & "Fila origen: " & CStr(filaActual) & vbCrLf
     detalle = detalle & "Clave calculada: " & claveActual & vbCrLf
     detalle = detalle & "Detalle original: " & Err.Description

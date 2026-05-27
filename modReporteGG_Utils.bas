@@ -70,14 +70,28 @@ Public Function ConstruirClavePresupuestal(ByVal finac As Variant, ByVal derF As
 End Function
 
 Private Function NormalizarComponenteClaveCodiguera(ByVal valor As Variant) As String
-    Dim s As String, t As String, i As Long, ch As String, prefijo As String
+    Dim s As String
+    Dim t As String
+    Dim i As Long
+    Dim ch As String
+    Dim prefijo As String
 
-    If IsError(valor) Or IsNull(valor) Then
+    If IsError(valor) Then
         NormalizarComponenteClaveCodiguera = "0"
         Exit Function
     End If
 
-    s = CStr(valor)
+    If IsNull(valor) Then
+        NormalizarComponenteClaveCodiguera = "0"
+        Exit Function
+    End If
+
+    If IsEmpty(valor) Then
+        NormalizarComponenteClaveCodiguera = "0"
+        Exit Function
+    End If
+
+    s = TextoSeguro(valor)
     s = Replace(s, ChrW$(160), " ")
     s = LimpiarTexto(s)
     If Len(s) = 0 Then
@@ -131,12 +145,15 @@ End Function
 Public Function TryObtenerFechaValorSeguro(ByVal valorFuente As Variant, ByRef fechaOut As Date) As Boolean
     Dim texto As String, partes() As String, numero As Double
     On Error GoTo EH
+    If IsError(valorFuente) Then Exit Function
+    If IsNull(valorFuente) Then Exit Function
+    If IsEmpty(valorFuente) Then Exit Function
     If IsDate(valorFuente) Then fechaOut = CDate(valorFuente): TryObtenerFechaValorSeguro = True: Exit Function
     If IsNumeric(valorFuente) Then
         numero = CDbl(valorFuente)
         If numero > 0 And numero < 2958466 Then fechaOut = CDate(DateSerial(1899, 12, 30) + numero): TryObtenerFechaValorSeguro = True: Exit Function
     End If
-    texto = LimpiarTexto(CStr(valorFuente))
+    texto = LimpiarTexto(TextoSeguro(valorFuente))
     If InStr(1, texto, "-") > 0 Then partes = Split(texto, "-"): If UBound(partes) = 2 Then fechaOut = DateSerial(CLng(partes(0)), CLng(partes(1)), CLng(partes(2))): TryObtenerFechaValorSeguro = True: Exit Function
     If InStr(1, texto, "/") > 0 Then partes = Split(texto, "/"): If UBound(partes) = 2 Then fechaOut = DateSerial(CLng(partes(2)), CLng(partes(1)), CLng(partes(0))): TryObtenerFechaValorSeguro = True: Exit Function
 EH:
@@ -148,14 +165,20 @@ Public Function TextoSeguro(ByVal valor As Variant) As String
 
     If IsError(valor) Then
         TextoSeguro = ""
-    ElseIf IsNull(valor) Then
-        TextoSeguro = ""
-    ElseIf IsEmpty(valor) Then
-        TextoSeguro = ""
-    Else
-        TextoSeguro = CStr(valor)
+        Exit Function
     End If
 
+    If IsNull(valor) Then
+        TextoSeguro = ""
+        Exit Function
+    End If
+
+    If IsEmpty(valor) Then
+        TextoSeguro = ""
+        Exit Function
+    End If
+
+    TextoSeguro = CStr(valor)
     Exit Function
 
 EH:
@@ -167,7 +190,9 @@ Public Function TryLongSeguro(ByVal valor As Variant, ByRef salida As Long) As B
 
     Dim s As String
 
-    If IsError(valor) Or IsNull(valor) Or IsEmpty(valor) Then Exit Function
+    If IsError(valor) Then Exit Function
+    If IsNull(valor) Then Exit Function
+    If IsEmpty(valor) Then Exit Function
 
     If IsNumeric(valor) Then
         salida = CLng(valor)
@@ -175,13 +200,12 @@ Public Function TryLongSeguro(ByVal valor As Variant, ByRef salida As Long) As B
         Exit Function
     End If
 
-    s = LimpiarTexto(CStr(valor))
+    s = LimpiarTexto(TextoSeguro(valor))
     If Len(s) = 0 Then Exit Function
 
     If IsNumeric(s) Then
         salida = CLng(s)
         TryLongSeguro = True
-        Exit Function
     End If
 
     Exit Function
