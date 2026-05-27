@@ -1078,16 +1078,59 @@ Public Sub CrearHojaComparativoAnual(ByVal wbOut As Workbook, ByVal wsBase As Wo
 End Sub
 
 Public Sub CrearArchivoControlReporteGG(ByVal rutaControl As String, ByVal anioActual As Long, ByVal anioComparativo As Long, ByVal mesCierre As Long, ByVal dictControlEjecMensual As Object, ByVal dictControlCompActualPorClave As Object, ByVal dictControlCompAnteriorPorClave As Object, ByVal dictControlAsignadoPorClave As Object, ByVal dictControlEjecPorClave As Object)
+    On Error GoTo EH
+
     Dim wbControl As Workbook
+    Dim etapa As String
+
+    etapa = "creando workbook control"
     Set wbControl = Workbooks.Add(xlWBATWorksheet)
+
+    etapa = "creando hoja control ejecución mensual"
     CrearHojaControlEjecucionMensual wbControl, dictControlEjecMensual, anioActual
+
+    etapa = "creando hoja control comparativo"
     CrearHojaControlComparativo wbControl, dictControlCompActualPorClave, dictControlCompAnteriorPorClave, anioActual, anioComparativo
+
+    etapa = "creando hoja control % ejecución"
     CrearHojaControlPorcEjecucion wbControl, dictControlAsignadoPorClave, dictControlEjecPorClave, anioActual
+
+    etapa = "eliminando hoja inicial vacía"
     Application.DisplayAlerts = False
     If wbControl.Worksheets.Count > 3 Then wbControl.Worksheets(1).Delete
-    wbControl.SaveAs Filename:=rutaControl, FileFormat:=xlOpenXMLWorkbook
-    wbControl.Close SaveChanges:=False
     Application.DisplayAlerts = True
+
+    etapa = "guardando archivo control"
+    Application.DisplayAlerts = False
+    wbControl.SaveAs Filename:=rutaControl, FileFormat:=xlOpenXMLWorkbook
+    Application.DisplayAlerts = True
+
+    etapa = "cerrando archivo control"
+    wbControl.Close SaveChanges:=False
+    Set wbControl = Nothing
+    Exit Sub
+
+EH:
+    Dim n As Long
+    Dim d As String
+    Dim src As String
+
+    n = Err.Number
+    d = Err.Description
+    src = Err.Source
+
+    On Error Resume Next
+    Application.DisplayAlerts = True
+    If Not wbControl Is Nothing Then wbControl.Close SaveChanges:=False
+    On Error GoTo 0
+
+    Err.Raise n, "CrearArchivoControlReporteGG", _
+        "Error generando archivo de control." & vbCrLf & _
+        "Etapa: " & etapa & vbCrLf & _
+        "Ruta: " & rutaControl & vbCrLf & _
+        "Err.Number original: " & CStr(n) & vbCrLf & _
+        "Err.Source original: " & src & vbCrLf & _
+        "Err.Description original: " & d
 End Sub
 
 Private Sub FormatearHojaControlBase(ByVal ws As Worksheet, ByVal filaHeader As Long, ByVal ultimaCol As Long, ByVal fmtImporteCols As String, Optional ByVal fmtPctCols As String = "")
@@ -1095,7 +1138,12 @@ Private Sub FormatearHojaControlBase(ByVal ws As Worksheet, ByVal filaHeader As 
     lr = UltimaFilaConDatos(ws)
     ws.Rows(filaHeader).Font.Bold = True
     ws.Range(ws.Cells(filaHeader, 1), ws.Cells(lr, ultimaCol)).AutoFilter
-    ws.Activate: ws.Range("A2").Select: ActiveWindow.FreezePanes = True
+    On Error Resume Next
+    ws.Parent.Activate
+    ws.Activate
+    ws.Range("A2").Select
+    ActiveWindow.FreezePanes = True
+    On Error GoTo 0
     ws.Columns.AutoFit
     AplicarFormatoColumnasControl ws, fmtImporteCols, filaHeader + 1, lr, "#,##0.00"
     AplicarFormatoColumnasControl ws, fmtPctCols, filaHeader + 1, lr, "0.00%"
@@ -1124,9 +1172,26 @@ Private Sub AplicarFormatoColumnasControl(ByVal ws As Worksheet, ByVal columnas 
     Next i
 End Sub
 
+
+Private Function NombreHojaSeguro(ByVal nombreBase As String) As String
+    Dim s As String
+
+    s = nombreBase
+    s = Replace(s, ":", "-")
+    s = Replace(s, "\", "-")
+    s = Replace(s, "/", "-")
+    s = Replace(s, "?", "")
+    s = Replace(s, "*", "")
+    s = Replace(s, "[", "(")
+    s = Replace(s, "]", ")")
+
+    If Len(s) > 31 Then s = Left$(s, 31)
+
+    NombreHojaSeguro = s
+End Function
 Private Sub CrearHojaControlEjecucionMensual(ByVal wb As Workbook, ByVal d As Object, ByVal anio As Long)
     Dim ws As Worksheet, k As Variant, it As Object, f As Long
-    Set ws = wb.Worksheets.Add(After:=wb.Worksheets(wb.Worksheets.Count)): ws.Name = "Control_Ejecución_" & anio
+    Set ws = wb.Worksheets.Add(After:=wb.Worksheets(wb.Worksheets.Count)): ws.Name = NombreHojaSeguro("Ctrl_Ejec_" & anio)
     ws.Range("A1:K1").Value = Array("MesNum", "Mes", "Clave Llave presupuestal", "Financiamiento", "Nivel_1", "Nivel_2", "Nivel_3", "Ejecutado", "Cantidad líneas origen", "Primera fila origen", "Última fila origen")
     f = 2
     For Each k In d.Keys
@@ -1143,7 +1208,7 @@ End Sub
 Private Sub CrearHojaControlComparativo(ByVal wb As Workbook, ByVal dAct As Object, ByVal dAnt As Object, ByVal anioActual As Long, ByVal anioComp As Long)
     Dim ws As Worksheet, keys As Object, k As Variant, f As Long, a As Variant, b As Variant, ejA As Double, ejB As Double, ratio As Double, ejBAct As Double
     Dim fin As String, n1 As String, n2 As String, n3 As String
-    Set ws = wb.Worksheets.Add(After:=wb.Worksheets(wb.Worksheets.Count)): ws.Name = "Control_Comparativo_" & anioActual & "_vs_" & anioComp
+    Set ws = wb.Worksheets.Add(After:=wb.Worksheets(wb.Worksheets.Count)): ws.Name = NombreHojaSeguro("Ctrl_Comp_" & anioActual & "_" & anioComp)
     ws.Range("A1:S1").Value = Array("Clave Llave presupuestal", "Financiamiento", "Nivel_1", "Nivel_2", "Nivel_3", "Ejecutado " & anioActual, "Ejecutado " & anioComp & " anterior original", "Indice", "Archivo índice", "Periodo índice base", "Valor índice base", "Periodo índice destino", "Valor índice destino", "Ratio actualización", "Ejecutado " & anioComp & " anterior actualizado a valores " & anioActual, "Diferencia", "% variación", "Cantidad líneas " & anioActual, "Cantidad líneas " & anioComp)
     Set keys = CreateObject("Scripting.Dictionary")
     For Each k In dAct.Keys: keys(k) = True: Next k
@@ -1177,7 +1242,7 @@ End Sub
 Private Sub CrearHojaControlPorcEjecucion(ByVal wb As Workbook, ByVal dAsig As Object, ByVal dEj As Object, ByVal anio As Long)
     Dim ws As Worksheet, keys As Object, k As Variant, f As Long, a As Variant, e As Variant, asig As Double, ejec As Double
     Dim fin As String, n1 As String, n2 As String, n3 As String
-    Set ws = wb.Worksheets.Add(After:=wb.Worksheets(wb.Worksheets.Count)): ws.Name = "Control_%Ejecución_" & anio
+    Set ws = wb.Worksheets.Add(After:=wb.Worksheets(wb.Worksheets.Count)): ws.Name = NombreHojaSeguro("Ctrl_PctEjec_" & anio)
     ws.Range("A1:J1").Value = Array("Clave Llave presupuestal", "Financiamiento", "Nivel_1", "Nivel_2", "Nivel_3", "Asignado", "Ejecutado", "% ejecución", "Cantidad líneas asignado", "Cantidad líneas ejecución")
     Set keys = CreateObject("Scripting.Dictionary")
     For Each k In dAsig.Keys: keys(k) = True: Next k

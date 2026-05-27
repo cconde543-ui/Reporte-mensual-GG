@@ -410,11 +410,20 @@ End Function
 
 Public Sub AsegurarCarpetaExiste(ByVal ruta As String)
     On Error GoTo EH
-    Dim fso As Object: Set fso = CreateObject("Scripting.FileSystemObject")
-    If Not fso.FolderExists(ruta) Then fso.CreateFolder ruta
+
+    Dim fso As Object
+    Set fso = CreateObject("Scripting.FileSystemObject")
+
+    If Len(Trim$(ruta)) = 0 Then Exit Sub
+
+    If Not fso.FolderExists(ruta) Then
+        fso.CreateFolder ruta
+    End If
+
     Exit Sub
 EH:
-    Err.Raise Err.Number, "AsegurarCarpetaExiste", "No se pudo asegurar carpeta: " & ruta & " | " & Err.Description
+    Err.Raise Err.Number, "AsegurarCarpetaExiste", _
+        "No se pudo asegurar carpeta: " & ruta & " | " & Err.Description
 End Sub
 
 
