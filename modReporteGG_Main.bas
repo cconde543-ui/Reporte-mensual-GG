@@ -485,10 +485,8 @@ Public Sub LeerAsignadosYAcumular(ByVal ws As Worksheet, ByVal dictCod As Object
             filasAsignadosConClaveEnDictCod = filasAsignadosConClaveEnDictCod + 1
         ElseIf dictLlavesCodiguera.Exists(clave) Then
             filasAsignadosClaveExistePeroNoIncluida = filasAsignadosClaveExistePeroNoIncluida + 1
-            AgregarMuestraAsignadoNoAcumulado diag, "Existe en codiguera pero no está incluida en informe", i, clave, monto
         Else
             filasAsignadosNuevas = filasAsignadosNuevas + 1
-            AgregarMuestraAsignadoNoAcumulado diag, "Nueva llave no encontrada en codiguera", i, clave, monto
             RegistrarYAgregarLlaveAsignadoFaltante wbCodiguera, diag, clave, arr, headers, i, archivoAsignados
             If Not dictLlavesCodiguera.Exists(clave) Then dictLlavesCodiguera.Add clave, True
         End If
@@ -687,29 +685,6 @@ Public Sub EscribirDiagnostico(ByVal wb As Workbook, ByVal diag As Object, ByVal
         filaActual = filaActual + 2
     End If
 
-    If diag.Exists("asignados_muestra_no_acumulados") Then
-        ws.Cells(filaActual, 1).Value = "Muestra de asignados no acumulados (no necesariamente faltantes en codiguera)"
-        ws.Cells(filaActual, 1).Font.Bold = True
-        filaActual = filaActual + 1
-
-        ws.Cells(filaActual, 1).Value = "Esta muestra incluye llaves existentes en codiguera pero no incluidas en informe, y eventualmente llaves nuevas. Es solo una muestra, no el listado completo."
-        filaActual = filaActual + 1
-
-        ws.Range("A" & filaActual & ":D" & filaActual).Value = Array("Estado", "Fila origen asignados", "Clave normalizada", "Asignado")
-        ws.Range("A" & filaActual & ":D" & filaActual).Font.Bold = True
-        ws.Range("A" & filaActual & ":D" & filaActual).Interior.Color = RGB(242, 242, 242)
-        filaActual = filaActual + 1
-
-        For Each it In diag("asignados_muestra_no_acumulados")
-            ws.Cells(filaActual, 1).Value = it(0)
-            ws.Cells(filaActual, 2).Value = it(1)
-            ws.Cells(filaActual, 3).Value = it(2)
-            ws.Cells(filaActual, 4).Value = it(3)
-            filaActual = filaActual + 1
-        Next it
-
-        filaActual = filaActual + 2
-    End If
 
     ws.Rows(1).Font.Bold = True
     ws.Columns("A:S").AutoFit
@@ -784,19 +759,6 @@ Private Sub ValidarColumnasAsignados(ByVal headers As Object)
     Next i
 End Sub
 
-Private Sub AgregarMuestraAsignadoNoAcumulado(ByRef diag As Object, ByVal estado As String, ByVal fila As Long, ByVal clave As String, ByVal monto As Double)
-    Dim col As Collection
-    If Not diag.Exists("asignados_muestra_no_acumulados") Then
-        Set col = New Collection
-        diag.Add "asignados_muestra_no_acumulados", col
-    Else
-        Set col = diag("asignados_muestra_no_acumulados")
-    End If
-
-    If col.Count < 20 Then
-        col.Add Array(estado, fila, clave, monto)
-    End If
-End Sub
 
 Private Function NormalizarClaveCodigueraDesdeTexto(ByVal valor As Variant) As String
     Dim partes() As String, i As Long
@@ -995,7 +957,6 @@ Public Sub ValidarAsignadosComparativoContraCodiguera(ByVal ws As Worksheet, ByV
             If diag.Exists("asignados_faltantes") Then Set diag("comparativo_asignados_faltantes") = diag("asignados_faltantes")
             If Not dictLlavesCodiguera.Exists(clave) Then dictLlavesCodiguera.Add clave, True
         ElseIf Not dictCod.Exists(clave) Then
-            AgregarMuestraAsignadoNoAcumulado diag, "Comparativo: existe en codiguera pero no incluida", i, clave, CDbl(0 + arr(i, ObtenerColumna(headers, Array("asignado"))))
         Else
             If Not dictIndicePorClave.Exists(clave) Or Len(Trim$(CStr(dictIndicePorClave(clave)))) = 0 Then
                 Err.Raise vbObjectError + 1994, "ValidarAsignadosComparativoContraCodiguera", "La llave " & clave & " está incluida en informe pero no tiene Indice informado en codiguera."
