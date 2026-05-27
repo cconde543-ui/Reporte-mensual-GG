@@ -15,6 +15,8 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     Dim anioComparativo As Long
     Dim archivoEjecComparativo As String
     Dim archivoAsignadosComparativo As String
+    Dim carpetaEjecActual As String
+    Dim carpetaAsignadosActual As String
     Dim carpetaEjecComparativo As String
     Dim carpetaAsignadosComparativo As String
     Dim wbE As Workbook
@@ -60,6 +62,8 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     Dim salidaMsg As String
     Dim archivoEjecComparativoMsg As String
     Dim archivoAsignadosComparativoMsg As String
+    Dim carpetaEjecActualMsg As String
+    Dim carpetaAsignadosActualMsg As String
     Dim carpetaEjecComparativoMsg As String
     Dim carpetaAsignadosComparativoMsg As String
     Dim carpetaIndicesMsg As String
@@ -101,10 +105,17 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     Set dictCompAnteriorActualizado = CreateObject("Scripting.Dictionary")
     anioComparativo = anio - 1
 
-    etapaActual = "buscando archivo de ejecuciones"
-    archivoEjec = ObtenerArchivoMasReciente(RutaCarpetaEjecucionesActiva())
+    etapaActual = "resolviendo carpeta de ejecuciones actual"
+    carpetaEjecActual = RutaCarpetaEjecucionesAnioActiva(anio)
+    carpetaEjecActualMsg = carpetaEjecActual
+    If Len(Dir(carpetaEjecActual, vbDirectory)) = 0 Then
+        Err.Raise vbObjectError + 102, procedimiento, "No existe la carpeta de ejecuciones del año " & anio & ": " & carpetaEjecActual
+    End If
+
+    etapaActual = "buscando archivo de ejecuciones actual"
+    archivoEjec = ObtenerArchivoMasReciente(carpetaEjecActual)
     If Len(archivoEjec) = 0 Then
-        Err.Raise vbObjectError + 102, procedimiento, "No se encontró archivo de ejecuciones en: " & RutaCarpetaEjecucionesActiva()
+        Err.Raise vbObjectError + 103, procedimiento, "No se encontró archivo de ejecuciones del año " & anio & " en: " & carpetaEjecActual
     End If
 
     etapaActual = "buscando codiguera"
@@ -113,11 +124,18 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
         Err.Raise vbObjectError + 103, procedimiento, "No se encontró archivo de codiguera en: " & RutaCodigueraActiva()
     End If
 
-    etapaActual = "buscando asignados por fecha de creación"
-    archivoAsignados = ObtenerArchivoMasRecientePorFechaCreacion(RutaCarpetaAsignadosGastosActiva())
+    etapaActual = "resolviendo carpeta de asignados actual"
+    carpetaAsignadosActual = RutaCarpetaAsignadosGastosAnioActiva(anio)
+    carpetaAsignadosActualMsg = carpetaAsignadosActual
+    If Len(Dir(carpetaAsignadosActual, vbDirectory)) = 0 Then
+        Err.Raise vbObjectError + 117, procedimiento, "No existe la carpeta de asignados del año " & anio & ": " & carpetaAsignadosActual
+    End If
+
+    etapaActual = "buscando asignados actuales por fecha de creación"
+    archivoAsignados = ObtenerArchivoMasRecientePorFechaCreacion(carpetaAsignadosActual)
 
     If Len(archivoAsignados) = 0 Then
-        Err.Raise vbObjectError + 117, procedimiento, "No se encontró archivo de asignados en: " & RutaCarpetaAsignadosGastosActiva()
+        Err.Raise vbObjectError + 118, procedimiento, "No se encontró archivo de asignados del año " & anio & " en: " & carpetaAsignadosActual
     End If
 
     archivoAsignadosMsg = archivoAsignados
@@ -148,6 +166,44 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
 
     etapaActual = "leyendo asignados y acumulando"
     LeerAsignadosYAcumular wsA, dictCod, dictLlavesCodiguera, dictAsignado, diag, wbC, anio, archivoAsignados
+
+    If diag.Exists("asignados_faltantes") Then
+        etapaActual = "guardando codiguera por nuevas llaves de asignados actuales"
+        wbC.Save
+        EscribirDiagnostico ThisWorkbook, diag, archivoEjec, archivoCod, anio, mesCierre
+
+        If Not wbE Is Nothing Then wbE.Close False: Set wbE = Nothing
+        If Not wbA Is Nothing Then wbA.Close False: Set wbA = Nothing
+        If Not wbC Is Nothing Then wbC.Close True: Set wbC = Nothing
+
+        MsgBox "Se agregaron nuevas llaves presupuestales del archivo de asignados actual a la codiguera. Debe clasificarlas, marcar Incluir_en_Informe cuando corresponda y volver a generar el reporte.", vbExclamation
+        Exit Sub
+    End If
+
+    If dictAsignado.Count = 0 Then
+        EscribirDiagnostico ThisWorkbook, diag, archivoEjec, archivoCod, anio, mesCierre
+        Err.Raise vbObjectError + 1250, procedimiento, _
+            "No se acumuló ningún asignado. Se escribió Diagnostico_Llaves con el resumen de asignados. Revise archivo de asignados, año, claves presupuestales e Incluir_en_Informe. Archivo: " & archivoAsignados & vbCrLf & _
+            ResumenAsignadosParaError(diag)
+    End If
+
+    If SumaValoresDiccionario(dictAsignado) = 0 Then
+        EscribirDiagnostico ThisWorkbook, diag, archivoEjec, archivoCod, anio, mesCierre
+        Err.Raise vbObjectError + 1251, procedimiento, _
+            "El total asignado acumulado es cero. Se escribió Diagnostico_Llaves con el resumen de asignados. Revise archivo de asignados, año, claves presupuestales e Incluir_en_Informe. Archivo: " & archivoAsignados & vbCrLf & _
+            ResumenAsignadosParaError(diag)
+    End If
+
+    etapaActual = "cerrando archivos actuales antes de abrir comparativo"
+    If Not wbE Is Nothing Then
+        wbE.Close False
+        Set wbE = Nothing
+    End If
+
+    If Not wbA Is Nothing Then
+        wbA.Close False
+        Set wbA = Nothing
+    End If
 
     etapaActual = "resolviendo carpeta ejecuciones comparativo"
     carpetaEjecComparativo = RutaCarpetaEjecucionesAnioActiva(anioComparativo)
@@ -209,33 +265,18 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     If diag.Exists("comparativo_asignados_faltantes") Then
         wbC.Save
         EscribirDiagnostico ThisWorkbook, diag, archivoEjec, archivoCod, anio, mesCierre
-        wbE.Close False: wbA.Close False: wbC.Close True: wbEComp.Close False: wbAComp.Close False
+        If Not wbC Is Nothing Then wbC.Close True: Set wbC = Nothing
+        If Not wbEComp Is Nothing Then wbEComp.Close False: Set wbEComp = Nothing
+        If Not wbAComp Is Nothing Then wbAComp.Close False: Set wbAComp = Nothing
         MsgBox "Se agregaron nuevas llaves presupuestales del archivo de asignados comparativo a la codiguera. Debe clasificarlas, indicar Indice, marcar Incluir_en_Informe cuando corresponda y volver a generar el reporte.", vbExclamation
         Exit Sub
     End If
 
-    If diag.Exists("asignados_faltantes") Then
-        etapaActual = "guardando codiguera por nuevas llaves de asignados"
-        wbC.Save
-        EscribirDiagnostico ThisWorkbook, diag, archivoEjec, archivoCod, anio, mesCierre
-        wbE.Close False: wbA.Close False: wbC.Close True
-        MsgBox "Se agregaron nuevas llaves presupuestales del archivo de asignados a la codiguera. Debe clasificarlas, marcar Incluir_en_Informe cuando corresponda y volver a generar el reporte.", vbExclamation
-        Exit Sub
-    End If
+    ConstruirDictComparativoActualDesdeDictAgg dictAgg, mesCierre, dictCompActual
+    LeerEjecucionesComparativoYAcumular wsEComp, anioComparativo, anio, mesCierre, dictCod, dictIndicePorClave, dictCompAnteriorActualizado, diag
 
-    If dictAsignado.Count = 0 Then
-        EscribirDiagnostico ThisWorkbook, diag, archivoEjec, archivoCod, anio, mesCierre
-        Err.Raise vbObjectError + 1250, procedimiento, _
-            "No se acumuló ningún asignado. Se escribió Diagnostico_Llaves con el resumen de asignados. Revise archivo de asignados, año, claves presupuestales e Incluir_en_Informe. Archivo: " & archivoAsignados & vbCrLf & _
-            ResumenAsignadosParaError(diag)
-    End If
-
-    If SumaValoresDiccionario(dictAsignado) = 0 Then
-        EscribirDiagnostico ThisWorkbook, diag, archivoEjec, archivoCod, anio, mesCierre
-        Err.Raise vbObjectError + 1251, procedimiento, _
-            "El total asignado acumulado es cero. Se escribió Diagnostico_Llaves con el resumen de asignados. Revise archivo de asignados, año, claves presupuestales e Incluir_en_Informe. Archivo: " & archivoAsignados & vbCrLf & _
-            ResumenAsignadosParaError(diag)
-    End If
+    If Not wbEComp Is Nothing Then wbEComp.Close False: Set wbEComp = Nothing
+    If Not wbAComp Is Nothing Then wbAComp.Close False: Set wbAComp = Nothing
 
     etapaActual = "completando meses faltantes"
     CompletarMesesAnioEnDictAgg dictAgg
@@ -258,8 +299,6 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     ConstruirBasePorcEjec wsBasePorc, dictAgg, dictAsignado, mesCierre
     Set wsBaseComp = wbOut.Worksheets.Add(After:=wbOut.Worksheets(wbOut.Worksheets.Count))
     wsBaseComp.Name = "Ejec comparada datos"
-    ConstruirDictComparativoActualDesdeDictAgg dictAgg, mesCierre, dictCompActual
-    LeerEjecucionesComparativoYAcumular wsEComp, anioComparativo, anio, mesCierre, dictCod, dictIndicePorClave, dictCompAnteriorActualizado, diag
     ConstruirBaseEjecComparada wsBaseComp, dictCompActual, dictCompAnteriorActualizado, anio, anioComparativo
     CrearHojaComparativoAnual wbOut, wsBaseComp, anio, anioComparativo, mesCierre, etapaVisual
     hojaReporteActual = "% ejecución " & anio
@@ -278,11 +317,11 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
 
     etapaActual = "cerrando archivos"
     wbOut.Close False
-    wbE.Close False
-    wbA.Close False
-    wbC.Close False
-    wbEComp.Close False
-    wbAComp.Close False
+    If Not wbE Is Nothing Then wbE.Close False
+    If Not wbA Is Nothing Then wbA.Close False
+    If Not wbC Is Nothing Then wbC.Close False
+    If Not wbEComp Is Nothing Then wbEComp.Close False
+    If Not wbAComp Is Nothing Then wbAComp.Close False
 
     MsgBox "Reporte generado: " & rutaFinal, vbInformation
     Exit Sub
@@ -359,11 +398,13 @@ EH:
           "Archivo ejecuciones: " & archivoEjecMsg & vbCrLf & _
           "Archivo codiguera: " & archivoCodMsg & vbCrLf & _
           "Archivo asignados: " & archivoAsignadosMsg & vbCrLf & _
+          "Carpeta ejecuciones actual: " & IIf(Len(carpetaEjecActualMsg) > 0, carpetaEjecActualMsg, "(no determinada)") & vbCrLf & _
+          "Carpeta asignados actual: " & IIf(Len(carpetaAsignadosActualMsg) > 0, carpetaAsignadosActualMsg, "(no determinada)") & vbCrLf & _
           "Carpeta ejecuciones comparativo: " & IIf(Len(carpetaEjecComparativoMsg) > 0, carpetaEjecComparativoMsg, "(no determinada)") & vbCrLf & _
           "Archivo ejecuciones comparativo: " & IIf(Len(archivoEjecComparativoMsg) > 0, archivoEjecComparativoMsg, "(no detectado)") & vbCrLf & _
           "Carpeta asignados comparativo: " & IIf(Len(carpetaAsignadosComparativoMsg) > 0, carpetaAsignadosComparativoMsg, "(no determinada)") & vbCrLf & _
           "Archivo asignados comparativo: " & IIf(Len(archivoAsignadosComparativoMsg) > 0, archivoAsignadosComparativoMsg, "(no detectado)") & vbCrLf & _
-          "Carpeta índices: " & RutaCarpetaIndicesActiva() & vbCrLf & _
+          "Carpeta índices: " & carpetaIndicesMsg & vbCrLf & _
           "Salida: " & salidaMsg & vbCrLf & _
           "Carpeta base local: " & ThisWorkbook.Path & vbCrLf & _
           DiagnosticoRutasActivas()
