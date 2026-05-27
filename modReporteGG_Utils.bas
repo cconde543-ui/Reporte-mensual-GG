@@ -109,20 +109,23 @@ Private Function NormalizarComponenteClaveCodiguera(ByVal valor As Variant) As S
 End Function
 
 Public Function ConstruirClaveLlavePresupuestalCodiguera(ByVal finac As Variant, ByVal derF As Variant, ByVal pg As Variant, ByVal spg As Variant, ByVal proy As Variant, ByVal rubro As Variant, ByVal rAux As Variant, ByVal ue As Variant, ByVal dep As Variant, ByVal obra As Variant, ByVal derObra As Variant, ByVal serv As Variant, ByVal sniip As Variant) As String
-    ConstruirClaveLlavePresupuestalCodiguera = Join(Array( _
-        NormalizarComponenteClaveCodiguera(finac), _
-        NormalizarComponenteClaveCodiguera(derF), _
-        NormalizarComponenteClaveCodiguera(pg), _
-        NormalizarComponenteClaveCodiguera(spg), _
-        NormalizarComponenteClaveCodiguera(proy), _
-        NormalizarComponenteClaveCodiguera(rubro), _
-        NormalizarComponenteClaveCodiguera(rAux), _
-        NormalizarComponenteClaveCodiguera(ue), _
-        NormalizarComponenteClaveCodiguera(dep), _
-        NormalizarComponenteClaveCodiguera(obra), _
-        NormalizarComponenteClaveCodiguera(derObra), _
-        NormalizarComponenteClaveCodiguera(serv), _
-        NormalizarComponenteClaveCodiguera(sniip)), "-")
+    Dim partes(0 To 12) As String
+
+    partes(0) = NormalizarComponenteClaveCodiguera(finac)
+    partes(1) = NormalizarComponenteClaveCodiguera(derF)
+    partes(2) = NormalizarComponenteClaveCodiguera(pg)
+    partes(3) = NormalizarComponenteClaveCodiguera(spg)
+    partes(4) = NormalizarComponenteClaveCodiguera(proy)
+    partes(5) = NormalizarComponenteClaveCodiguera(rubro)
+    partes(6) = NormalizarComponenteClaveCodiguera(rAux)
+    partes(7) = NormalizarComponenteClaveCodiguera(ue)
+    partes(8) = NormalizarComponenteClaveCodiguera(dep)
+    partes(9) = NormalizarComponenteClaveCodiguera(obra)
+    partes(10) = NormalizarComponenteClaveCodiguera(derObra)
+    partes(11) = NormalizarComponenteClaveCodiguera(serv)
+    partes(12) = NormalizarComponenteClaveCodiguera(sniip)
+
+    ConstruirClaveLlavePresupuestalCodiguera = Join(partes, "-")
 End Function
 
 Public Function TryObtenerFechaValorSeguro(ByVal valorFuente As Variant, ByRef fechaOut As Date) As Boolean
