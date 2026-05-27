@@ -216,9 +216,12 @@ Public Function CarpetaSalidaReportesActiva() As String
 End Function
 
 Public Function CarpetaControlesReporteActiva() As String
+    Dim base As String
     Dim carpeta As String
-    carpeta = CombinarRuta(CarpetaSalidaReportesActiva(), "Controles")
-    If Not CarpetaExiste(carpeta) Then MkDir carpeta
+    base = CarpetaSalidaReportesActiva()
+    AsegurarCarpetaExiste base
+    carpeta = CombinarRuta(base, "Controles")
+    AsegurarCarpetaExiste carpeta
     CarpetaControlesReporteActiva = carpeta
 End Function
 

@@ -495,6 +495,7 @@ End Sub
 
 Public Sub LeerAsignadosYAcumular(ByVal ws As Worksheet, ByVal dictCod As Object, ByVal dictLlavesCodiguera As Object, ByRef dictAsignado As Object, ByRef diag As Object, Optional ByVal wbCodiguera As Workbook, Optional ByVal anioFiltro As Long = 0, Optional ByVal archivoAsignados As String = "", Optional ByRef dictControlAsignadoPorClave As Object = Nothing)
     Dim arr As Variant, headers As Object, i As Long, clave As String, info As Variant, keyAgg As String, monto As Double
+    Dim ctlAsig As Variant
     Dim colAnio As Long, anioFila As Long
     Dim filasAsignadosLeidas As Long, filasAsignadosAnio As Long
     Dim filasAsignadosConClaveEnDictCod As Long, filasAsignadosClaveExistePeroNoIncluida As Long, filasAsignadosNuevas As Long
@@ -529,14 +530,11 @@ Public Sub LeerAsignadosYAcumular(ByVal ws As Worksheet, ByVal dictCod As Object
             If Not dictAsignado.Exists(keyAgg) Then dictAsignado.Add keyAgg, 0#
             dictAsignado(keyAgg) = dictAsignado(keyAgg) + monto
             If Not dictControlAsignadoPorClave Is Nothing Then
-                If Not dictControlAsignadoPorClave.Exists(keyAgg) Then dictControlAsignadoPorClave.Add keyAgg, Array(0#, 0)
-                If dictControlAsignadoPorClave.Exists(keyAgg) Then
-                    Dim ctlAsig As Variant
-                    ctlAsig = dictControlAsignadoPorClave(keyAgg)
-                    ctlAsig(0) = CDbl(ctlAsig(0)) + monto
-                    ctlAsig(1) = CLng(ctlAsig(1)) + 1
-                    dictControlAsignadoPorClave(keyAgg) = ctlAsig
-                End If
+                If Not dictControlAsignadoPorClave.Exists(clave) Then dictControlAsignadoPorClave.Add clave, Array(0#, 0, CStr(info(0)), CStr(info(1)), CStr(info(2)), CStr(info(3)))
+                ctlAsig = dictControlAsignadoPorClave(clave)
+                ctlAsig(0) = CDbl(ctlAsig(0)) + monto
+                ctlAsig(1) = CLng(ctlAsig(1)) + 1
+                dictControlAsignadoPorClave(clave) = ctlAsig
             End If
             sumaAsignadoAcumulado = sumaAsignadoAcumulado + monto
             filasAsignadosConClaveEnDictCod = filasAsignadosConClaveEnDictCod + 1
@@ -593,7 +591,7 @@ End Sub
 Public Sub LeerEjecucionesYAcumular(ByVal ws As Worksheet, ByVal anio As Long, ByVal mesCierre As Long, ByVal dictCod As Object, ByRef dictAgg As Object, ByRef diag As Object, Optional ByRef dictControlEjecMensual As Object = Nothing, Optional ByRef dictControlEjecPorClave As Object = Nothing, Optional ByRef dictControlCompActualPorClave As Object = Nothing)
     On Error GoTo EH
 
-    Dim arr As Variant, headers As Object, i As Long, fechaValor As Date, clave As String, info As Variant, mesNum As Long, aggregateKey As String, importeMN As Double
+    Dim arr As Variant, headers As Object, i As Long, fechaValor As Date, clave As String, info As Variant, mesNum As Long, aggregateKey As String, keyAgg As String, importeMN As Double
     Dim colFecha As Long, colFinac As Long, colDerF As Long, colPg As Long, colSpg As Long, colProy As Long
     Dim colRubro As Long, colRAux As Long, colUe As Long, colDep As Long, colObra As Long, colDerObra As Long
     Dim colServ As Long, colSnip As Long, colImporte As Long
@@ -602,6 +600,9 @@ Public Sub LeerEjecucionesYAcumular(ByVal ws As Worksheet, ByVal anio As Long, B
     Dim sumaImporteLeido As Double, sumaImporteAnioMes As Double, sumaImporteAcumulado As Double
     Dim fechaParseadaTexto As String
     Dim resumenEjec As Variant
+    Dim ctlKey As String
+    Dim ctlM As Object
+    Dim ctlEj As Variant
 
     arr = ws.Range(ws.Cells(1, 1), ws.Cells(UltimaFilaConDatos(ws), UltimaColConDatos(ws))).Value2
     Set headers = MapearEncabezados(arr)
@@ -674,7 +675,6 @@ Public Sub LeerEjecucionesYAcumular(ByVal ws As Worksheet, ByVal anio As Long, B
         dictAgg(aggregateKey) = dictAgg(aggregateKey) + importeMN
         sumaImporteAcumulado = sumaImporteAcumulado + importeMN
         If Not dictControlEjecMensual Is Nothing Then
-            Dim ctlKey As String, ctlM As Object
             ctlKey = clave & "|" & CStr(mesNum)
             If Not dictControlEjecMensual.Exists(ctlKey) Then
                 Set ctlM = CreateObject("Scripting.Dictionary")
@@ -690,11 +690,10 @@ Public Sub LeerEjecucionesYAcumular(ByVal ws As Worksheet, ByVal anio As Long, B
         End If
         If Not dictControlEjecPorClave Is Nothing Then
             keyAgg = CStr(info(0)) & "|" & CStr(info(1)) & "|" & CStr(info(2)) & "|" & CStr(info(3))
-            If Not dictControlEjecPorClave.Exists(keyAgg) Then dictControlEjecPorClave.Add keyAgg, Array(0#, 0)
-            Dim ctlEj As Variant
-            ctlEj = dictControlEjecPorClave(keyAgg): ctlEj(0) = CDbl(ctlEj(0)) + importeMN: ctlEj(1) = CLng(ctlEj(1)) + 1
-            dictControlEjecPorClave(keyAgg) = ctlEj
-            If Not dictControlCompActualPorClave Is Nothing Then dictControlCompActualPorClave(keyAgg) = ctlEj
+            If Not dictControlEjecPorClave.Exists(clave) Then dictControlEjecPorClave.Add clave, Array(0#, 0, CStr(info(0)), CStr(info(1)), CStr(info(2)), CStr(info(3)))
+            ctlEj = dictControlEjecPorClave(clave): ctlEj(0) = CDbl(ctlEj(0)) + importeMN: ctlEj(1) = CLng(ctlEj(1)) + 1
+            dictControlEjecPorClave(clave) = ctlEj
+            If Not dictControlCompActualPorClave Is Nothing Then dictControlCompActualPorClave(clave) = ctlEj
         End If
 
 SiguienteFila:
@@ -1241,6 +1240,8 @@ Public Sub LeerEjecucionesComparativoYAcumular(ByVal ws As Worksheet, ByVal anio
     Dim arr As Variant, headers As Object, i As Long, fechaValor As Date, clave As String, info As Variant
     Dim keyAgg As String, importeMN As Double, tipoIndice As String, factor As Double
     Dim cacheFactores As Object, det As Variant
+    Dim ctlComp As Variant
+    Dim importeOriginalMN As Double
     Set cacheFactores = CreateObject("Scripting.Dictionary")
     arr = ws.Range(ws.Cells(1, 1), ws.Cells(UltimaFilaConDatos(ws), UltimaColConDatos(ws))).Value2
     Set headers = MapearEncabezados(arr)
@@ -1260,16 +1261,16 @@ Public Sub LeerEjecucionesComparativoYAcumular(ByVal ws As Worksheet, ByVal anio
                     factor = CDbl(det(6))
                     info = dictCod(clave)
                     keyAgg = CStr(info(0)) & "|" & CStr(info(1)) & "|" & CStr(info(2)) & "|" & CStr(info(3))
-                    importeMN = CDbl(0 + arr(i, ObtenerColumna(headers, Array("importe moneda nacional")))) * factor
+                    importeOriginalMN = CDbl(0 + arr(i, ObtenerColumna(headers, Array("importe moneda nacional"))))
+                    importeMN = importeOriginalMN * factor
                     If Not dictCompAnteriorActualizado.Exists(keyAgg) Then dictCompAnteriorActualizado.Add keyAgg, 0#
                     dictCompAnteriorActualizado(keyAgg) = dictCompAnteriorActualizado(keyAgg) + importeMN
                     If Not dictControlCompAnteriorPorClave Is Nothing Then
-                        If Not dictControlCompAnteriorPorClave.Exists(keyAgg) Then dictControlCompAnteriorPorClave.Add keyAgg, Array(0#, 0, det(0), det(1), det(2), det(3), det(4), det(5), det(6))
-                        Dim ctlComp As Variant
-                        ctlComp = dictControlCompAnteriorPorClave(keyAgg)
-                        ctlComp(0) = CDbl(ctlComp(0)) + CDbl(0 + arr(i, ObtenerColumna(headers, Array("importe moneda nacional"))))
+                        If Not dictControlCompAnteriorPorClave.Exists(clave) Then dictControlCompAnteriorPorClave.Add clave, Array(0#, 0, CStr(info(0)), CStr(info(1)), CStr(info(2)), CStr(info(3)), det(0), det(1), det(2), det(3), det(4), det(5), det(6))
+                        ctlComp = dictControlCompAnteriorPorClave(clave)
+                        ctlComp(0) = CDbl(ctlComp(0)) + importeOriginalMN
                         ctlComp(1) = CLng(ctlComp(1)) + 1
-                        dictControlCompAnteriorPorClave(keyAgg) = ctlComp
+                        dictControlCompAnteriorPorClave(clave) = ctlComp
                     End If
                 End If
             End If
