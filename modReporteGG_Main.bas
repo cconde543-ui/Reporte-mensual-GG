@@ -374,13 +374,28 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     Exit Sub
 
 EH_CONTROL:
+    Dim errCtrlNum As Long
+    Dim errCtrlDesc As String
+    Dim errCtrlSource As String
+    Dim msgControl As String
+
+    errCtrlNum = Err.Number
+    errCtrlDesc = Err.Description
+    errCtrlSource = Err.Source
+
     On Error GoTo EH
+
     rutaControlReporteGenerado = ""
-    MsgBox "Reporte principal generado correctamente:" & vbCrLf & rutaFinal & vbCrLf & vbCrLf & _
-           "No se pudo generar el archivo de control." & vbCrLf & _
-           "Ruta control: " & rutaControlReporte & vbCrLf & _
-           "Err.Number: " & Err.Number & vbCrLf & _
-           "Err.Description: " & Err.Description, vbExclamation
+
+    msgControl = "Reporte principal generado correctamente:" & vbCrLf
+    msgControl = msgControl & rutaFinal & vbCrLf & vbCrLf
+    msgControl = msgControl & "No se pudo generar el archivo de control." & vbCrLf
+    msgControl = msgControl & "Ruta control: " & rutaControlReporte & vbCrLf
+    msgControl = msgControl & "Err.Number: " & CStr(errCtrlNum) & vbCrLf
+    msgControl = msgControl & "Err.Source: " & errCtrlSource & vbCrLf
+    msgControl = msgControl & "Err.Description: " & errCtrlDesc
+
+    MsgBox msgControl, vbExclamation
     Resume Next
 
 EH:
