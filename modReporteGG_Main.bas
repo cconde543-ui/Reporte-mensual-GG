@@ -487,7 +487,7 @@ Public Sub LeerAsignadosYAcumular(ByVal ws As Worksheet, ByVal dictCod As Object
             filasAsignadosClaveExistePeroNoIncluida = filasAsignadosClaveExistePeroNoIncluida + 1
         Else
             filasAsignadosNuevas = filasAsignadosNuevas + 1
-            RegistrarYAgregarLlaveAsignadoFaltante wbCodiguera, diag, clave, arr, headers, i, archivoAsignados
+            RegistrarYAgregarLlaveAsignadoFaltante wbCodiguera, diag, "asignados_faltantes", "Asignados actual", clave, arr, headers, i, archivoAsignados
             If Not dictLlavesCodiguera.Exists(clave) Then dictLlavesCodiguera.Add clave, True
         End If
 SiguienteFila:
@@ -685,6 +685,26 @@ Public Sub EscribirDiagnostico(ByVal wb As Workbook, ByVal diag As Object, ByVal
         filaActual = filaActual + 2
     End If
 
+    If diag.Exists("comparativo_asignados_faltantes") Then
+        ws.Cells(filaActual, 1).Value = "Llaves nuevas del asignado comparativo agregadas a codiguera - pendientes de clasificación e índice"
+        ws.Cells(filaActual, 1).Font.Bold = True
+        filaActual = filaActual + 1
+
+        ws.Range("A" & filaActual & ":R" & filaActual).Value = Array("Origen", "Archivo", "Fila origen asignados", "Clave normalizada", "Finac", "Der-F", "PG", "Spg", "Proy", "Rubro", "R. Aux", "UE", "Dep", "Obra", "Der. Obra", "Serv", "SNIIP", "Estado")
+        ws.Range("A" & filaActual & ":R" & filaActual).Font.Bold = True
+        ws.Range("A" & filaActual & ":R" & filaActual).Interior.Color = RGB(242, 242, 242)
+        filaActual = filaActual + 1
+
+        Set d = diag("comparativo_asignados_faltantes")
+        For Each k In d.Keys
+            it = d(k)
+            ws.Range("A" & filaActual & ":R" & filaActual).Value = it
+            filaActual = filaActual + 1
+        Next k
+
+        filaActual = filaActual + 2
+    End If
+
 
     ws.Rows(1).Font.Bold = True
     ws.Columns("A:S").AutoFit
@@ -783,12 +803,41 @@ Private Function NormalizarClaveCodigueraDesdeTexto(ByVal valor As Variant) As S
     NormalizarClaveCodigueraDesdeTexto = ConstruirClaveLlavePresupuestalCodiguera(componentes(0), componentes(1), componentes(2), componentes(3), componentes(4), componentes(5), componentes(6), componentes(7), componentes(8), componentes(9), componentes(10), componentes(11), componentes(12))
 End Function
 
-Private Sub RegistrarYAgregarLlaveAsignadoFaltante(ByVal wbCodiguera As Workbook, ByRef diag As Object, ByVal clave As String, ByRef arr As Variant, ByVal headers As Object, ByVal fila As Long, ByVal archivoAsignados As String)
-    Dim wsC As Worksheet, hdrC As Object, lastR As Long, newR As Long, sec As Collection, rowInfo As Variant
-    If Not diag.Exists("asignados_faltantes") Then Set diag("asignados_faltantes") = CreateObject("Scripting.Dictionary")
-    If diag("asignados_faltantes").Exists(clave) Then Exit Sub
-    rowInfo = Array("Asignados", archivoAsignados, fila, clave, arr(fila, ObtenerColumna(headers, Array("finac"))), arr(fila, ObtenerColumna(headers, Array("der-f"))), arr(fila, ObtenerColumna(headers, Array("pg"))), arr(fila, ObtenerColumna(headers, Array("spg"))), arr(fila, ObtenerColumna(headers, Array("proy"))), arr(fila, ObtenerColumna(headers, Array("rubro"))), arr(fila, ObtenerColumna(headers, Array("r. aux"))), arr(fila, ObtenerColumna(headers, Array("ue"))), arr(fila, ObtenerColumna(headers, Array("dep"))), arr(fila, ObtenerColumna(headers, Array("obra"))), arr(fila, ObtenerColumna(headers, Array("der. obra"))), arr(fila, ObtenerColumna(headers, Array("serv"))), arr(fila, ObtenerColumna(headers, Array("sniip"))), "Agregada a codiguera - pendiente clasificar")
-    diag("asignados_faltantes")(clave) = rowInfo
+Private Sub RegistrarYAgregarLlaveAsignadoFaltante( _
+    ByVal wbCodiguera As Workbook, _
+    ByRef diag As Object, _
+    ByVal claveDiag As String, _
+    ByVal origen As String, _
+    ByVal clave As String, _
+    ByRef arr As Variant, _
+    ByVal headers As Object, _
+    ByVal fila As Long, _
+    ByVal archivoAsignados As String)
+    Dim wsC As Worksheet, hdrC As Object, lastR As Long, newR As Long, sec As Collection
+    Dim rowInfo(0 To 17) As Variant
+    If Not diag.Exists(claveDiag) Then Set diag(claveDiag) = CreateObject("Scripting.Dictionary")
+    If diag(claveDiag).Exists(clave) Then Exit Sub
+
+    rowInfo(0) = origen
+    rowInfo(1) = archivoAsignados
+    rowInfo(2) = fila
+    rowInfo(3) = clave
+    rowInfo(4) = arr(fila, ObtenerColumna(headers, Array("finac")))
+    rowInfo(5) = arr(fila, ObtenerColumna(headers, Array("der-f")))
+    rowInfo(6) = arr(fila, ObtenerColumna(headers, Array("pg")))
+    rowInfo(7) = arr(fila, ObtenerColumna(headers, Array("spg")))
+    rowInfo(8) = arr(fila, ObtenerColumna(headers, Array("proy")))
+    rowInfo(9) = arr(fila, ObtenerColumna(headers, Array("rubro")))
+    rowInfo(10) = arr(fila, ObtenerColumna(headers, Array("r. aux")))
+    rowInfo(11) = arr(fila, ObtenerColumna(headers, Array("ue")))
+    rowInfo(12) = arr(fila, ObtenerColumna(headers, Array("dep")))
+    rowInfo(13) = arr(fila, ObtenerColumna(headers, Array("obra")))
+    rowInfo(14) = arr(fila, ObtenerColumna(headers, Array("der. obra")))
+    rowInfo(15) = arr(fila, ObtenerColumna(headers, Array("serv")))
+    rowInfo(16) = arr(fila, ObtenerColumna(headers, Array("sniip")))
+    rowInfo(17) = "Agregada a codiguera - pendiente clasificar"
+
+    diag(claveDiag)(clave) = rowInfo
 
     If wbCodiguera Is Nothing Then Exit Sub
     Set wsC = ObtenerHojaCodiguera(wbCodiguera)
@@ -937,37 +986,122 @@ Public Sub ConstruirBaseEjecComparada(ByVal ws As Worksheet, ByVal dictCompActua
     Next k
 End Sub
 
-Public Sub ValidarAsignadosComparativoContraCodiguera(ByVal ws As Worksheet, ByVal dictCod As Object, ByVal dictLlavesCodiguera As Object, ByVal dictIndicePorClave As Object, ByRef diag As Object, ByVal wbCodiguera As Workbook, ByVal anioFiltro As Long, ByVal archivoAsignados As String)
-    Dim arr As Variant, headers As Object, i As Long, clave As String, idx As String
-    Dim colAnio As Long, anioFila As Long
+Public Sub ValidarAsignadosComparativoContraCodiguera( _
+    ByVal ws As Worksheet, _
+    ByVal dictCod As Object, _
+    ByVal dictLlavesCodiguera As Object, _
+    ByVal dictIndicePorClave As Object, _
+    ByRef diag As Object, _
+    ByVal wbCodiguera As Workbook, _
+    ByVal anioFiltro As Long, _
+    ByVal archivoAsignados As String)
+
+    On Error GoTo EH
+
+    Dim arr As Variant
+    Dim headers As Object
+    Dim i As Long
+    Dim clave As String
+    Dim idx As String
+    Dim colAnio As Long
+    Dim anioFila As Long
+    Dim filaActual As Long
+    Dim claveActual As String
+
+    If ws Is Nothing Then
+        Err.Raise vbObjectError + 1991, "ValidarAsignadosComparativoContraCodiguera", "La hoja de asignados comparativo es Nothing."
+    End If
+
     arr = ws.Range(ws.Cells(1, 1), ws.Cells(UltimaFilaConDatos(ws), UltimaColConDatos(ws))).Value2
     Set headers = MapearEncabezados(arr)
+
     ValidarColumnasAsignados headers
+
     colAnio = ObtenerColumnaOpcional(headers, Array("año", "anio", "ejercicio", "ej"))
+
     For i = 2 To UBound(arr, 1)
+        filaActual = i
+        claveActual = ""
+
         If colAnio > 0 And anioFiltro > 0 Then
-            If IsNumeric(arr(i, colAnio)) Then
-                anioFila = CLng(arr(i, colAnio))
-                If anioFila <> anioFiltro Then GoTo SF
+            If TryLongSeguro(arr(i, colAnio), anioFila) Then
+                If anioFila <> anioFiltro Then GoTo SiguienteFila
             End If
         End If
-        clave = ConstruirClaveLlavePresupuestalCodiguera(arr(i, ObtenerColumna(headers, Array("finac"))), arr(i, ObtenerColumna(headers, Array("der-f"))), arr(i, ObtenerColumna(headers, Array("pg"))), arr(i, ObtenerColumna(headers, Array("spg"))), arr(i, ObtenerColumna(headers, Array("proy"))), arr(i, ObtenerColumna(headers, Array("rubro"))), arr(i, ObtenerColumna(headers, Array("r. aux"))), arr(i, ObtenerColumna(headers, Array("ue"))), arr(i, ObtenerColumna(headers, Array("dep"))), arr(i, ObtenerColumna(headers, Array("obra"))), arr(i, ObtenerColumna(headers, Array("der. obra"))), arr(i, ObtenerColumna(headers, Array("serv"))), arr(i, ObtenerColumna(headers, Array("sniip"))))
+
+        clave = ConstruirClaveLlavePresupuestalCodiguera( _
+            arr(i, ObtenerColumna(headers, Array("finac"))), _
+            arr(i, ObtenerColumna(headers, Array("der-f"))), _
+            arr(i, ObtenerColumna(headers, Array("pg"))), _
+            arr(i, ObtenerColumna(headers, Array("spg"))), _
+            arr(i, ObtenerColumna(headers, Array("proy"))), _
+            arr(i, ObtenerColumna(headers, Array("rubro"))), _
+            arr(i, ObtenerColumna(headers, Array("r. aux"))), _
+            arr(i, ObtenerColumna(headers, Array("ue"))), _
+            arr(i, ObtenerColumna(headers, Array("dep"))), _
+            arr(i, ObtenerColumna(headers, Array("obra"))), _
+            arr(i, ObtenerColumna(headers, Array("der. obra"))), _
+            arr(i, ObtenerColumna(headers, Array("serv"))), _
+            arr(i, ObtenerColumna(headers, Array("sniip"))))
+
+        claveActual = clave
+
+        If Len(clave) = 0 Then GoTo SiguienteFila
+
         If Not dictLlavesCodiguera.Exists(clave) Then
-            RegistrarYAgregarLlaveAsignadoFaltante wbCodiguera, diag, clave, arr, headers, i, archivoAsignados
-            If diag.Exists("asignados_faltantes") Then Set diag("comparativo_asignados_faltantes") = diag("asignados_faltantes")
+
+            RegistrarYAgregarLlaveAsignadoFaltante _
+                wbCodiguera, _
+                diag, _
+                "comparativo_asignados_faltantes", _
+                "Asignados comparativo", _
+                clave, _
+                arr, _
+                headers, _
+                i, _
+                archivoAsignados
+
             If Not dictLlavesCodiguera.Exists(clave) Then dictLlavesCodiguera.Add clave, True
+
         ElseIf Not dictCod.Exists(clave) Then
+            GoTo SiguienteFila
         Else
-            If Not dictIndicePorClave.Exists(clave) Or Len(Trim$(CStr(dictIndicePorClave(clave)))) = 0 Then
-                Err.Raise vbObjectError + 1994, "ValidarAsignadosComparativoContraCodiguera", "La llave " & clave & " está incluida en informe pero no tiene Indice informado en codiguera."
+
+            If Not dictIndicePorClave.Exists(clave) Then
+                Err.Raise vbObjectError + 1994, "ValidarAsignadosComparativoContraCodiguera", _
+                    "La llave " & clave & " está incluida en informe pero no tiene Indice informado en codiguera."
             End If
-            idx = UCase$(Trim$(CStr(dictIndicePorClave(clave))))
+
+            idx = UCase$(Trim$(TextoSeguro(dictIndicePorClave(clave))))
+
+            If Len(idx) = 0 Then
+                Err.Raise vbObjectError + 1994, "ValidarAsignadosComparativoContraCodiguera", _
+                    "La llave " & clave & " está incluida en informe pero tiene Indice vacío en codiguera."
+            End If
+
             If idx = "IPC GRAL" Or idx = "IPC GENERAL" Then idx = "IPC"
             If idx = "IMSN M B08" Then idx = "IMSN"
+
             If idx <> "IPC" And idx <> "IMSN" Then
-                Err.Raise vbObjectError + 1995, "ValidarAsignadosComparativoContraCodiguera", "Índice inválido para llave " & clave & ": '" & dictIndicePorClave(clave) & "'. Archivo: " & archivoAsignados
+                Err.Raise vbObjectError + 1995, "ValidarAsignadosComparativoContraCodiguera", _
+                    "Índice inválido para llave " & clave & ": '" & TextoSeguro(dictIndicePorClave(clave)) & "'. Archivo: " & archivoAsignados
             End If
+
         End If
-SF:
+
+SiguienteFila:
     Next i
+
+    Exit Sub
+
+EH:
+    Dim detalle As String
+    detalle = "Error validando asignados comparativo." & vbCrLf
+    detalle = detalle & "Archivo: " & archivoAsignados & vbCrLf
+    detalle = detalle & "Hoja: " & IIf(ws Is Nothing, "(Nothing)", ws.Name) & vbCrLf
+    detalle = detalle & "Fila origen: " & CStr(filaActual) & vbCrLf
+    detalle = detalle & "Clave calculada: " & claveActual & vbCrLf
+    detalle = detalle & "Detalle original: " & Err.Description
+
+    Err.Raise Err.Number, "ValidarAsignadosComparativoContraCodiguera", detalle
 End Sub

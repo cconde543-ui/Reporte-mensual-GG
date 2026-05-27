@@ -142,6 +142,53 @@ Public Function TryObtenerFechaValorSeguro(ByVal valorFuente As Variant, ByRef f
 EH:
 End Function
 
+
+Public Function TextoSeguro(ByVal valor As Variant) As String
+    On Error GoTo EH
+
+    If IsError(valor) Then
+        TextoSeguro = ""
+    ElseIf IsNull(valor) Then
+        TextoSeguro = ""
+    ElseIf IsEmpty(valor) Then
+        TextoSeguro = ""
+    Else
+        TextoSeguro = CStr(valor)
+    End If
+
+    Exit Function
+
+EH:
+    TextoSeguro = ""
+End Function
+
+Public Function TryLongSeguro(ByVal valor As Variant, ByRef salida As Long) As Boolean
+    On Error GoTo EH
+
+    Dim s As String
+
+    If IsError(valor) Or IsNull(valor) Or IsEmpty(valor) Then Exit Function
+
+    If IsNumeric(valor) Then
+        salida = CLng(valor)
+        TryLongSeguro = True
+        Exit Function
+    End If
+
+    s = LimpiarTexto(CStr(valor))
+    If Len(s) = 0 Then Exit Function
+
+    If IsNumeric(s) Then
+        salida = CLng(s)
+        TryLongSeguro = True
+        Exit Function
+    End If
+
+    Exit Function
+
+EH:
+    TryLongSeguro = False
+End Function
 Public Function MapearEncabezados(ByRef matriz As Variant) As Object
     Dim d As Object, col As Long, h As String
     Set d = CreateObject("Scripting.Dictionary")
