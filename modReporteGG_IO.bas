@@ -305,12 +305,46 @@ EH:
 End Function
 
 Public Function ObtenerHojaEjecuciones(ByVal wb As Workbook) As Worksheet
-    On Error GoTo EH
-    If wb Is Nothing Then Err.Raise vbObjectError + 1101, "ObtenerHojaEjecuciones", "El workbook recibido es Nothing."
-    Set ObtenerHojaEjecuciones = wb.Worksheets(1)
-    Exit Function
-EH:
-    Err.Raise Err.Number, "ObtenerHojaEjecuciones", "No fue posible obtener hoja de ejecuciones en: " & wb.Name
+    Dim ws As Worksheet
+    Dim headers As Object
+    Dim req As Variant
+    Dim i As Long
+    Dim lastCol As Long
+    Dim arrHeader As Variant
+    Dim hojasEncontradas As String
+    Dim columnasRequeridas As String
+
+    If wb Is Nothing Then
+        Err.Raise vbObjectError + 1101, "ObtenerHojaEjecuciones", "El workbook recibido es Nothing."
+    End If
+
+    req = Array("fecha valor", "finac código numérico", "der-f código numérico", "pg código numérico", "spg código numérico", "rubro código numérico", "r. aux código numérico", "ue código numérico", "dep código numérico", "obra código numérico", "der. obra código numérico", "serv código numérico", "importe moneda nacional")
+    columnasRequeridas = Join(req, ", ")
+
+    For Each ws In wb.Worksheets
+        If Len(hojasEncontradas) > 0 Then hojasEncontradas = hojasEncontradas & ", "
+        hojasEncontradas = hojasEncontradas & ws.Name
+
+        lastCol = UltimaColConDatos(ws)
+        If lastCol <= 0 Then GoTo SiguienteHoja
+
+        arrHeader = ws.Range(ws.Cells(1, 1), ws.Cells(1, lastCol)).Value2
+        Set headers = MapearEncabezados(arrHeader)
+
+        For i = LBound(req) To UBound(req)
+            If Not headers.Exists(CStr(req(i))) Then GoTo SiguienteHoja
+        Next i
+
+        Set ObtenerHojaEjecuciones = ws
+        Exit Function
+SiguienteHoja:
+    Next ws
+
+    Dim detalleHojaEjecuciones As String
+    detalleHojaEjecuciones = "No se encontró una hoja válida de ejecuciones en workbook: " & wb.Name
+    detalleHojaEjecuciones = detalleHojaEjecuciones & " | Hojas encontradas: " & hojasEncontradas
+    detalleHojaEjecuciones = detalleHojaEjecuciones & " | Columnas requeridas: " & columnasRequeridas
+    Err.Raise vbObjectError + 1103, "ObtenerHojaEjecuciones", detalleHojaEjecuciones
 End Function
 
 Public Function ObtenerHojaAsignados(ByVal wb As Workbook) As Worksheet
