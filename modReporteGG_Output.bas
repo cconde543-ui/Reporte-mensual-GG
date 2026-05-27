@@ -1034,6 +1034,57 @@ EH:
     'Si falla el logo, no romper el reporte.
 End Sub
 
+
+Public Function ObtenerWorksheetSeguro(ByVal wb As Workbook, ByVal nombreHoja As String) As Worksheet
+    On Error Resume Next
+    Set ObtenerWorksheetSeguro = wb.Worksheets(nombreHoja)
+    On Error GoTo 0
+End Function
+
+Public Sub OrdenarHojasVisualesReporteGG( _
+    ByVal wbOut As Workbook, _
+    ByVal anioActual As Long, _
+    ByVal anioComparativo As Long)
+
+    On Error GoTo EH
+
+    Dim wsEjec As Worksheet
+    Dim wsComp As Worksheet
+    Dim wsPorc As Worksheet
+    Dim nombreEjec As String
+    Dim nombreComp As String
+    Dim nombrePorc As String
+
+    If wbOut Is Nothing Then
+        Err.Raise vbObjectError + 2300, "OrdenarHojasVisualesReporteGG", "wbOut es Nothing."
+    End If
+
+    nombreEjec = "Ejec. Mensual " & CStr(anioActual)
+    nombreComp = "Comparativo " & CStr(anioActual) & " vs. " & CStr(anioComparativo)
+    nombrePorc = "% ejecución " & CStr(anioActual)
+
+    Set wsEjec = ObtenerWorksheetSeguro(wbOut, nombreEjec)
+    Set wsComp = ObtenerWorksheetSeguro(wbOut, nombreComp)
+    Set wsPorc = ObtenerWorksheetSeguro(wbOut, nombrePorc)
+
+    If wsEjec Is Nothing Then Err.Raise vbObjectError + 2301, "OrdenarHojasVisualesReporteGG", "No existe la hoja: " & nombreEjec
+    If wsComp Is Nothing Then Err.Raise vbObjectError + 2302, "OrdenarHojasVisualesReporteGG", "No existe la hoja: " & nombreComp
+    If wsPorc Is Nothing Then Err.Raise vbObjectError + 2303, "OrdenarHojasVisualesReporteGG", "No existe la hoja: " & nombrePorc
+
+    wsEjec.Visible = xlSheetVisible
+    wsComp.Visible = xlSheetVisible
+    wsPorc.Visible = xlSheetVisible
+
+    wsEjec.Move Before:=wbOut.Worksheets(1)
+    wsComp.Move After:=wsEjec
+    wsPorc.Move After:=wsComp
+
+    Exit Sub
+
+EH:
+    Err.Raise Err.Number, "OrdenarHojasVisualesReporteGG", Err.Description
+End Sub
+
 Public Sub CrearHojaComparativoAnual(ByVal wbOut As Workbook, ByVal wsBase As Worksheet, ByVal anioActual As Long, ByVal anioComparativo As Long, ByVal mesCierre As Long, ByRef etapaVisual As String)
     Dim ws As Worksheet, ptCache As PivotCache, pt As PivotTable, nombreHoja As String
     Dim rngBase As Range, titulo As String
