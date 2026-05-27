@@ -52,6 +52,7 @@ Public Function BuscarArchivoLocalPorPatron(ByVal carpeta As String, ByVal patro
                 End If
             End If
         End If
+SiguienteArchivo:
     Next archivo
 End Function
 
@@ -143,23 +144,11 @@ Public Function RutaCarpetaAsignadosGastosActiva() As String
 End Function
 
 Public Function RutaCarpetaEjecucionesAnioActiva(ByVal anio As Long) As String
-    Dim rutaEsperada As String
-    rutaEsperada = CombinarRuta(RutaCarpetaEjecucionesActiva(), CStr(anio))
-    If CarpetaExiste(rutaEsperada) Then
-        RutaCarpetaEjecucionesAnioActiva = rutaEsperada
-    Else
-        RutaCarpetaEjecucionesAnioActiva = rutaEsperada
-    End If
+    RutaCarpetaEjecucionesAnioActiva = CombinarRuta(RutaCarpetaEjecucionesActiva(), CStr(anio))
 End Function
 
 Public Function RutaCarpetaAsignadosGastosAnioActiva(ByVal anio As Long) As String
-    Dim rutaEsperada As String
-    rutaEsperada = CombinarRuta(RutaCarpetaAsignadosGastosActiva(), CStr(anio))
-    If CarpetaExiste(rutaEsperada) Then
-        RutaCarpetaAsignadosGastosAnioActiva = rutaEsperada
-    Else
-        RutaCarpetaAsignadosGastosAnioActiva = rutaEsperada
-    End If
+    RutaCarpetaAsignadosGastosAnioActiva = CombinarRuta(RutaCarpetaAsignadosGastosActiva(), CStr(anio))
 End Function
 
 Public Function RutaCarpetaIndicesActiva() As String
@@ -248,15 +237,46 @@ End Function
 
 Public Function ObtenerArchivoMasReciente(ByVal carpeta As String) As String
     On Error GoTo EH
-    Dim fso As Object, archivo As Object, folderObj As Object, ultimaFecha As Date
+
+    Dim fso As Object
+    Dim archivo As Object
+    Dim folderObj As Object
+    Dim ultimaFecha As Date
+    Dim ext As String
+
     Set fso = CreateObject("Scripting.FileSystemObject")
-    If Not fso.FolderExists(carpeta) Then Exit Function
-    Set folderObj = fso.GetFolder(carpeta): ultimaFecha = #1/1/1900#
+
+    If Len(Trim$(carpeta)) = 0 Then
+        Err.Raise vbObjectError + 1900, "ObtenerArchivoMasReciente", "La carpeta recibida está vacía."
+    End If
+
+    If Not fso.FolderExists(carpeta) Then
+        Err.Raise vbObjectError + 1901, "ObtenerArchivoMasReciente", "La carpeta no existe: " & carpeta
+    End If
+
+    Set folderObj = fso.GetFolder(carpeta)
+    ultimaFecha = #1/1/1900#
+
     For Each archivo In folderObj.Files
-        If LCase$(fso.GetExtensionName(archivo.Name)) Like "xls*" Then
-            If archivo.DateLastModified > ultimaFecha Then ultimaFecha = archivo.DateLastModified: ObtenerArchivoMasReciente = archivo.Path
+        ext = LCase$(fso.GetExtensionName(archivo.Name))
+
+        If Left$(archivo.Name, 2) <> "~$" Then
+            If ext = "xls" Or ext = "xlsx" Or ext = "xlsm" Then
+                If archivo.Size > 0 Then
+                    If archivo.DateLastModified > ultimaFecha Then
+                        ultimaFecha = archivo.DateLastModified
+                        ObtenerArchivoMasReciente = archivo.Path
+                    End If
+                End If
+            End If
         End If
+SiguienteArchivo:
     Next archivo
+
+    If Len(ObtenerArchivoMasReciente) = 0 Then
+        Err.Raise vbObjectError + 1902, "ObtenerArchivoMasReciente", "No se encontró archivo xls/xlsx/xlsm válido en: " & carpeta
+    End If
+
     Exit Function
 EH:
     Err.Raise Err.Number, "ObtenerArchivoMasReciente", "Error buscando archivo más reciente en: " & carpeta & " | " & Err.Description
@@ -358,11 +378,11 @@ Public Function ObtenerArchivoMasRecientePorFechaCreacion(ByVal carpeta As Strin
     Set fso = CreateObject("Scripting.FileSystemObject")
 
     If Len(Trim$(carpeta)) = 0 Then
-        Err.Raise vbObjectError + 1901, "ObtenerArchivoMasRecientePorFechaCreacion", "La carpeta recibida está vacía."
+        Err.Raise vbObjectError + 1910, "ObtenerArchivoMasRecientePorFechaCreacion", "La carpeta recibida está vacía."
     End If
 
     If Not fso.FolderExists(carpeta) Then
-        Err.Raise vbObjectError + 1902, "ObtenerArchivoMasRecientePorFechaCreacion", "La carpeta no existe: " & carpeta
+        Err.Raise vbObjectError + 1911, "ObtenerArchivoMasRecientePorFechaCreacion", "La carpeta no existe: " & carpeta
     End If
 
     Set folderObj = fso.GetFolder(carpeta)
@@ -372,6 +392,7 @@ Public Function ObtenerArchivoMasRecientePorFechaCreacion(ByVal carpeta As Strin
 
         If Left$(archivo.Name, 2) <> "~$" Then
             If ext = "xls" Or ext = "xlsx" Or ext = "xlsm" Then
+                If archivo.Size = 0 Then GoTo SiguienteArchivo
 
                 fechaCreacion = archivo.DateCreated
                 fechaModificacion = archivo.DateLastModified
@@ -394,12 +415,13 @@ Public Function ObtenerArchivoMasRecientePorFechaCreacion(ByVal carpeta As Strin
 
             End If
         End If
+SiguienteArchivo:
     Next archivo
 
     ObtenerArchivoMasRecientePorFechaCreacion = mejorArchivo
 
     If Len(ObtenerArchivoMasRecientePorFechaCreacion) = 0 Then
-        Err.Raise vbObjectError + 1903, "ObtenerArchivoMasRecientePorFechaCreacion", "No se encontró archivo xls/xlsx/xlsm en carpeta de asignados: " & carpeta
+        Err.Raise vbObjectError + 1912, "ObtenerArchivoMasRecientePorFechaCreacion", "No se encontró archivo xls/xlsx/xlsm válido en: " & carpeta
     End If
     Exit Function
 EH:
@@ -458,6 +480,7 @@ Public Function DiagnosticoArchivosAsignados(ByVal carpeta As String) As String
                 End If
             End If
         End If
+SiguienteArchivo:
     Next archivo
 
     For Each archivo In folderObj.Files
@@ -475,6 +498,7 @@ Public Function DiagnosticoArchivosAsignados(ByVal carpeta As String) As String
                           IIf(Len(motivoFila) > 0, " | Motivo=" & motivoFila, "") & vbCrLf
             End If
         End If
+SiguienteArchivo:
     Next archivo
 
     DiagnosticoArchivosAsignados = "Carpeta: " & carpeta & vbCrLf & _
