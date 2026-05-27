@@ -182,16 +182,18 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
 
     If dictAsignado.Count = 0 Then
         EscribirDiagnostico ThisWorkbook, diag, archivoEjec, archivoCod, anio, mesCierre
-        Err.Raise vbObjectError + 1250, procedimiento, _
-            "No se acumuló ningún asignado. Se escribió Diagnostico_Llaves con el resumen de asignados. Revise archivo de asignados, año, claves presupuestales e Incluir_en_Informe. Archivo: " & archivoAsignados & vbCrLf & _
-            ResumenAsignadosParaError(diag)
+        Dim detalleAsignadosVacios As String
+        detalleAsignadosVacios = "No se acumuló ningún asignado. Se escribió Diagnostico_Llaves con el resumen de asignados. Revise archivo de asignados, año, claves presupuestales e Incluir_en_Informe. Archivo: " & archivoAsignados & vbCrLf
+        detalleAsignadosVacios = detalleAsignadosVacios & ResumenAsignadosParaError(diag)
+        Err.Raise vbObjectError + 1250, procedimiento, detalleAsignadosVacios
     End If
 
     If SumaValoresDiccionario(dictAsignado) = 0 Then
         EscribirDiagnostico ThisWorkbook, diag, archivoEjec, archivoCod, anio, mesCierre
-        Err.Raise vbObjectError + 1251, procedimiento, _
-            "El total asignado acumulado es cero. Se escribió Diagnostico_Llaves con el resumen de asignados. Revise archivo de asignados, año, claves presupuestales e Incluir_en_Informe. Archivo: " & archivoAsignados & vbCrLf & _
-            ResumenAsignadosParaError(diag)
+        Dim detalleAsignadosCero As String
+        detalleAsignadosCero = "El total asignado acumulado es cero. Se escribió Diagnostico_Llaves con el resumen de asignados. Revise archivo de asignados, año, claves presupuestales e Incluir_en_Informe. Archivo: " & archivoAsignados & vbCrLf
+        detalleAsignadosCero = detalleAsignadosCero & ResumenAsignadosParaError(diag)
+        Err.Raise vbObjectError + 1251, procedimiento, detalleAsignadosCero
     End If
 
     etapaActual = "cerrando archivos actuales antes de abrir comparativo"
@@ -382,32 +384,43 @@ EH:
 
     carpetaIndicesMsg = RutaCarpetaIndicesActiva()
 
-    msg = "Error al generar reporte." & vbCrLf & vbCrLf & _
-          "Procedimiento: " & procedimiento & vbCrLf & _
-          "Etapa: " & etapaActual & vbCrLf & _
-          "Etapa visual: " & etapaVisualMsg & vbCrLf & _
-          "Err.Number: " & errNum & vbCrLf & _
-          "Err.Description: " & errDesc & vbCrLf & _
-          "Err.Source: " & errSource & vbCrLf & _
-          "Erl: " & errLine & vbCrLf & _
-          "Workbook salida: " & wbOutMsg & vbCrLf & _
-          "Existe Base_Agregada: " & existeBase & vbCrLf & _
-          "Última fila Base_Agregada: " & ultimaFilaBase & vbCrLf & _
-          "Última columna Base_Agregada: " & ultimaColBase & vbCrLf & _
-          "Nombre hoja reporte: " & IIf(Len(hojaReporteActual) > 0, hojaReporteActual, "(no determinada)") & vbCrLf & _
-          "Archivo ejecuciones: " & archivoEjecMsg & vbCrLf & _
-          "Archivo codiguera: " & archivoCodMsg & vbCrLf & _
-          "Archivo asignados: " & archivoAsignadosMsg & vbCrLf & _
-          "Carpeta ejecuciones actual: " & IIf(Len(carpetaEjecActualMsg) > 0, carpetaEjecActualMsg, "(no determinada)") & vbCrLf & _
-          "Carpeta asignados actual: " & IIf(Len(carpetaAsignadosActualMsg) > 0, carpetaAsignadosActualMsg, "(no determinada)") & vbCrLf & _
-          "Carpeta ejecuciones comparativo: " & IIf(Len(carpetaEjecComparativoMsg) > 0, carpetaEjecComparativoMsg, "(no determinada)") & vbCrLf & _
-          "Archivo ejecuciones comparativo: " & IIf(Len(archivoEjecComparativoMsg) > 0, archivoEjecComparativoMsg, "(no detectado)") & vbCrLf & _
-          "Carpeta asignados comparativo: " & IIf(Len(carpetaAsignadosComparativoMsg) > 0, carpetaAsignadosComparativoMsg, "(no determinada)") & vbCrLf & _
-          "Archivo asignados comparativo: " & IIf(Len(archivoAsignadosComparativoMsg) > 0, archivoAsignadosComparativoMsg, "(no detectado)") & vbCrLf & _
-          "Carpeta índices: " & carpetaIndicesMsg & vbCrLf & _
-          "Salida: " & salidaMsg & vbCrLf & _
-          "Carpeta base local: " & ThisWorkbook.Path & vbCrLf & _
-          DiagnosticoRutasActivas()
+    msg = "Error al generar reporte." & vbCrLf & vbCrLf
+    msg = msg & "Procedimiento: " & procedimiento & vbCrLf
+    msg = msg & "Etapa: " & etapaActual & vbCrLf
+    msg = msg & "Etapa visual: " & etapaVisualMsg & vbCrLf
+    msg = msg & "Err.Number: " & errNum & vbCrLf
+    msg = msg & "Err.Description: " & errDesc & vbCrLf
+    msg = msg & "Err.Source: " & errSource & vbCrLf
+    msg = msg & "Erl: " & errLine & vbCrLf
+    msg = msg & "Workbook salida: " & wbOutMsg & vbCrLf
+    msg = msg & "Existe Base_Agregada: " & existeBase & vbCrLf
+    msg = msg & "Última fila Base_Agregada: " & ultimaFilaBase & vbCrLf
+    msg = msg & "Última columna Base_Agregada: " & ultimaColBase & vbCrLf
+    msg = msg & "Nombre hoja reporte: " & IIf(Len(hojaReporteActual) > 0, hojaReporteActual, "(no determinada)") & vbCrLf
+    msg = msg & "Archivo ejecuciones: " & archivoEjecMsg & vbCrLf
+    msg = msg & "Archivo codiguera: " & archivoCodMsg & vbCrLf
+    msg = msg & "Archivo asignados: " & archivoAsignadosMsg & vbCrLf
+    msg = msg & "Carpeta ejecuciones actual: " & IIf(Len(carpetaEjecActualMsg) > 0, carpetaEjecActualMsg, "(no determinada)") & vbCrLf
+    msg = msg & "Carpeta asignados actual: " & IIf(Len(carpetaAsignadosActualMsg) > 0, carpetaAsignadosActualMsg, "(no determinada)") & vbCrLf
+    msg = msg & "Carpeta ejecuciones comparativo: " & IIf(Len(carpetaEjecComparativoMsg) > 0, carpetaEjecComparativoMsg, "(no determinada)") & vbCrLf
+    msg = msg & "Archivo ejecuciones comparativo: " & IIf(Len(archivoEjecComparativoMsg) > 0, archivoEjecComparativoMsg, "(no detectado)") & vbCrLf
+    msg = msg & "Carpeta asignados comparativo: " & IIf(Len(carpetaAsignadosComparativoMsg) > 0, carpetaAsignadosComparativoMsg, "(no determinada)") & vbCrLf
+    msg = msg & "Archivo asignados comparativo: " & IIf(Len(archivoAsignadosComparativoMsg) > 0, archivoAsignadosComparativoMsg, "(no detectado)") & vbCrLf
+    msg = msg & "Carpeta índices: " & RutaCarpetaIndicesActiva() & vbCrLf
+    msg = msg & "Salida: " & salidaMsg & vbCrLf
+    msg = msg & "Carpeta base local: " & ThisWorkbook.Path & vbCrLf
+    msg = msg & vbCrLf & DiagnosticoRutasActivas()
+
+    msg = msg & vbCrLf & "Archivos candidatos ejecuciones actual:" & vbCrLf
+    msg = msg & diagArchivosEjecActual & vbCrLf
+    msg = msg & vbCrLf & "Archivos candidatos asignados actual:" & vbCrLf
+    msg = msg & diagArchivosAsignadosActual & vbCrLf
+    msg = msg & vbCrLf & "Archivos candidatos ejecuciones comparativo:" & vbCrLf
+    msg = msg & diagArchivosEjecComparativo & vbCrLf
+    msg = msg & vbCrLf & "Archivos candidatos asignados comparativo:" & vbCrLf
+    msg = msg & diagArchivosAsignadosComparativo & vbCrLf
+    msg = msg & vbCrLf & "Workbooks abiertos:" & vbCrLf
+    msg = msg & DiagnosticoWorkbooksAbiertos() & vbCrLf
 
     Debug.Print String(100, "-")
     Debug.Print msg
@@ -684,15 +697,15 @@ Private Function ResumenAsignadosParaError(ByVal diag As Object) As String
 
     it = diag("asignados_resumen")
 
-    mensaje = "Filas asignados leídas: " & CStr(it(1)) & vbCrLf & _
-              "Filas asignados del año: " & CStr(it(2)) & vbCrLf & _
-              "Claves acumuladas en dictCod: " & CStr(it(3)) & vbCrLf & _
-              "Claves existentes pero no incluidas: " & CStr(it(4)) & vbCrLf & _
-              "Claves nuevas: " & CStr(it(5)) & vbCrLf & _
-              "Total Asignado leído: " & Format(it(6), "#,##0") & vbCrLf & _
-              "Total Asignado del año: " & Format(it(7), "#,##0") & vbCrLf & _
-              "Total Asignado acumulado: " & Format(it(8), "#,##0") & vbCrLf & _
-              "Cantidad claves dictAsignado: " & CStr(it(9))
+    mensaje = "Filas asignados leídas: " & CStr(it(1)) & vbCrLf
+    mensaje = mensaje & "Filas asignados del año: " & CStr(it(2)) & vbCrLf
+    mensaje = mensaje & "Claves acumuladas en dictCod: " & CStr(it(3)) & vbCrLf
+    mensaje = mensaje & "Claves existentes pero no incluidas: " & CStr(it(4)) & vbCrLf
+    mensaje = mensaje & "Claves nuevas: " & CStr(it(5)) & vbCrLf
+    mensaje = mensaje & "Total Asignado leído: " & Format(it(6), "#,##0") & vbCrLf
+    mensaje = mensaje & "Total Asignado del año: " & Format(it(7), "#,##0") & vbCrLf
+    mensaje = mensaje & "Total Asignado acumulado: " & Format(it(8), "#,##0") & vbCrLf
+    mensaje = mensaje & "Cantidad claves dictAsignado: " & CStr(it(9))
 
     If CLng(0 + it(2)) = 0 Then
         mensaje = mensaje & vbCrLf & "Atención: el archivo de asignados no tiene filas para el año seleccionado. Revise si el archivo corresponde al año del reporte."

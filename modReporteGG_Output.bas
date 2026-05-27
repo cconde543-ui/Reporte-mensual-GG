@@ -111,15 +111,16 @@ EH:
     errDescPivot = Err.Description
     camposPivot = CamposDisponiblesPivot(pt)
 
-    Err.Raise errNumPivot, "CrearTablaDinamicaOSalidaAgrupada", _
-              "Error creando PivotTable. Etapa: " & etapaVisual & _
-              " | campoActual: " & campoActual & _
-              " | accionActual: " & accionActual & _
-              " | orientación solicitada: " & OrientacionPivotTexto(orientacionActual) & _
-              " | Campos disponibles pivot: " & camposPivot & _
-              " | Encabezados Base_Agregada: " & encabezadosBase & _
-              " | Err.Number: " & CStr(errNumPivot) & _
-              " | Err.Description: " & errDescPivot
+    Dim detallePivot As String
+    detallePivot = "Error creando PivotTable. Etapa: " & etapaVisual
+    detallePivot = detallePivot & " | campoActual: " & campoActual
+    detallePivot = detallePivot & " | accionActual: " & accionActual
+    detallePivot = detallePivot & " | orientación solicitada: " & OrientacionPivotTexto(orientacionActual)
+    detallePivot = detallePivot & " | Campos disponibles pivot: " & camposPivot
+    detallePivot = detallePivot & " | Encabezados Base_Agregada: " & encabezadosBase
+    detallePivot = detallePivot & " | Err.Number: " & CStr(errNumPivot)
+    detallePivot = detallePivot & " | Err.Description: " & errDescPivot
+    Err.Raise errNumPivot, "CrearTablaDinamicaOSalidaAgrupada", detallePivot
 End Sub
 
 Public Sub ConstruirBasePorcEjec(ByVal ws As Worksheet, ByVal dictAgg As Object, ByVal dictAsignado As Object, ByVal mesCierre As Long)
@@ -163,10 +164,11 @@ FallbackSinPosicion:
     Exit Sub
 
 EH:
-    Err.Raise Err.Number, "ConfigurarNivel3ConFallback", _
-              "Falló configuración de '" & campoNivel3 & "' como fila. " & _
-              "Intento 1 (con posición=" & CStr(posicion) & ") -> Err.Number=" & CStr(errNumPosicion) & ", Err.Description=" & errDescPosicion & ". " & _
-              "Intento 2 (solo Orientation, sin Position) -> Err.Number=" & CStr(Err.Number) & ", Err.Description=" & Err.Description
+    Dim detalleNivel3 As String
+    detalleNivel3 = "Falló configuración de '" & campoNivel3 & "' como fila. "
+    detalleNivel3 = detalleNivel3 & "Intento 1 (con posición=" & CStr(posicion) & ") -> Err.Number=" & CStr(errNumPosicion) & ", Err.Description=" & errDescPosicion & ". "
+    detalleNivel3 = detalleNivel3 & "Intento 2 (solo Orientation, sin Position) -> Err.Number=" & CStr(Err.Number) & ", Err.Description=" & Err.Description
+    Err.Raise Err.Number, "ConfigurarNivel3ConFallback", detalleNivel3
 End Sub
 
 Private Function ConfigurarCampoMesColumnaConFallback(ByVal pt As PivotTable, ByVal campoMesNombre As String, ByVal campoMesNum As String) As String
@@ -187,9 +189,10 @@ FallbackMesNum:
     Exit Function
 
 EH:
-    Err.Raise Err.Number, "ConfigurarCampoMesColumnaConFallback", _
-              "MesNombre falló como columna (Err.Number=" & CStr(errNumMesNombre) & ", Err.Description=" & errDescMesNombre & "). " & _
-              "MesNum también falló (Err.Number=" & CStr(Err.Number) & ", Err.Description=" & Err.Description & ")."
+    Dim detalleMesCol As String
+    detalleMesCol = "MesNombre falló como columna (Err.Number=" & CStr(errNumMesNombre) & ", Err.Description=" & errDescMesNombre & "). "
+    detalleMesCol = detalleMesCol & "MesNum también falló (Err.Number=" & CStr(Err.Number) & ", Err.Description=" & Err.Description & ")."
+    Err.Raise Err.Number, "ConfigurarCampoMesColumnaConFallback", detalleMesCol
 End Function
 
 Private Sub ConfigurarCampoPivotSeguro(ByVal pt As PivotTable, ByVal nombreCampo As String, ByVal orientacion As XlPivotFieldOrientation, ByVal posicion As Long)
@@ -220,27 +223,29 @@ Private Sub ConfigurarCampoPivotSeguro(ByVal pt As PivotTable, ByVal nombreCampo
 EH_ORIENTATION:
     errNum = Err.Number
     errDesc = Err.Description
-    Err.Raise errNum, "ConfigurarCampoPivotSeguro", _
-              "Error al asignar Orientation. nombreCampo=" & nombreCampo & _
-              " | orientación solicitada=" & OrientacionPivotTexto(orientacion) & _
-              " | orientación actual previa=" & OrientacionPivotTexto(orientacionPrevia) & _
-              " | SourceName=" & sourceName & _
-              " | Caption=" & caption & _
-              " | Err.Number=" & CStr(errNum) & _
-              " | Err.Description=" & errDesc
+    Dim detalleOrientation As String
+    detalleOrientation = "Error al asignar Orientation. nombreCampo=" & nombreCampo
+    detalleOrientation = detalleOrientation & " | orientación solicitada=" & OrientacionPivotTexto(orientacion)
+    detalleOrientation = detalleOrientation & " | orientación actual previa=" & OrientacionPivotTexto(orientacionPrevia)
+    detalleOrientation = detalleOrientation & " | SourceName=" & sourceName
+    detalleOrientation = detalleOrientation & " | Caption=" & caption
+    detalleOrientation = detalleOrientation & " | Err.Number=" & CStr(errNum)
+    detalleOrientation = detalleOrientation & " | Err.Description=" & errDesc
+    Err.Raise errNum, "ConfigurarCampoPivotSeguro", detalleOrientation
 
 EH_POSITION:
     errNum = Err.Number
     errDesc = Err.Description
-    Err.Raise errNum, "ConfigurarCampoPivotSeguro", _
-              "Error al asignar Position. nombreCampo=" & nombreCampo & _
-              " | orientación solicitada=" & OrientacionPivotTexto(orientacion) & _
-              " | orientación actual previa=" & OrientacionPivotTexto(orientacionPrevia) & _
-              " | SourceName=" & sourceName & _
-              " | Caption=" & caption & _
-              " | Position solicitada=" & CStr(posicion) & _
-              " | Err.Number=" & CStr(errNum) & _
-              " | Err.Description=" & errDesc
+    Dim detallePosition As String
+    detallePosition = "Error al asignar Position. nombreCampo=" & nombreCampo
+    detallePosition = detallePosition & " | orientación solicitada=" & OrientacionPivotTexto(orientacion)
+    detallePosition = detallePosition & " | orientación actual previa=" & OrientacionPivotTexto(orientacionPrevia)
+    detallePosition = detallePosition & " | SourceName=" & sourceName
+    detallePosition = detallePosition & " | Caption=" & caption
+    detallePosition = detallePosition & " | Position solicitada=" & CStr(posicion)
+    detallePosition = detallePosition & " | Err.Number=" & CStr(errNum)
+    detallePosition = detallePosition & " | Err.Description=" & errDesc
+    Err.Raise errNum, "ConfigurarCampoPivotSeguro", detallePosition
 End Sub
 
 Private Sub ArmarEncabezadoVisual(ByVal ws As Worksheet, ByVal anio As Long, ByVal mesCierre As Long)
@@ -737,11 +742,12 @@ Public Sub CrearHojaPorcEjecucion(ByVal wbOut As Workbook, ByVal wsBase As Works
     OcultarGridlinesHoja ws
     Exit Sub
 EH:
-    Err.Raise Err.Number, "CrearHojaPorcEjecucion", _
-        "Error creando hoja % ejecución. Etapa: " & etapaVisual & _
-        " | Campos disponibles pivot: " & CamposDisponiblesPivot(pt) & _
-        " | Err.Number: " & CStr(Err.Number) & _
-        " | Err.Description: " & Err.Description
+    Dim detalleHojaPct As String
+    detalleHojaPct = "Error creando hoja % ejecución. Etapa: " & etapaVisual
+    detalleHojaPct = detalleHojaPct & " | Campos disponibles pivot: " & CamposDisponiblesPivot(pt)
+    detalleHojaPct = detalleHojaPct & " | Err.Number: " & CStr(Err.Number)
+    detalleHojaPct = detalleHojaPct & " | Err.Description: " & Err.Description
+    Err.Raise Err.Number, "CrearHojaPorcEjecucion", detalleHojaPct
 End Sub
 
 Private Sub AsegurarCampoCalculadoPctEjec(ByVal pt As PivotTable)
@@ -774,9 +780,10 @@ Private Sub AsegurarCampoCalculadoPctEjec(ByVal pt As PivotTable)
     Exit Sub
 
 EH_ADD:
-    Err.Raise Err.Number, "AsegurarCampoCalculadoPctEjec", _
-        "Falló pt.CalculatedFields.Add para 'PctEjec'. Fórmula usada: =Ejecutado/Asignado | Err.Number=" & CStr(Err.Number) & _
-        " | Err.Description=" & Err.Description
+    Dim detallePctEjec As String
+    detallePctEjec = "Falló pt.CalculatedFields.Add para 'PctEjec'. Fórmula usada: =Ejecutado/Asignado | Err.Number=" & CStr(Err.Number)
+    detallePctEjec = detallePctEjec & " | Err.Description=" & Err.Description
+    Err.Raise Err.Number, "AsegurarCampoCalculadoPctEjec", detallePctEjec
 End Sub
 
 Private Sub AsegurarCampoCalculadoPctVariacion( _
@@ -815,13 +822,14 @@ Private Sub AsegurarCampoCalculadoPctVariacion( _
     Exit Sub
 
 EH_ADD:
-    Err.Raise Err.Number, "AsegurarCampoCalculadoPctVariacion", _
-        "Falló pt.CalculatedFields.Add para 'PctVariacion'. " & _
-        "Campo actual: '" & campoEjecutadoActual & "'. " & _
-        "Campo anterior actualizado: '" & campoEjecutadoAnteriorActualizado & "'. " & _
-        "Fórmula usada: " & formulaCalc & _
-        " | Err.Number=" & CStr(Err.Number) & _
-        " | Err.Description=" & Err.Description
+    Dim detallePctVar As String
+    detallePctVar = "Falló pt.CalculatedFields.Add para 'PctVariacion'. "
+    detallePctVar = detallePctVar & "Campo actual: '" & campoEjecutadoActual & "'. "
+    detallePctVar = detallePctVar & "Campo anterior actualizado: '" & campoEjecutadoAnteriorActualizado & "'. "
+    detallePctVar = detallePctVar & "Fórmula usada: " & formulaCalc
+    detallePctVar = detallePctVar & " | Err.Number=" & CStr(Err.Number)
+    detallePctVar = detallePctVar & " | Err.Description=" & Err.Description
+    Err.Raise Err.Number, "AsegurarCampoCalculadoPctVariacion", detallePctVar
 End Sub
 
 Private Sub AgregarDataFieldSeguro( _
@@ -969,10 +977,11 @@ Private Sub AjustarEncabezadoVisualAlPivot(ByVal ws As Worksheet, ByVal pt As Pi
         ws.Rows(3).RowHeight = 24
     End If
     If Not Intersect(rngTitulo, pt.TableRange2) Is Nothing Then
-        Err.Raise vbObjectError + 1501, "AjustarEncabezadoVisualAlPivot", _
-            "El rango del título " & rngTitulo.Address(False, False) & _
-            " intersecta con la tabla dinámica " & pt.TableRange2.Address(False, False) & _
-            ". No se puede fusionar el encabezado porque afectaría la PivotTable."
+        Dim detalleEncabezado As String
+        detalleEncabezado = "El rango del título " & rngTitulo.Address(False, False)
+        detalleEncabezado = detalleEncabezado & " intersecta con la tabla dinámica " & pt.TableRange2.Address(False, False)
+        detalleEncabezado = detalleEncabezado & ". No se puede fusionar el encabezado porque afectaría la PivotTable."
+        Err.Raise vbObjectError + 1501, "AjustarEncabezadoVisualAlPivot", detalleEncabezado
     End If
     rngTitulo.UnMerge: rngTitulo.Merge
     rngTitulo.Value = titulo
