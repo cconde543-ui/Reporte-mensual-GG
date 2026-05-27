@@ -511,3 +511,89 @@ SiguienteArchivo:
 EH:
     Err.Raise Err.Number, "DiagnosticoArchivosAsignados", "Error armando diagnóstico de asignados en: " & carpeta & " | " & Err.Description
 End Function
+
+
+Public Function DiagnosticoArchivosExcelCarpeta(ByVal carpeta As String) As String
+    On Error GoTo EH
+
+    Dim fso As Object
+    Dim folderObj As Object
+    Dim archivo As Object
+    Dim ext As String
+    Dim s As String
+
+    Set fso = CreateObject("Scripting.FileSystemObject")
+
+    If Len(Trim$(carpeta)) = 0 Then
+        DiagnosticoArchivosExcelCarpeta = "Carpeta vacía."
+        Exit Function
+    End If
+
+    If Not fso.FolderExists(carpeta) Then
+        DiagnosticoArchivosExcelCarpeta = "Carpeta no existe: " & carpeta
+        Exit Function
+    End If
+
+    Set folderObj = fso.GetFolder(carpeta)
+
+    s = "Carpeta: " & carpeta & vbCrLf
+
+    For Each archivo In folderObj.Files
+        ext = LCase$(fso.GetExtensionName(archivo.Name))
+        If ext = "xls" Or ext = "xlsx" Or ext = "xlsm" Then
+            s = s & "- " & archivo.Name
+            s = s & " | Creado: " & Format$(archivo.DateCreated, "yyyy-mm-dd hh:nn:ss")
+            s = s & " | Modificado: " & Format$(archivo.DateLastModified, "yyyy-mm-dd hh:nn:ss")
+            s = s & " | Size: " & CStr(archivo.Size)
+            s = s & vbCrLf
+        End If
+    Next archivo
+
+    If Len(s) = 0 Then s = "No se encontraron archivos Excel en: " & carpeta
+
+    DiagnosticoArchivosExcelCarpeta = s
+    Exit Function
+
+EH:
+    DiagnosticoArchivosExcelCarpeta = "Error diagnosticando carpeta: " & carpeta & " | " & Err.Description
+End Function
+
+Public Function RutaCompletaWorkbookSeguro(ByVal wb As Workbook) As String
+    On Error Resume Next
+
+    If wb Is Nothing Then
+        RutaCompletaWorkbookSeguro = "(Nothing)"
+    ElseIf Len(wb.Path) > 0 Then
+        RutaCompletaWorkbookSeguro = wb.FullName
+    Else
+        RutaCompletaWorkbookSeguro = wb.Name
+    End If
+
+    On Error GoTo 0
+End Function
+
+Public Function DiagnosticoWorkbooksAbiertos() As String
+    Dim wb As Workbook
+    Dim s As String
+
+    s = "Workbooks abiertos:" & vbCrLf
+
+    For Each wb In Application.Workbooks
+        s = s & "- Name: " & wb.Name
+        s = s & " | FullName: " & RutaCompletaWorkbookSeguro(wb)
+        s = s & vbCrLf
+    Next wb
+
+    DiagnosticoWorkbooksAbiertos = s
+End Function
+
+Public Function WorkbookAbiertoPorNombre(ByVal nombreArchivo As String) As Workbook
+    Dim wb As Workbook
+
+    For Each wb In Application.Workbooks
+        If StrComp(wb.Name, nombreArchivo, vbTextCompare) = 0 Then
+            Set WorkbookAbiertoPorNombre = wb
+            Exit Function
+        End If
+    Next wb
+End Function

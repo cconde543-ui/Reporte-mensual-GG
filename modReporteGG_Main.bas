@@ -67,6 +67,10 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     Dim carpetaEjecComparativoMsg As String
     Dim carpetaAsignadosComparativoMsg As String
     Dim carpetaIndicesMsg As String
+    Dim diagArchivosEjecActual As String
+    Dim diagArchivosAsignadosActual As String
+    Dim diagArchivosEjecComparativo As String
+    Dim diagArchivosAsignadosComparativo As String
 
     procedimiento = "Generar_Reporte_GG_Desde_Panel"
     Debug.Print "Inicio Generar_Reporte_GG_Desde_Panel: " & Now
@@ -108,6 +112,7 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     etapaActual = "resolviendo carpeta de ejecuciones actual"
     carpetaEjecActual = RutaCarpetaEjecucionesAnioActiva(anio)
     carpetaEjecActualMsg = carpetaEjecActual
+    diagArchivosEjecActual = DiagnosticoArchivosExcelCarpeta(carpetaEjecActual)
     If Len(Dir(carpetaEjecActual, vbDirectory)) = 0 Then
         Err.Raise vbObjectError + 102, procedimiento, "No existe la carpeta de ejecuciones del año " & anio & ": " & carpetaEjecActual
     End If
@@ -127,6 +132,7 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     etapaActual = "resolviendo carpeta de asignados actual"
     carpetaAsignadosActual = RutaCarpetaAsignadosGastosAnioActiva(anio)
     carpetaAsignadosActualMsg = carpetaAsignadosActual
+    diagArchivosAsignadosActual = DiagnosticoArchivosExcelCarpeta(carpetaAsignadosActual)
     If Len(Dir(carpetaAsignadosActual, vbDirectory)) = 0 Then
         Err.Raise vbObjectError + 117, procedimiento, "No existe la carpeta de asignados del año " & anio & ": " & carpetaAsignadosActual
     End If
@@ -210,6 +216,7 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     etapaActual = "resolviendo carpeta ejecuciones comparativo"
     carpetaEjecComparativo = RutaCarpetaEjecucionesAnioActiva(anioComparativo)
     carpetaEjecComparativoMsg = carpetaEjecComparativo
+    diagArchivosEjecComparativo = DiagnosticoArchivosExcelCarpeta(carpetaEjecComparativo)
     If Len(Dir(carpetaEjecComparativo, vbDirectory)) = 0 Then
         Err.Raise vbObjectError + 1970, procedimiento, "No existe la carpeta de ejecuciones comparativo: " & carpetaEjecComparativo
     End If
@@ -226,6 +233,7 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     etapaActual = "resolviendo carpeta asignados comparativo"
     carpetaAsignadosComparativo = RutaCarpetaAsignadosGastosAnioActiva(anioComparativo)
     carpetaAsignadosComparativoMsg = carpetaAsignadosComparativo
+    diagArchivosAsignadosComparativo = DiagnosticoArchivosExcelCarpeta(carpetaAsignadosComparativo)
     If Len(Dir(carpetaAsignadosComparativo, vbDirectory)) = 0 Then
         Err.Raise vbObjectError + 1972, procedimiento, "No existe la carpeta de asignados comparativo: " & carpetaAsignadosComparativo
     End If
@@ -406,7 +414,7 @@ EH:
     msg = msg & "Archivo ejecuciones comparativo: " & IIf(Len(archivoEjecComparativoMsg) > 0, archivoEjecComparativoMsg, "(no detectado)") & vbCrLf
     msg = msg & "Carpeta asignados comparativo: " & IIf(Len(carpetaAsignadosComparativoMsg) > 0, carpetaAsignadosComparativoMsg, "(no determinada)") & vbCrLf
     msg = msg & "Archivo asignados comparativo: " & IIf(Len(archivoAsignadosComparativoMsg) > 0, archivoAsignadosComparativoMsg, "(no detectado)") & vbCrLf
-    msg = msg & "Carpeta índices: " & RutaCarpetaIndicesActiva() & vbCrLf
+    msg = msg & "Carpeta índices: " & carpetaIndicesMsg & vbCrLf
     msg = msg & "Salida: " & salidaMsg & vbCrLf
     msg = msg & "Carpeta base local: " & ThisWorkbook.Path & vbCrLf
     msg = msg & vbCrLf & DiagnosticoRutasActivas()
