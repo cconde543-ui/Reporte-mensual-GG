@@ -219,12 +219,12 @@ Public Function DiagnosticoRutasActivas() As String
     rutaAsig = RutaCarpetaAsignadosGastosActiva()
     rutaOut = RutaReportesGeneradosActiva()
 
-    DiagnosticoRutasActivas = "Rutas activas:" & vbCrLf & _
-                             "Base local: " & RutaBaseLocalReporteGG() & vbCrLf & _
-                             "Ejecuciones: " & rutaEjec & " | Existe: " & IIf(CarpetaExiste(rutaEjec), "SI", "NO") & vbCrLf & _
-                             "Codiguera: " & rutaCod & " | Existe: " & IIf(CarpetaExiste(rutaCod) Or ArchivoExiste(rutaCod), "SI", "NO") & vbCrLf & _
-                             "Asignados gastos: " & rutaAsig & " | Existe: " & IIf(CarpetaExiste(rutaAsig), "SI", "NO") & vbCrLf & _
-                             "Reportes generados: " & rutaOut & " | Existe: " & IIf(CarpetaExiste(rutaOut), "SI", "NO")
+    DiagnosticoRutasActivas = "Rutas activas:" & vbCrLf
+    DiagnosticoRutasActivas = DiagnosticoRutasActivas & "Base local: " & RutaBaseLocalReporteGG() & vbCrLf
+    DiagnosticoRutasActivas = DiagnosticoRutasActivas & "Ejecuciones: " & rutaEjec & " | Existe: " & IIf(CarpetaExiste(rutaEjec), "SI", "NO") & vbCrLf
+    DiagnosticoRutasActivas = DiagnosticoRutasActivas & "Codiguera: " & rutaCod & " | Existe: " & IIf(CarpetaExiste(rutaCod) Or ArchivoExiste(rutaCod), "SI", "NO") & vbCrLf
+    DiagnosticoRutasActivas = DiagnosticoRutasActivas & "Asignados gastos: " & rutaAsig & " | Existe: " & IIf(CarpetaExiste(rutaAsig), "SI", "NO") & vbCrLf
+    DiagnosticoRutasActivas = DiagnosticoRutasActivas & "Reportes generados: " & rutaOut & " | Existe: " & IIf(CarpetaExiste(rutaOut), "SI", "NO")
 End Function
 
 Public Function ObtenerHojaPanelReportes() As Worksheet
@@ -347,10 +347,11 @@ Public Function ObtenerHojaAsignados(ByVal wb As Workbook) As Worksheet
 SiguienteHoja:
     Next ws
 
-    Err.Raise vbObjectError + 1203, "ObtenerHojaAsignados", _
-        "No se encontró una hoja válida de asignados en workbook: " & wb.Name & _
-        " | Hojas encontradas: " & hojasEncontradas & _
-        " | Columnas requeridas: " & columnasRequeridas
+    Dim detalleHojaAsignados As String
+    detalleHojaAsignados = "No se encontró una hoja válida de asignados en workbook: " & wb.Name
+    detalleHojaAsignados = detalleHojaAsignados & " | Hojas encontradas: " & hojasEncontradas
+    detalleHojaAsignados = detalleHojaAsignados & " | Columnas requeridas: " & columnasRequeridas
+    Err.Raise vbObjectError + 1203, "ObtenerHojaAsignados", detalleHojaAsignados
 End Function
 
 Public Sub AsegurarCarpetaExiste(ByVal ruta As String)
@@ -491,20 +492,21 @@ SiguienteArchivo:
                 motivoFila = ""
                 If seleccionado = "SI" Then motivoFila = motivoSeleccion
 
-                detalle = detalle & archivo.Name & _
-                          " | DateCreated=" & Format$(archivo.DateCreated, "yyyy-mm-dd hh:nn:ss") & _
-                          " | DateLastModified=" & Format$(archivo.DateLastModified, "yyyy-mm-dd hh:nn:ss") & _
-                          " | SELECCIONADO=" & seleccionado & _
-                          IIf(Len(motivoFila) > 0, " | Motivo=" & motivoFila, "") & vbCrLf
+                detalle = detalle & archivo.Name
+                detalle = detalle & " | DateCreated=" & Format$(archivo.DateCreated, "yyyy-mm-dd hh:nn:ss")
+                detalle = detalle & " | DateLastModified=" & Format$(archivo.DateLastModified, "yyyy-mm-dd hh:nn:ss")
+                detalle = detalle & " | SELECCIONADO=" & seleccionado
+                detalle = detalle & IIf(Len(motivoFila) > 0, " | Motivo=" & motivoFila, "")
+                detalle = detalle & vbCrLf
             End If
         End If
 SiguienteArchivo:
     Next archivo
 
-    DiagnosticoArchivosAsignados = "Carpeta: " & carpeta & vbCrLf & _
-                                   "Archivo seleccionado: " & IIf(Len(mejorArchivo) > 0, mejorArchivo, "(ninguno)") & vbCrLf & _
-                                   "Criterio: mayor DateCreated; si empata, mayor DateLastModified" & vbCrLf & _
-                                   detalle
+    DiagnosticoArchivosAsignados = "Carpeta: " & carpeta & vbCrLf
+    DiagnosticoArchivosAsignados = DiagnosticoArchivosAsignados & "Archivo seleccionado: " & IIf(Len(mejorArchivo) > 0, mejorArchivo, "(ninguno)") & vbCrLf
+    DiagnosticoArchivosAsignados = DiagnosticoArchivosAsignados & "Criterio: mayor DateCreated; si empata, mayor DateLastModified" & vbCrLf
+    DiagnosticoArchivosAsignados = DiagnosticoArchivosAsignados & detalle
     Exit Function
 EH:
     Err.Raise Err.Number, "DiagnosticoArchivosAsignados", "Error armando diagnóstico de asignados en: " & carpeta & " | " & Err.Description
