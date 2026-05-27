@@ -1,4 +1,5 @@
 Option Explicit
+Private Const GENERAR_ARCHIVO_CONTROL_REPORTE As Boolean = True
 
 Public Sub Generar_Reporte_GG_Desde_Panel()
     On Error GoTo EH
@@ -42,7 +43,14 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     Dim dictIndicePorClave As Object
     Dim dictCompActual As Object
     Dim dictCompAnteriorActualizado As Object
+    Dim dictControlEjecMensual As Object
+    Dim dictControlEjecPorClave As Object
+    Dim dictControlAsignadoPorClave As Object
+    Dim dictControlCompActualPorClave As Object
+    Dim dictControlCompAnteriorPorClave As Object
     Dim rutaFinal As String
+    Dim rutaControlReporte As String
+    Dim rutaControlReporteGenerado As String
     Dim etapaVisual As String
     Dim hojaReporteActual As String
 
@@ -107,6 +115,11 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     Set dictIndicePorClave = CreateObject("Scripting.Dictionary")
     Set dictCompActual = CreateObject("Scripting.Dictionary")
     Set dictCompAnteriorActualizado = CreateObject("Scripting.Dictionary")
+    Set dictControlEjecMensual = CreateObject("Scripting.Dictionary")
+    Set dictControlEjecPorClave = CreateObject("Scripting.Dictionary")
+    Set dictControlAsignadoPorClave = CreateObject("Scripting.Dictionary")
+    Set dictControlCompActualPorClave = CreateObject("Scripting.Dictionary")
+    Set dictControlCompAnteriorPorClave = CreateObject("Scripting.Dictionary")
     anioComparativo = anio - 1
 
     etapaActual = "resolviendo carpeta de ejecuciones actual"
@@ -168,7 +181,7 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     LeerCodigueraIndices wsC, dictIndicePorClave
 
     etapaActual = "leyendo ejecuciones y acumulando"
-    LeerEjecucionesYAcumular wsE, anio, mesCierre, dictCod, dictAgg, diag
+    LeerEjecucionesYAcumular wsE, anio, mesCierre, dictCod, dictAgg, diag, dictControlEjecMensual, dictControlEjecPorClave, dictControlCompActualPorClave
 
     If dictAgg.Count = 0 Then
         etapaActual = "validando ejecuciones acumuladas"
@@ -183,7 +196,7 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     End If
 
     etapaActual = "leyendo asignados y acumulando"
-    LeerAsignadosYAcumular wsA, dictCod, dictLlavesCodiguera, dictAsignado, diag, wbC, anio, archivoAsignados
+    LeerAsignadosYAcumular wsA, dictCod, dictLlavesCodiguera, dictAsignado, diag, wbC, anio, archivoAsignados, dictControlAsignadoPorClave
 
     If diag.Exists("asignados_faltantes") Then
         etapaActual = "guardando codiguera por nuevas llaves de asignados actuales"
@@ -295,7 +308,7 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     End If
 
     ConstruirDictComparativoActualDesdeDictAgg dictAgg, mesCierre, dictCompActual
-    LeerEjecucionesComparativoYAcumular wsEComp, anioComparativo, anio, mesCierre, dictCod, dictIndicePorClave, dictCompAnteriorActualizado, diag
+    LeerEjecucionesComparativoYAcumular wsEComp, anioComparativo, anio, mesCierre, dictCod, dictIndicePorClave, dictCompAnteriorActualizado, diag, dictControlCompAnteriorPorClave
 
     If Not wbEComp Is Nothing Then wbEComp.Close False: Set wbEComp = Nothing
     If Not wbAComp Is Nothing Then wbAComp.Close False: Set wbAComp = Nothing
@@ -333,6 +346,14 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
 
     etapaActual = "guardando reporte liviano"
     rutaFinal = GuardarReporteLiviano(wbOut, anio, mesCierre)
+    If GENERAR_ARCHIVO_CONTROL_REPORTE Then
+        On Error GoTo EH_CONTROL
+        etapaActual = "generando archivo de control"
+        rutaControlReporte = RutaArchivoControlReporte(anio, mesCierre)
+        CrearArchivoControlReporteGG rutaControlReporte, anio, anioComparativo, mesCierre, dictControlEjecMensual, dictControlCompActualPorClave, dictControlCompAnteriorPorClave, dictControlAsignadoPorClave, dictControlEjecPorClave
+        rutaControlReporteGenerado = rutaControlReporte
+        On Error GoTo EH
+    End If
 
     etapaActual = "escribiendo diagnóstico"
     EscribirDiagnostico ThisWorkbook, diag, archivoEjec, archivoCod, anio, mesCierre
@@ -345,8 +366,22 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     If Not wbEComp Is Nothing Then wbEComp.Close False
     If Not wbAComp Is Nothing Then wbAComp.Close False
 
-    MsgBox "Reporte generado: " & rutaFinal, vbInformation
+    If Len(rutaControlReporteGenerado) > 0 Then
+        MsgBox "Reporte generado correctamente:" & vbCrLf & rutaFinal & vbCrLf & vbCrLf & "Archivo de control generado:" & vbCrLf & rutaControlReporteGenerado, vbInformation
+    Else
+        MsgBox "Reporte generado: " & rutaFinal, vbInformation
+    End If
     Exit Sub
+
+EH_CONTROL:
+    On Error GoTo EH
+    rutaControlReporteGenerado = ""
+    MsgBox "Reporte principal generado correctamente:" & vbCrLf & rutaFinal & vbCrLf & vbCrLf & _
+           "No se pudo generar el archivo de control." & vbCrLf & _
+           "Ruta control: " & rutaControlReporte & vbCrLf & _
+           "Err.Number: " & Err.Number & vbCrLf & _
+           "Err.Description: " & Err.Description, vbExclamation
+    Resume Next
 
 EH:
     errNum = Err.Number
@@ -458,7 +493,7 @@ EH:
     MsgBox msg, vbCritical
 End Sub
 
-Public Sub LeerAsignadosYAcumular(ByVal ws As Worksheet, ByVal dictCod As Object, ByVal dictLlavesCodiguera As Object, ByRef dictAsignado As Object, ByRef diag As Object, Optional ByVal wbCodiguera As Workbook, Optional ByVal anioFiltro As Long = 0, Optional ByVal archivoAsignados As String = "")
+Public Sub LeerAsignadosYAcumular(ByVal ws As Worksheet, ByVal dictCod As Object, ByVal dictLlavesCodiguera As Object, ByRef dictAsignado As Object, ByRef diag As Object, Optional ByVal wbCodiguera As Workbook, Optional ByVal anioFiltro As Long = 0, Optional ByVal archivoAsignados As String = "", Optional ByRef dictControlAsignadoPorClave As Object = Nothing)
     Dim arr As Variant, headers As Object, i As Long, clave As String, info As Variant, keyAgg As String, monto As Double
     Dim colAnio As Long, anioFila As Long
     Dim filasAsignadosLeidas As Long, filasAsignadosAnio As Long
@@ -493,6 +528,16 @@ Public Sub LeerAsignadosYAcumular(ByVal ws As Worksheet, ByVal dictCod As Object
             keyAgg = CStr(info(0)) & "|" & CStr(info(1)) & "|" & CStr(info(2)) & "|" & CStr(info(3))
             If Not dictAsignado.Exists(keyAgg) Then dictAsignado.Add keyAgg, 0#
             dictAsignado(keyAgg) = dictAsignado(keyAgg) + monto
+            If Not dictControlAsignadoPorClave Is Nothing Then
+                If Not dictControlAsignadoPorClave.Exists(keyAgg) Then dictControlAsignadoPorClave.Add keyAgg, Array(0#, 0)
+                If dictControlAsignadoPorClave.Exists(keyAgg) Then
+                    Dim ctlAsig As Variant
+                    ctlAsig = dictControlAsignadoPorClave(keyAgg)
+                    ctlAsig(0) = CDbl(ctlAsig(0)) + monto
+                    ctlAsig(1) = CLng(ctlAsig(1)) + 1
+                    dictControlAsignadoPorClave(keyAgg) = ctlAsig
+                End If
+            End If
             sumaAsignadoAcumulado = sumaAsignadoAcumulado + monto
             filasAsignadosConClaveEnDictCod = filasAsignadosConClaveEnDictCod + 1
         ElseIf dictLlavesCodiguera.Exists(clave) Then
@@ -545,7 +590,7 @@ EH:
     Err.Raise Err.Number, "LeerCodiguera", "Error leyendo codiguera: " & Err.Description
 End Sub
 
-Public Sub LeerEjecucionesYAcumular(ByVal ws As Worksheet, ByVal anio As Long, ByVal mesCierre As Long, ByVal dictCod As Object, ByRef dictAgg As Object, ByRef diag As Object)
+Public Sub LeerEjecucionesYAcumular(ByVal ws As Worksheet, ByVal anio As Long, ByVal mesCierre As Long, ByVal dictCod As Object, ByRef dictAgg As Object, ByRef diag As Object, Optional ByRef dictControlEjecMensual As Object = Nothing, Optional ByRef dictControlEjecPorClave As Object = Nothing, Optional ByRef dictControlCompActualPorClave As Object = Nothing)
     On Error GoTo EH
 
     Dim arr As Variant, headers As Object, i As Long, fechaValor As Date, clave As String, info As Variant, mesNum As Long, aggregateKey As String, importeMN As Double
@@ -628,6 +673,29 @@ Public Sub LeerEjecucionesYAcumular(ByVal ws As Worksheet, ByVal anio As Long, B
         If Not dictAgg.Exists(aggregateKey) Then dictAgg.Add aggregateKey, 0#
         dictAgg(aggregateKey) = dictAgg(aggregateKey) + importeMN
         sumaImporteAcumulado = sumaImporteAcumulado + importeMN
+        If Not dictControlEjecMensual Is Nothing Then
+            Dim ctlKey As String, ctlM As Object
+            ctlKey = clave & "|" & CStr(mesNum)
+            If Not dictControlEjecMensual.Exists(ctlKey) Then
+                Set ctlM = CreateObject("Scripting.Dictionary")
+                ctlM("clave") = clave: ctlM("mesNum") = mesNum: ctlM("mesNombre") = MesesES()(mesNum - 1)
+                ctlM("financiamiento") = CStr(info(0)): ctlM("nivel1") = CStr(info(1)): ctlM("nivel2") = CStr(info(2)): ctlM("nivel3") = CStr(info(3))
+                ctlM("ejecutado") = 0#: ctlM("cantidadLineas") = 0: ctlM("primeraFilaOrigen") = i: ctlM("ultimaFilaOrigen") = i
+                dictControlEjecMensual.Add ctlKey, ctlM
+            End If
+            Set ctlM = dictControlEjecMensual(ctlKey)
+            ctlM("ejecutado") = CDbl(ctlM("ejecutado")) + importeMN
+            ctlM("cantidadLineas") = CLng(ctlM("cantidadLineas")) + 1
+            ctlM("ultimaFilaOrigen") = i
+        End If
+        If Not dictControlEjecPorClave Is Nothing Then
+            keyAgg = CStr(info(0)) & "|" & CStr(info(1)) & "|" & CStr(info(2)) & "|" & CStr(info(3))
+            If Not dictControlEjecPorClave.Exists(keyAgg) Then dictControlEjecPorClave.Add keyAgg, Array(0#, 0)
+            Dim ctlEj As Variant
+            ctlEj = dictControlEjecPorClave(keyAgg): ctlEj(0) = CDbl(ctlEj(0)) + importeMN: ctlEj(1) = CLng(ctlEj(1)) + 1
+            dictControlEjecPorClave(keyAgg) = ctlEj
+            If Not dictControlCompActualPorClave Is Nothing Then dictControlCompActualPorClave(keyAgg) = ctlEj
+        End If
 
 SiguienteFila:
     Next i
@@ -1130,19 +1198,28 @@ EH:
         "Detalle: " & Err.Description
 End Function
 
-Public Function ObtenerFactorActualizacionIndice(ByVal tipoIndice As String, ByVal anioBase As Long, ByVal anioDestino As Long, ByVal mesCierre As Long, ByRef cacheFactores As Object) As Double
-    Dim t As String, key As String, ruta As String, idxBase As Double, idxDestino As Double
+Public Function ObtenerDetalleActualizacionIndice(ByVal tipoIndice As String, ByVal anioBase As Long, ByVal anioDestino As Long, ByVal mesCierre As Long, ByRef cacheDetalles As Object) As Variant
+    Dim t As String, key As String, ruta As String, idxBase As Double, idxDestino As Double, ratio As Double, det(0 To 6) As Variant
     t = UCase$(Trim$(tipoIndice))
     If t = "IPC GRAL" Or t = "IPC GENERAL" Then t = "IPC"
     If t = "IMSN M B08" Then t = "IMSN"
     key = t & "|" & anioBase & "|" & anioDestino & "|" & mesCierre
-    If cacheFactores.Exists(key) Then ObtenerFactorActualizacionIndice = cacheFactores(key): Exit Function
+    If cacheDetalles.Exists(key) Then ObtenerDetalleActualizacionIndice = cacheDetalles(key): Exit Function
     ruta = ResolverArchivoIndice(t)
     idxDestino = LeerValorIndice(ruta, anioDestino, mesCierre)
     idxBase = LeerValorIndice(ruta, anioBase, mesCierre)
-    If idxBase = 0 Then Err.Raise vbObjectError + 1983, "ObtenerFactorActualizacionIndice", "El índice base es 0 para " & t & " " & anioBase & "-" & Format$(mesCierre, "00") & "."
-    cacheFactores.Add key, idxDestino / idxBase
-    ObtenerFactorActualizacionIndice = cacheFactores(key)
+    If idxBase = 0 Then Err.Raise vbObjectError + 1983, "ObtenerDetalleActualizacionIndice", "El índice base es 0 para " & t
+    ratio = idxDestino / idxBase
+    det(0) = t: det(1) = ruta: det(2) = ClavePeriodoIndice(anioBase, mesCierre): det(3) = idxBase
+    det(4) = ClavePeriodoIndice(anioDestino, mesCierre): det(5) = idxDestino: det(6) = ratio
+    cacheDetalles.Add key, det
+    ObtenerDetalleActualizacionIndice = det
+End Function
+
+Public Function ObtenerFactorActualizacionIndice(ByVal tipoIndice As String, ByVal anioBase As Long, ByVal anioDestino As Long, ByVal mesCierre As Long, ByRef cacheFactores As Object) As Double
+    Dim det As Variant
+    det = ObtenerDetalleActualizacionIndice(tipoIndice, anioBase, anioDestino, mesCierre, cacheFactores)
+    ObtenerFactorActualizacionIndice = CDbl(det(6))
 End Function
 
 Public Sub ConstruirDictComparativoActualDesdeDictAgg(ByVal dictAgg As Object, ByVal mesCierre As Long, ByRef dictCompActual As Object)
@@ -1160,10 +1237,10 @@ Public Sub ConstruirDictComparativoActualDesdeDictAgg(ByVal dictAgg As Object, B
     Next k
 End Sub
 
-Public Sub LeerEjecucionesComparativoYAcumular(ByVal ws As Worksheet, ByVal anioBase As Long, ByVal anioDestino As Long, ByVal mesCierre As Long, ByVal dictCod As Object, ByVal dictIndicePorClave As Object, ByRef dictCompAnteriorActualizado As Object, ByRef diag As Object)
+Public Sub LeerEjecucionesComparativoYAcumular(ByVal ws As Worksheet, ByVal anioBase As Long, ByVal anioDestino As Long, ByVal mesCierre As Long, ByVal dictCod As Object, ByVal dictIndicePorClave As Object, ByRef dictCompAnteriorActualizado As Object, ByRef diag As Object, Optional ByRef dictControlCompAnteriorPorClave As Object = Nothing)
     Dim arr As Variant, headers As Object, i As Long, fechaValor As Date, clave As String, info As Variant
     Dim keyAgg As String, importeMN As Double, tipoIndice As String, factor As Double
-    Dim cacheFactores As Object
+    Dim cacheFactores As Object, det As Variant
     Set cacheFactores = CreateObject("Scripting.Dictionary")
     arr = ws.Range(ws.Cells(1, 1), ws.Cells(UltimaFilaConDatos(ws), UltimaColConDatos(ws))).Value2
     Set headers = MapearEncabezados(arr)
@@ -1179,12 +1256,21 @@ Public Sub LeerEjecucionesComparativoYAcumular(ByVal ws As Worksheet, ByVal anio
                     If Len(tipoIndice) = 0 Then
                         Err.Raise vbObjectError + 1990, "LeerEjecucionesComparativoYAcumular", "La llave " & clave & " está incluida en informe pero tiene Indice vacío en codiguera."
                     End If
-                    factor = ObtenerFactorActualizacionIndice(tipoIndice, anioBase, anioDestino, mesCierre, cacheFactores)
+                    det = ObtenerDetalleActualizacionIndice(tipoIndice, anioBase, anioDestino, mesCierre, cacheFactores)
+                    factor = CDbl(det(6))
                     info = dictCod(clave)
                     keyAgg = CStr(info(0)) & "|" & CStr(info(1)) & "|" & CStr(info(2)) & "|" & CStr(info(3))
                     importeMN = CDbl(0 + arr(i, ObtenerColumna(headers, Array("importe moneda nacional")))) * factor
                     If Not dictCompAnteriorActualizado.Exists(keyAgg) Then dictCompAnteriorActualizado.Add keyAgg, 0#
                     dictCompAnteriorActualizado(keyAgg) = dictCompAnteriorActualizado(keyAgg) + importeMN
+                    If Not dictControlCompAnteriorPorClave Is Nothing Then
+                        If Not dictControlCompAnteriorPorClave.Exists(keyAgg) Then dictControlCompAnteriorPorClave.Add keyAgg, Array(0#, 0, det(0), det(1), det(2), det(3), det(4), det(5), det(6))
+                        Dim ctlComp As Variant
+                        ctlComp = dictControlCompAnteriorPorClave(keyAgg)
+                        ctlComp(0) = CDbl(ctlComp(0)) + CDbl(0 + arr(i, ObtenerColumna(headers, Array("importe moneda nacional"))))
+                        ctlComp(1) = CLng(ctlComp(1)) + 1
+                        dictControlCompAnteriorPorClave(keyAgg) = ctlComp
+                    End If
                 End If
             End If
         End If

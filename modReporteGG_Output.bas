@@ -1076,3 +1076,91 @@ Public Sub CrearHojaComparativoAnual(ByVal wbOut As Workbook, ByVal wsBase As Wo
     titulo = "Informe de Seguimiento Presupuestal " & UCase$(MesesES()(mesCierre - 1)) & " " & anioActual & " - Ejecución acumulada y variación anual" & SufijoUnidadTitulo()
     AjustarEncabezadoVisualAlPivot ws, pt, titulo
 End Sub
+
+Public Sub CrearArchivoControlReporteGG(ByVal rutaControl As String, ByVal anioActual As Long, ByVal anioComparativo As Long, ByVal mesCierre As Long, ByVal dictControlEjecMensual As Object, ByVal dictControlCompActualPorClave As Object, ByVal dictControlCompAnteriorPorClave As Object, ByVal dictControlAsignadoPorClave As Object, ByVal dictControlEjecPorClave As Object)
+    Dim wbControl As Workbook
+    Set wbControl = Workbooks.Add(xlWBATWorksheet)
+    CrearHojaControlEjecucionMensual wbControl, dictControlEjecMensual, anioActual
+    CrearHojaControlComparativo wbControl, dictControlCompActualPorClave, dictControlCompAnteriorPorClave, anioActual, anioComparativo
+    CrearHojaControlPorcEjecucion wbControl, dictControlAsignadoPorClave, dictControlEjecPorClave, anioActual
+    Application.DisplayAlerts = False
+    If wbControl.Worksheets.Count > 3 Then wbControl.Worksheets(1).Delete
+    wbControl.SaveAs Filename:=rutaControl, FileFormat:=xlOpenXMLWorkbook
+    wbControl.Close SaveChanges:=False
+    Application.DisplayAlerts = True
+End Sub
+
+Private Sub FormatearHojaControlBase(ByVal ws As Worksheet, ByVal filaHeader As Long, ByVal ultimaCol As Long, ByVal fmtImporteCols As String, Optional ByVal fmtPctCols As String = "")
+    Dim lr As Long
+    lr = UltimaFilaConDatos(ws)
+    ws.Rows(filaHeader).Font.Bold = True
+    ws.Range(ws.Cells(filaHeader, 1), ws.Cells(lr, ultimaCol)).AutoFilter
+    ws.Activate: ws.Range("A2").Select: ActiveWindow.FreezePanes = True
+    ws.Columns.AutoFit
+    If Len(fmtImporteCols) > 0 Then ws.Range(fmtImporteCols & "2:" & fmtImporteCols & lr).NumberFormat = "#,##0.00"
+    If Len(fmtPctCols) > 0 Then ws.Range(fmtPctCols & "2:" & fmtPctCols & lr).NumberFormat = "0.00%"
+End Sub
+
+Private Sub CrearHojaControlEjecucionMensual(ByVal wb As Workbook, ByVal d As Object, ByVal anio As Long)
+    Dim ws As Worksheet, k As Variant, it As Object, f As Long
+    Set ws = wb.Worksheets.Add(After:=wb.Worksheets(wb.Worksheets.Count)): ws.Name = "Control_Ejecución_" & anio
+    ws.Range("A1:K1").Value = Array("MesNum", "Mes", "Clave Llave presupuestal", "Financiamiento", "Nivel_1", "Nivel_2", "Nivel_3", "Ejecutado", "Cantidad líneas origen", "Primera fila origen", "Última fila origen")
+    f = 2
+    For Each k In d.Keys
+        Set it = d(k)
+        ws.Cells(f, 1).Value = it("mesNum"): ws.Cells(f, 2).Value = it("mesNombre"): ws.Cells(f, 3).Value = it("clave")
+        ws.Cells(f, 4).Value = it("financiamiento"): ws.Cells(f, 5).Value = it("nivel1"): ws.Cells(f, 6).Value = it("nivel2"): ws.Cells(f, 7).Value = it("nivel3")
+        ws.Cells(f, 8).Value = it("ejecutado"): ws.Cells(f, 9).Value = it("cantidadLineas"): ws.Cells(f, 10).Value = it("primeraFilaOrigen"): ws.Cells(f, 11).Value = it("ultimaFilaOrigen")
+        f = f + 1
+    Next k
+    ws.Cells(f, 7).Value = "TOTAL": ws.Cells(f, 8).Formula = "=SUM(H2:H" & f - 1 & ")": ws.Rows(f).Font.Bold = True
+    FormatearHojaControlBase ws, 1, 11, "H"
+End Sub
+
+Private Sub CrearHojaControlComparativo(ByVal wb As Workbook, ByVal dAct As Object, ByVal dAnt As Object, ByVal anioActual As Long, ByVal anioComp As Long)
+    Dim ws As Worksheet, keys As Object, k As Variant, f As Long, p() As String, a As Variant, b As Variant, ejA As Double, ejB As Double, ratio As Double, ejBAct As Double
+    Set ws = wb.Worksheets.Add(After:=wb.Worksheets(wb.Worksheets.Count)): ws.Name = "Control_Comparativo_" & anioActual & "_vs_" & anioComp
+    ws.Range("A1:S1").Value = Array("Clave Llave presupuestal", "Financiamiento", "Nivel_1", "Nivel_2", "Nivel_3", "Ejecutado " & anioActual, "Ejecutado " & anioComp & " anterior original", "Indice", "Archivo índice", "Periodo índice base", "Valor índice base", "Periodo índice destino", "Valor índice destino", "Ratio actualización", "Ejecutado " & anioComp & " anterior actualizado a valores " & anioActual, "Diferencia", "% variación", "Cantidad líneas " & anioActual, "Cantidad líneas " & anioComp)
+    Set keys = CreateObject("Scripting.Dictionary")
+    For Each k In dAct.Keys: keys(k) = True: Next k
+    For Each k In dAnt.Keys: keys(k) = True: Next k
+    f = 2
+    For Each k In keys.Keys
+        p = Split(CStr(k), "|"): ejA = 0#: ejB = 0#: ratio = 0#: ejBAct = 0#
+        If dAct.Exists(k) Then a = dAct(k): ejA = CDbl(a(0))
+        If dAnt.Exists(k) Then b = dAnt(k): ejB = CDbl(b(0)): ratio = CDbl(b(8)): ejBAct = ejB * ratio
+        ws.Cells(f, 1).Value = k: ws.Cells(f, 2).Value = p(0): ws.Cells(f, 3).Value = p(1): ws.Cells(f, 4).Value = p(2): ws.Cells(f, 5).Value = p(3)
+        ws.Cells(f, 6).Value = ejA: ws.Cells(f, 7).Value = ejB
+        If dAnt.Exists(k) Then ws.Cells(f, 8).Resize(1, 6).Value = Array(b(2), b(3), b(4), b(5), b(6), b(7))
+        ws.Cells(f, 14).Value = ratio: ws.Cells(f, 15).Value = ejBAct: ws.Cells(f, 16).Value = ejA - ejBAct
+        If ejBAct <> 0 Then ws.Cells(f, 17).Value = (ejA - ejBAct) / ejBAct
+        ws.Cells(f, 18).Value = IIf(dAct.Exists(k), a(1), 0): ws.Cells(f, 19).Value = IIf(dAnt.Exists(k), b(1), 0)
+        f = f + 1
+    Next k
+    ws.Cells(f, 5).Value = "TOTAL": ws.Cells(f, 6).Formula = "=SUM(F2:F" & f - 1 & ")": ws.Cells(f, 7).Formula = "=SUM(G2:G" & f - 1 & ")"
+    ws.Cells(f, 15).Formula = "=SUM(O2:O" & f - 1 & ")": ws.Cells(f, 16).Formula = "=F" & f & "-O" & f
+    ws.Cells(f, 17).Formula = "=IF(O" & f & "=0,0,P" & f & "/O" & f & ")": ws.Rows(f).Font.Bold = True
+    FormatearHojaControlBase ws, 1, 19, "F:G,K:M,O:P", "N,Q"
+End Sub
+
+Private Sub CrearHojaControlPorcEjecucion(ByVal wb As Workbook, ByVal dAsig As Object, ByVal dEj As Object, ByVal anio As Long)
+    Dim ws As Worksheet, keys As Object, k As Variant, p() As String, f As Long, a As Variant, e As Variant, asig As Double, ejec As Double
+    Set ws = wb.Worksheets.Add(After:=wb.Worksheets(wb.Worksheets.Count)): ws.Name = "Control_%Ejecución_" & anio
+    ws.Range("A1:J1").Value = Array("Clave Llave presupuestal", "Financiamiento", "Nivel_1", "Nivel_2", "Nivel_3", "Asignado", "Ejecutado", "% ejecución", "Cantidad líneas asignado", "Cantidad líneas ejecución")
+    Set keys = CreateObject("Scripting.Dictionary")
+    For Each k In dAsig.Keys: keys(k) = True: Next k
+    For Each k In dEj.Keys: keys(k) = True: Next k
+    f = 2
+    For Each k In keys.Keys
+        p = Split(CStr(k), "|"): asig = 0#: ejec = 0#
+        If dAsig.Exists(k) Then a = dAsig(k): asig = CDbl(a(0))
+        If dEj.Exists(k) Then e = dEj(k): ejec = CDbl(e(0))
+        ws.Cells(f, 1).Value = k: ws.Cells(f, 2).Value = p(0): ws.Cells(f, 3).Value = p(1): ws.Cells(f, 4).Value = p(2): ws.Cells(f, 5).Value = p(3)
+        ws.Cells(f, 6).Value = asig: ws.Cells(f, 7).Value = ejec
+        If asig <> 0 Then ws.Cells(f, 8).Value = ejec / asig
+        ws.Cells(f, 9).Value = IIf(dAsig.Exists(k), a(1), 0): ws.Cells(f, 10).Value = IIf(dEj.Exists(k), e(1), 0)
+        f = f + 1
+    Next k
+    ws.Cells(f, 5).Value = "TOTAL": ws.Cells(f, 6).Formula = "=SUM(F2:F" & f - 1 & ")": ws.Cells(f, 7).Formula = "=SUM(G2:G" & f - 1 & ")": ws.Cells(f, 8).Formula = "=IF(F" & f & "=0,0,G" & f & "/F" & f & ")": ws.Rows(f).Font.Bold = True
+    FormatearHojaControlBase ws, 1, 10, "F:G", "H"
+End Sub
