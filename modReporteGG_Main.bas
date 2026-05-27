@@ -625,7 +625,8 @@ EH:
 End Function
 
 Public Sub EscribirDiagnostico(ByVal wb As Workbook, ByVal diag As Object, ByVal archivoEjec As String, ByVal archivoCod As String, ByVal anio As Long, ByVal mesNum As Long)
-    Dim ws As Worksheet, d As Object, k As Variant, f As Long, it As Variant
+    Dim ws As Worksheet, d As Object, k As Variant, it As Variant
+    Dim filaActual As Long
     On Error Resume Next
     Application.DisplayAlerts = False
     wb.Worksheets(DIAG_SHEET_NAME).Delete
@@ -634,52 +635,84 @@ Public Sub EscribirDiagnostico(ByVal wb As Workbook, ByVal diag As Object, ByVal
 
     Set ws = wb.Worksheets.Add(After:=wb.Worksheets(wb.Worksheets.Count))
     ws.Name = DIAG_SHEET_NAME
-    ws.Range("A1:B1").Value = Array("Campo", "Valor")
-    ws.Cells(2, 1).Value = "Archivo ejecuciones": ws.Cells(2, 2).Value = archivoEjec
-    ws.Cells(3, 1).Value = "Archivo codiguera": ws.Cells(3, 2).Value = archivoCod
-    ws.Cells(4, 1).Value = "Año": ws.Cells(4, 2).Value = anio
-    ws.Cells(5, 1).Value = "Mes cierre": ws.Cells(5, 2).Value = mesNum
-    If diag.Exists("asignados_resumen") Then
-        it = diag("asignados_resumen")
-        ws.Cells(7, 1).Value = "Archivo asignados detectado": ws.Cells(7, 2).Value = it(0)
-        ws.Cells(8, 1).Value = "Filas archivo asignados": ws.Cells(8, 2).Value = it(1)
-        ws.Cells(9, 1).Value = "Filas usadas año seleccionado": ws.Cells(9, 2).Value = it(2)
-        ws.Cells(10, 1).Value = "Filas con clave en dictCod": ws.Cells(10, 2).Value = it(3)
-        ws.Cells(11, 1).Value = "Filas clave en codiguera no incluidas": ws.Cells(11, 2).Value = it(4)
-        ws.Cells(12, 1).Value = "Filas nuevas": ws.Cells(12, 2).Value = it(5)
-        ws.Cells(13, 1).Value = "Total Asignado leído": ws.Cells(13, 2).Value = it(6)
-        ws.Cells(14, 1).Value = "Total Asignado del año": ws.Cells(14, 2).Value = it(7)
-        ws.Cells(15, 1).Value = "Total Asignado acumulado": ws.Cells(15, 2).Value = it(8)
-        ws.Cells(16, 1).Value = "Claves acumuladas dictAsignado": ws.Cells(16, 2).Value = it(9)
-    End If
-    If diag.Exists("asignados_faltantes") Then
-        ws.Cells(17, 1).Value = "Llaves de asignados no encontradas en codiguera"
-        ws.Range("A18:S18").Value = Array("Origen", "Archivo", "Fila origen", "Clave normalizada", "Llave presupuestal", "Finac", "Der-F", "PG", "Spg", "Proy", "Rubro", "R. Aux", "UE", "Dep", "Obra", "Der. Obra", "Serv", "SNIIP", "Estado")
-        f = 19
-        Set d = diag("asignados_faltantes")
-        For Each k In d.Keys
-            it = d(k)
-            ws.Range("A" & f & ":S" & f).Value = it
-            f = f + 1
-        Next k
-    End If
-    If diag.Exists("asignados_muestra_no_acumulados") Then
-        ws.Cells(17, 7).Value = "Muestra de asignados no acumulados"
-        ws.Range("G18:J18").Value = Array("Estado", "Fila origen", "Clave normalizada", "Asignado")
-        f = 19
-        For Each it In diag("asignados_muestra_no_acumulados")
-            ws.Cells(f, 7).Value = it(0)
-            ws.Cells(f, 8).Value = it(1)
-            ws.Cells(f, 9).Value = it(2)
-            ws.Cells(f, 10).Value = it(3)
-            f = f + 1
-        Next it
-    End If
-    ws.Columns("A:B").AutoFit
-    ws.Columns("G:J").AutoFit
+
+    filaActual = 1
+    ws.Cells(filaActual, 1).Value = "Campo": ws.Cells(filaActual, 2).Value = "Valor"
+    filaActual = filaActual + 1
+
+    ws.Cells(filaActual, 1).Value = "Archivo ejecuciones": ws.Cells(filaActual, 2).Value = archivoEjec: filaActual = filaActual + 1
+    ws.Cells(filaActual, 1).Value = "Archivo codiguera": ws.Cells(filaActual, 2).Value = archivoCod: filaActual = filaActual + 1
+    ws.Cells(filaActual, 1).Value = "Año": ws.Cells(filaActual, 2).Value = anio: filaActual = filaActual + 1
+    ws.Cells(filaActual, 1).Value = "Mes cierre": ws.Cells(filaActual, 2).Value = mesNum: filaActual = filaActual + 1
+
     If diag.Exists("archivo_ejec_comparativo") Then ws.Cells(2, 4).Value = "Archivo ejecuciones comparativo": ws.Cells(2, 5).Value = diag("archivo_ejec_comparativo")
     If diag.Exists("archivo_asignados_comparativo") Then ws.Cells(3, 4).Value = "Archivo asignados comparativo": ws.Cells(3, 5).Value = diag("archivo_asignados_comparativo")
     If diag.Exists("anio_comparativo") Then ws.Cells(4, 4).Value = "Año comparativo": ws.Cells(4, 5).Value = diag("anio_comparativo")
+
+    filaActual = filaActual + 1
+
+    If diag.Exists("asignados_resumen") Then
+        it = diag("asignados_resumen")
+        ws.Cells(filaActual, 1).Value = "Archivo asignados detectado": ws.Cells(filaActual, 2).Value = it(0): filaActual = filaActual + 1
+        ws.Cells(filaActual, 1).Value = "Filas archivo asignados": ws.Cells(filaActual, 2).Value = it(1): filaActual = filaActual + 1
+        ws.Cells(filaActual, 1).Value = "Filas usadas año seleccionado": ws.Cells(filaActual, 2).Value = it(2): filaActual = filaActual + 1
+        ws.Cells(filaActual, 1).Value = "Filas con clave en dictCod": ws.Cells(filaActual, 2).Value = it(3): filaActual = filaActual + 1
+        ws.Cells(filaActual, 1).Value = "Filas clave en codiguera no incluidas": ws.Cells(filaActual, 2).Value = it(4): filaActual = filaActual + 1
+        ws.Cells(filaActual, 1).Value = "Filas nuevas": ws.Cells(filaActual, 2).Value = it(5): filaActual = filaActual + 1
+        ws.Cells(filaActual, 1).Value = "Total Asignado leído": ws.Cells(filaActual, 2).Value = it(6): filaActual = filaActual + 1
+        ws.Cells(filaActual, 1).Value = "Total Asignado del año": ws.Cells(filaActual, 2).Value = it(7): filaActual = filaActual + 1
+        ws.Cells(filaActual, 1).Value = "Total Asignado acumulado": ws.Cells(filaActual, 2).Value = it(8): filaActual = filaActual + 1
+        ws.Cells(filaActual, 1).Value = "Claves acumuladas dictAsignado": ws.Cells(filaActual, 2).Value = it(9): filaActual = filaActual + 1
+    End If
+
+    filaActual = filaActual + 1
+
+    If diag.Exists("asignados_faltantes") Then
+        ws.Cells(filaActual, 1).Value = "Llaves nuevas agregadas a codiguera - pendientes de clasificación"
+        ws.Cells(filaActual, 1).Font.Bold = True
+        filaActual = filaActual + 1
+
+        ws.Range("A" & filaActual & ":R" & filaActual).Value = Array("Origen", "Archivo", "Fila origen asignados", "Clave normalizada", "Finac", "Der-F", "PG", "Spg", "Proy", "Rubro", "R. Aux", "UE", "Dep", "Obra", "Der. Obra", "Serv", "SNIIP", "Estado")
+        ws.Range("A" & filaActual & ":R" & filaActual).Font.Bold = True
+        ws.Range("A" & filaActual & ":R" & filaActual).Interior.Color = RGB(242, 242, 242)
+        filaActual = filaActual + 1
+
+        Set d = diag("asignados_faltantes")
+        For Each k In d.Keys
+            it = d(k)
+            ws.Range("A" & filaActual & ":R" & filaActual).Value = it
+            filaActual = filaActual + 1
+        Next k
+
+        filaActual = filaActual + 2
+    End If
+
+    If diag.Exists("asignados_muestra_no_acumulados") Then
+        ws.Cells(filaActual, 1).Value = "Muestra de asignados no acumulados (no necesariamente faltantes en codiguera)"
+        ws.Cells(filaActual, 1).Font.Bold = True
+        filaActual = filaActual + 1
+
+        ws.Cells(filaActual, 1).Value = "Esta muestra incluye llaves existentes en codiguera pero no incluidas en informe, y eventualmente llaves nuevas. Es solo una muestra, no el listado completo."
+        filaActual = filaActual + 1
+
+        ws.Range("A" & filaActual & ":D" & filaActual).Value = Array("Estado", "Fila origen asignados", "Clave normalizada", "Asignado")
+        ws.Range("A" & filaActual & ":D" & filaActual).Font.Bold = True
+        ws.Range("A" & filaActual & ":D" & filaActual).Interior.Color = RGB(242, 242, 242)
+        filaActual = filaActual + 1
+
+        For Each it In diag("asignados_muestra_no_acumulados")
+            ws.Cells(filaActual, 1).Value = it(0)
+            ws.Cells(filaActual, 2).Value = it(1)
+            ws.Cells(filaActual, 3).Value = it(2)
+            ws.Cells(filaActual, 4).Value = it(3)
+            filaActual = filaActual + 1
+        Next it
+
+        filaActual = filaActual + 2
+    End If
+
+    ws.Rows(1).Font.Bold = True
+    ws.Columns("A:S").AutoFit
 End Sub
 
 Public Sub LeerCodigueraIndices(ByVal ws As Worksheet, ByRef dictIndicePorClave As Object)
@@ -792,7 +825,7 @@ Private Sub RegistrarYAgregarLlaveAsignadoFaltante(ByVal wbCodiguera As Workbook
     Dim wsC As Worksheet, hdrC As Object, lastR As Long, newR As Long, sec As Collection, rowInfo As Variant
     If Not diag.Exists("asignados_faltantes") Then Set diag("asignados_faltantes") = CreateObject("Scripting.Dictionary")
     If diag("asignados_faltantes").Exists(clave) Then Exit Sub
-    rowInfo = Array("Asignados", archivoAsignados, fila, clave, "", arr(fila, ObtenerColumna(headers, Array("finac"))), arr(fila, ObtenerColumna(headers, Array("der-f"))), arr(fila, ObtenerColumna(headers, Array("pg"))), arr(fila, ObtenerColumna(headers, Array("spg"))), arr(fila, ObtenerColumna(headers, Array("proy"))), arr(fila, ObtenerColumna(headers, Array("rubro"))), arr(fila, ObtenerColumna(headers, Array("r. aux"))), arr(fila, ObtenerColumna(headers, Array("ue"))), arr(fila, ObtenerColumna(headers, Array("dep"))), arr(fila, ObtenerColumna(headers, Array("obra"))), arr(fila, ObtenerColumna(headers, Array("der. obra"))), arr(fila, ObtenerColumna(headers, Array("serv"))), arr(fila, ObtenerColumna(headers, Array("sniip"))), "Agregada a codiguera - pendiente clasificar")
+    rowInfo = Array("Asignados", archivoAsignados, fila, clave, arr(fila, ObtenerColumna(headers, Array("finac"))), arr(fila, ObtenerColumna(headers, Array("der-f"))), arr(fila, ObtenerColumna(headers, Array("pg"))), arr(fila, ObtenerColumna(headers, Array("spg"))), arr(fila, ObtenerColumna(headers, Array("proy"))), arr(fila, ObtenerColumna(headers, Array("rubro"))), arr(fila, ObtenerColumna(headers, Array("r. aux"))), arr(fila, ObtenerColumna(headers, Array("ue"))), arr(fila, ObtenerColumna(headers, Array("dep"))), arr(fila, ObtenerColumna(headers, Array("obra"))), arr(fila, ObtenerColumna(headers, Array("der. obra"))), arr(fila, ObtenerColumna(headers, Array("serv"))), arr(fila, ObtenerColumna(headers, Array("sniip"))), "Agregada a codiguera - pendiente clasificar")
     diag("asignados_faltantes")(clave) = rowInfo
 
     If wbCodiguera Is Nothing Then Exit Sub
