@@ -211,6 +211,23 @@ Public Function RutaReportesGeneradosActiva() As String
     End If
 End Function
 
+Public Function CarpetaSalidaReportesActiva() As String
+    CarpetaSalidaReportesActiva = RutaReportesGeneradosActiva()
+End Function
+
+Public Function CarpetaControlesReporteActiva() As String
+    Dim carpeta As String
+    carpeta = CombinarRuta(CarpetaSalidaReportesActiva(), "Controles")
+    If Not CarpetaExiste(carpeta) Then MkDir carpeta
+    CarpetaControlesReporteActiva = carpeta
+End Function
+
+Public Function RutaArchivoControlReporte(ByVal anio As Long, ByVal mesCierre As Long) As String
+    RutaArchivoControlReporte = CombinarRuta( _
+        CarpetaControlesReporteActiva(), _
+        "Control_Reporte_GG_" & anio & "_" & Format$(mesCierre, "00") & "_" & Format$(Now, "yyyymmdd_hhnn") & ".xlsx")
+End Function
+
 Public Function DiagnosticoRutasActivas() As String
     Dim rutaEjec As String, rutaCod As String, rutaAsig As String, rutaOut As String
 
