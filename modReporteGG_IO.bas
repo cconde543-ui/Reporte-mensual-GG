@@ -481,7 +481,6 @@ Public Function DiagnosticoArchivosAsignados(ByVal carpeta As String) As String
                 End If
             End If
         End If
-SiguienteArchivo:
     Next archivo
 
     For Each archivo In folderObj.Files
@@ -500,7 +499,6 @@ SiguienteArchivo:
                 detalle = detalle & vbCrLf
             End If
         End If
-SiguienteArchivo:
     Next archivo
 
     DiagnosticoArchivosAsignados = "Carpeta: " & carpeta & vbCrLf

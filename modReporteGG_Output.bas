@@ -370,37 +370,36 @@ End Function
 Private Function RutaLogoBPSActiva() As String
     Dim base As String
     Dim padre As String
-    Dim candidatos As Variant
+    Dim candidatos As Collection
     Dim i As Long
 
     base = ThisWorkbook.Path
     padre = CarpetaPadreLocalOutput()
 
-    candidatos = Array( _
-        LOGO_BPS_PATH, _
-        base & "\Logo_BPS.jpg", _
-        base & "\Logo_BPS.png", _
-        base & "\Logo BPS.jpg", _
-        base & "\Logo BPS.png", _
-        base & "\Recursos\Logo_BPS.jpg", _
-        base & "\Recursos\Logo_BPS.png", _
-        base & "\Imagenes\Logo_BPS.jpg", _
-        base & "\Imagenes\Logo_BPS.png", _
-        base & "\Imágenes\Logo_BPS.jpg", _
-        base & "\Imágenes\Logo_BPS.png", _
-        padre & "\Logo_BPS.jpg", _
-        padre & "\Logo_BPS.png", _
-        padre & "\Logo BPS.jpg", _
-        padre & "\Logo BPS.png", _
-        padre & "\Recursos\Logo_BPS.jpg", _
-        padre & "\Recursos\Logo_BPS.png", _
-        padre & "\Imagenes\Logo_BPS.jpg", _
-        padre & "\Imagenes\Logo_BPS.png", _
-        padre & "\Imágenes\Logo_BPS.jpg", _
-        padre & "\Imágenes\Logo_BPS.png" _
-    )
+    Set candidatos = New Collection
+    candidatos.Add LOGO_BPS_PATH
+    candidatos.Add base & "\Logo_BPS.jpg"
+    candidatos.Add base & "\Logo_BPS.png"
+    candidatos.Add base & "\Logo BPS.jpg"
+    candidatos.Add base & "\Logo BPS.png"
+    candidatos.Add base & "\Recursos\Logo_BPS.jpg"
+    candidatos.Add base & "\Recursos\Logo_BPS.png"
+    candidatos.Add base & "\Imagenes\Logo_BPS.jpg"
+    candidatos.Add base & "\Imagenes\Logo_BPS.png"
+    candidatos.Add base & "\Imágenes\Logo_BPS.jpg"
+    candidatos.Add base & "\Imágenes\Logo_BPS.png"
+    candidatos.Add padre & "\Logo_BPS.jpg"
+    candidatos.Add padre & "\Logo_BPS.png"
+    candidatos.Add padre & "\Logo BPS.jpg"
+    candidatos.Add padre & "\Logo BPS.png"
+    candidatos.Add padre & "\Recursos\Logo_BPS.jpg"
+    candidatos.Add padre & "\Recursos\Logo_BPS.png"
+    candidatos.Add padre & "\Imagenes\Logo_BPS.jpg"
+    candidatos.Add padre & "\Imagenes\Logo_BPS.png"
+    candidatos.Add padre & "\Imágenes\Logo_BPS.jpg"
+    candidatos.Add padre & "\Imágenes\Logo_BPS.png"
 
-    For i = LBound(candidatos) To UBound(candidatos)
+    For i = 1 To candidatos.Count
         If ArchivoExisteSeguro(CStr(candidatos(i))) Then
             RutaLogoBPSActiva = CStr(candidatos(i))
             Exit Function
