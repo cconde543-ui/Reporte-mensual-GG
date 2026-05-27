@@ -1097,8 +1097,31 @@ Private Sub FormatearHojaControlBase(ByVal ws As Worksheet, ByVal filaHeader As 
     ws.Range(ws.Cells(filaHeader, 1), ws.Cells(lr, ultimaCol)).AutoFilter
     ws.Activate: ws.Range("A2").Select: ActiveWindow.FreezePanes = True
     ws.Columns.AutoFit
-    If Len(fmtImporteCols) > 0 Then ws.Range(fmtImporteCols & "2:" & fmtImporteCols & lr).NumberFormat = "#,##0.00"
-    If Len(fmtPctCols) > 0 Then ws.Range(fmtPctCols & "2:" & fmtPctCols & lr).NumberFormat = "0.00%"
+    AplicarFormatoColumnasControl ws, fmtImporteCols, filaHeader + 1, lr, "#,##0.00"
+    AplicarFormatoColumnasControl ws, fmtPctCols, filaHeader + 1, lr, "0.00%"
+End Sub
+
+Private Sub AplicarFormatoColumnasControl(ByVal ws As Worksheet, ByVal columnas As String, ByVal filaInicio As Long, ByVal filaFin As Long, ByVal formato As String)
+    Dim partes() As String
+    Dim limites() As String
+    Dim i As Long
+    Dim col As String
+
+    If Len(Trim$(columnas)) = 0 Then Exit Sub
+    If filaFin < filaInicio Then Exit Sub
+
+    partes = Split(columnas, ",")
+    For i = LBound(partes) To UBound(partes)
+        col = Trim$(partes(i))
+        If Len(col) > 0 Then
+            If InStr(1, col, ":", vbTextCompare) > 0 Then
+                limites = Split(col, ":")
+                ws.Range(Trim$(limites(0)) & filaInicio & ":" & Trim$(limites(1)) & filaFin).NumberFormat = formato
+            Else
+                ws.Range(col & filaInicio & ":" & col & filaFin).NumberFormat = formato
+            End If
+        End If
+    Next i
 End Sub
 
 Private Sub CrearHojaControlEjecucionMensual(ByVal wb As Workbook, ByVal d As Object, ByVal anio As Long)
@@ -1118,7 +1141,8 @@ Private Sub CrearHojaControlEjecucionMensual(ByVal wb As Workbook, ByVal d As Ob
 End Sub
 
 Private Sub CrearHojaControlComparativo(ByVal wb As Workbook, ByVal dAct As Object, ByVal dAnt As Object, ByVal anioActual As Long, ByVal anioComp As Long)
-    Dim ws As Worksheet, keys As Object, k As Variant, f As Long, p() As String, a As Variant, b As Variant, ejA As Double, ejB As Double, ratio As Double, ejBAct As Double
+    Dim ws As Worksheet, keys As Object, k As Variant, f As Long, a As Variant, b As Variant, ejA As Double, ejB As Double, ratio As Double, ejBAct As Double
+    Dim fin As String, n1 As String, n2 As String, n3 As String
     Set ws = wb.Worksheets.Add(After:=wb.Worksheets(wb.Worksheets.Count)): ws.Name = "Control_Comparativo_" & anioActual & "_vs_" & anioComp
     ws.Range("A1:S1").Value = Array("Clave Llave presupuestal", "Financiamiento", "Nivel_1", "Nivel_2", "Nivel_3", "Ejecutado " & anioActual, "Ejecutado " & anioComp & " anterior original", "Indice", "Archivo índice", "Periodo índice base", "Valor índice base", "Periodo índice destino", "Valor índice destino", "Ratio actualización", "Ejecutado " & anioComp & " anterior actualizado a valores " & anioActual, "Diferencia", "% variación", "Cantidad líneas " & anioActual, "Cantidad líneas " & anioComp)
     Set keys = CreateObject("Scripting.Dictionary")
@@ -1126,15 +1150,22 @@ Private Sub CrearHojaControlComparativo(ByVal wb As Workbook, ByVal dAct As Obje
     For Each k In dAnt.Keys: keys(k) = True: Next k
     f = 2
     For Each k In keys.Keys
-        p = Split(CStr(k), "|"): ejA = 0#: ejB = 0#: ratio = 0#: ejBAct = 0#
-        If dAct.Exists(k) Then a = dAct(k): ejA = CDbl(a(0))
-        If dAnt.Exists(k) Then b = dAnt(k): ejB = CDbl(b(0)): ratio = CDbl(b(8)): ejBAct = ejB * ratio
-        ws.Cells(f, 1).Value = k: ws.Cells(f, 2).Value = p(0): ws.Cells(f, 3).Value = p(1): ws.Cells(f, 4).Value = p(2): ws.Cells(f, 5).Value = p(3)
+        ejA = 0#: ejB = 0#: ratio = 0#: ejBAct = 0#: fin = "": n1 = "": n2 = "": n3 = ""
+        If dAct.Exists(k) Then
+            a = dAct(k): ejA = CDbl(a(0))
+            fin = CStr(a(2)): n1 = CStr(a(3)): n2 = CStr(a(4)): n3 = CStr(a(5))
+        End If
+        If dAnt.Exists(k) Then
+            b = dAnt(k): ejB = CDbl(b(0)): ratio = CDbl(b(12)): ejBAct = ejB * ratio
+            If Len(fin) = 0 Then fin = CStr(b(2)): n1 = CStr(b(3)): n2 = CStr(b(4)): n3 = CStr(b(5))
+        End If
+        ws.Cells(f, 1).Value = k: ws.Cells(f, 2).Value = fin: ws.Cells(f, 3).Value = n1: ws.Cells(f, 4).Value = n2: ws.Cells(f, 5).Value = n3
         ws.Cells(f, 6).Value = ejA: ws.Cells(f, 7).Value = ejB
-        If dAnt.Exists(k) Then ws.Cells(f, 8).Resize(1, 6).Value = Array(b(2), b(3), b(4), b(5), b(6), b(7))
+        If dAnt.Exists(k) Then ws.Cells(f, 8).Resize(1, 6).Value = Array(b(6), b(7), b(8), b(9), b(10), b(11))
         ws.Cells(f, 14).Value = ratio: ws.Cells(f, 15).Value = ejBAct: ws.Cells(f, 16).Value = ejA - ejBAct
         If ejBAct <> 0 Then ws.Cells(f, 17).Value = (ejA - ejBAct) / ejBAct
-        ws.Cells(f, 18).Value = IIf(dAct.Exists(k), a(1), 0): ws.Cells(f, 19).Value = IIf(dAnt.Exists(k), b(1), 0)
+        If dAct.Exists(k) Then ws.Cells(f, 18).Value = a(1) Else ws.Cells(f, 18).Value = 0
+        If dAnt.Exists(k) Then ws.Cells(f, 19).Value = b(1) Else ws.Cells(f, 19).Value = 0
         f = f + 1
     Next k
     ws.Cells(f, 5).Value = "TOTAL": ws.Cells(f, 6).Formula = "=SUM(F2:F" & f - 1 & ")": ws.Cells(f, 7).Formula = "=SUM(G2:G" & f - 1 & ")"
@@ -1144,7 +1175,8 @@ Private Sub CrearHojaControlComparativo(ByVal wb As Workbook, ByVal dAct As Obje
 End Sub
 
 Private Sub CrearHojaControlPorcEjecucion(ByVal wb As Workbook, ByVal dAsig As Object, ByVal dEj As Object, ByVal anio As Long)
-    Dim ws As Worksheet, keys As Object, k As Variant, p() As String, f As Long, a As Variant, e As Variant, asig As Double, ejec As Double
+    Dim ws As Worksheet, keys As Object, k As Variant, f As Long, a As Variant, e As Variant, asig As Double, ejec As Double
+    Dim fin As String, n1 As String, n2 As String, n3 As String
     Set ws = wb.Worksheets.Add(After:=wb.Worksheets(wb.Worksheets.Count)): ws.Name = "Control_%Ejecución_" & anio
     ws.Range("A1:J1").Value = Array("Clave Llave presupuestal", "Financiamiento", "Nivel_1", "Nivel_2", "Nivel_3", "Asignado", "Ejecutado", "% ejecución", "Cantidad líneas asignado", "Cantidad líneas ejecución")
     Set keys = CreateObject("Scripting.Dictionary")
@@ -1152,13 +1184,20 @@ Private Sub CrearHojaControlPorcEjecucion(ByVal wb As Workbook, ByVal dAsig As O
     For Each k In dEj.Keys: keys(k) = True: Next k
     f = 2
     For Each k In keys.Keys
-        p = Split(CStr(k), "|"): asig = 0#: ejec = 0#
-        If dAsig.Exists(k) Then a = dAsig(k): asig = CDbl(a(0))
-        If dEj.Exists(k) Then e = dEj(k): ejec = CDbl(e(0))
-        ws.Cells(f, 1).Value = k: ws.Cells(f, 2).Value = p(0): ws.Cells(f, 3).Value = p(1): ws.Cells(f, 4).Value = p(2): ws.Cells(f, 5).Value = p(3)
+        asig = 0#: ejec = 0#: fin = "": n1 = "": n2 = "": n3 = ""
+        If dAsig.Exists(k) Then
+            a = dAsig(k): asig = CDbl(a(0))
+            fin = CStr(a(2)): n1 = CStr(a(3)): n2 = CStr(a(4)): n3 = CStr(a(5))
+        End If
+        If dEj.Exists(k) Then
+            e = dEj(k): ejec = CDbl(e(0))
+            If Len(fin) = 0 Then fin = CStr(e(2)): n1 = CStr(e(3)): n2 = CStr(e(4)): n3 = CStr(e(5))
+        End If
+        ws.Cells(f, 1).Value = k: ws.Cells(f, 2).Value = fin: ws.Cells(f, 3).Value = n1: ws.Cells(f, 4).Value = n2: ws.Cells(f, 5).Value = n3
         ws.Cells(f, 6).Value = asig: ws.Cells(f, 7).Value = ejec
         If asig <> 0 Then ws.Cells(f, 8).Value = ejec / asig
-        ws.Cells(f, 9).Value = IIf(dAsig.Exists(k), a(1), 0): ws.Cells(f, 10).Value = IIf(dEj.Exists(k), e(1), 0)
+        If dAsig.Exists(k) Then ws.Cells(f, 9).Value = a(1) Else ws.Cells(f, 9).Value = 0
+        If dEj.Exists(k) Then ws.Cells(f, 10).Value = e(1) Else ws.Cells(f, 10).Value = 0
         f = f + 1
     Next k
     ws.Cells(f, 5).Value = "TOTAL": ws.Cells(f, 6).Formula = "=SUM(F2:F" & f - 1 & ")": ws.Cells(f, 7).Formula = "=SUM(G2:G" & f - 1 & ")": ws.Cells(f, 8).Formula = "=IF(F" & f & "=0,0,G" & f & "/F" & f & ")": ws.Rows(f).Font.Bold = True
