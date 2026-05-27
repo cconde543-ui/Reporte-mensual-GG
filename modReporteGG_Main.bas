@@ -340,6 +340,10 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     etapaActual = "creando hoja % ejecución"
     etapaVisual = "iniciando hoja % ejecución"
     CrearHojaPorcEjecucion wbOut, wsBasePorc, anio, mesCierre, etapaVisual
+
+    etapaActual = "ordenando hojas visuales"
+    OrdenarHojasVisualesReporteGG wbOut, anio, anioComparativo
+
     wsBase.Visible = xlSheetVeryHidden
     wsBasePorc.Visible = xlSheetVeryHidden
     wsBaseComp.Visible = xlSheetVeryHidden
@@ -813,17 +817,60 @@ EH:
     Err.Raise Err.Number, "GuardarReporteLiviano", "Error guardando reporte liviano: " & Err.Description & " | Ruta: " & ruta
 End Function
 
+
+Private Function PrepararHojaDiagnosticoLimpia(ByVal wb As Workbook) As Worksheet
+    On Error GoTo EH
+
+    Dim ws As Worksheet
+
+    If wb Is Nothing Then
+        Err.Raise vbObjectError + 2400, "PrepararHojaDiagnosticoLimpia", "wb es Nothing."
+    End If
+
+    Set ws = Nothing
+    On Error Resume Next
+    Set ws = wb.Worksheets(DIAG_SHEET_NAME)
+    On Error GoTo EH
+
+    If ws Is Nothing Then
+        Set ws = wb.Worksheets.Add(After:=wb.Worksheets(wb.Worksheets.Count))
+        ws.Name = DIAG_SHEET_NAME
+    Else
+        ws.Visible = xlSheetVisible
+    End If
+
+    If ws.AutoFilterMode Then ws.AutoFilterMode = False
+
+    Do While ws.ListObjects.Count > 0
+        ws.ListObjects(1).Delete
+    Loop
+
+    Do While ws.Shapes.Count > 0
+        ws.Shapes(1).Delete
+    Loop
+
+    ws.Cells.Clear
+    ws.Cells.ClearComments
+
+    On Error Resume Next
+    ws.Cells.ClearNotes
+    ws.Hyperlinks.Delete
+    ws.Cells.Validation.Delete
+    ws.ResetAllPageBreaks
+    On Error GoTo EH
+
+    Set PrepararHojaDiagnosticoLimpia = ws
+    Exit Function
+
+EH:
+    Err.Raise Err.Number, "PrepararHojaDiagnosticoLimpia", _
+        "No se pudo preparar la hoja " & DIAG_SHEET_NAME & ". " & Err.Description
+End Function
+
 Public Sub EscribirDiagnostico(ByVal wb As Workbook, ByVal diag As Object, ByVal archivoEjec As String, ByVal archivoCod As String, ByVal anio As Long, ByVal mesNum As Long)
     Dim ws As Worksheet, d As Object, k As Variant, it As Variant
     Dim filaActual As Long, muestraCount As Long
-    On Error Resume Next
-    Application.DisplayAlerts = False
-    wb.Worksheets(DIAG_SHEET_NAME).Delete
-    Application.DisplayAlerts = True
-    On Error GoTo 0
-
-    Set ws = wb.Worksheets.Add(After:=wb.Worksheets(wb.Worksheets.Count))
-    ws.Name = DIAG_SHEET_NAME
+    Set ws = PrepararHojaDiagnosticoLimpia(wb)
 
     filaActual = 1
     ws.Cells(filaActual, 1).Value = "Campo": ws.Cells(filaActual, 2).Value = "Valor"
