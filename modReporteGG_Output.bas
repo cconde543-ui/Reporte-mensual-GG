@@ -1157,8 +1157,7 @@ Public Sub CrearArchivoControlReporteGG(ByVal rutaControl As String, ByVal anioA
     Application.DisplayAlerts = True
 
     etapa = "cerrando archivo control"
-    wbControl.Close SaveChanges:=False
-    Set wbControl = Nothing
+    CerrarWorkbookSeguro wbControl, False, True
     Exit Sub
 
 EH:
@@ -1172,7 +1171,7 @@ EH:
 
     On Error Resume Next
     Application.DisplayAlerts = True
-    If Not wbControl Is Nothing Then wbControl.Close SaveChanges:=False
+    CerrarWorkbookSeguro wbControl, False
     On Error GoTo 0
 
     Err.Raise n, "CrearArchivoControlReporteGG", _
