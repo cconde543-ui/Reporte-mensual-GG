@@ -203,9 +203,9 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
         wbC.Save
         EscribirDiagnostico ThisWorkbook, diag, archivoEjec, archivoCod, anio, mesCierre
 
-        If Not wbE Is Nothing Then wbE.Close False: Set wbE = Nothing
-        If Not wbA Is Nothing Then wbA.Close False: Set wbA = Nothing
-        If Not wbC Is Nothing Then wbC.Close True: Set wbC = Nothing
+        CerrarWorkbookSeguro wbE, False, True
+        CerrarWorkbookSeguro wbA, False, True
+        CerrarWorkbookSeguro wbC, True, True
 
         MsgBox "Se agregaron nuevas llaves presupuestales del archivo de asignados actual a la codiguera. Debe clasificarlas, marcar Incluir_en_Informe cuando corresponda y volver a generar el reporte.", vbExclamation
         Exit Sub
@@ -228,15 +228,8 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     End If
 
     etapaActual = "cerrando archivos actuales antes de abrir comparativo"
-    If Not wbE Is Nothing Then
-        wbE.Close False
-        Set wbE = Nothing
-    End If
-
-    If Not wbA Is Nothing Then
-        wbA.Close False
-        Set wbA = Nothing
-    End If
+    CerrarWorkbookSeguro wbE, False
+    CerrarWorkbookSeguro wbA, False
 
     etapaActual = "resolviendo carpeta ejecuciones comparativo"
     carpetaEjecComparativo = RutaCarpetaEjecucionesAnioActiva(anioComparativo)
@@ -271,7 +264,7 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     End If
     diag("archivo_asignados_comparativo") = archivoAsignadosComparativo
 
-    etapaActual = "abriendo archivo ejecuciones comparativo"
+    etapaActual = "leyendo ejecución comparativa año anterior"
     Set wbEComp = Workbooks.Open(archivoEjecComparativo, ReadOnly:=True)
     If wbEComp Is Nothing Then
         Err.Raise vbObjectError + 1974, procedimiento, "Workbooks.Open devolvió Nothing para archivo de ejecuciones comparativo: " & archivoEjecComparativo
@@ -298,23 +291,33 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     etapaActual = "validando asignados comparativo"
     ValidarAsignadosComparativoContraCodiguera wsAComp, dictCod, dictLlavesCodiguera, dictIndicePorClave, diag, wbC, anioComparativo, archivoAsignadosComparativo
     If diag.Exists("comparativo_asignados_faltantes") Then
+        etapaActual = "guardando codiguera"
         wbC.Save
         EscribirDiagnostico ThisWorkbook, diag, archivoEjec, archivoCod, anio, mesCierre
-        If Not wbC Is Nothing Then wbC.Close True: Set wbC = Nothing
-        If Not wbEComp Is Nothing Then wbEComp.Close False: Set wbEComp = Nothing
-        If Not wbAComp Is Nothing Then wbAComp.Close False: Set wbAComp = Nothing
+        CerrarWorkbookSeguro wbC, True, True
+        CerrarWorkbookSeguro wbEComp, False, True
+        CerrarWorkbookSeguro wbAComp, False, True
         MsgBox "Se agregaron nuevas llaves presupuestales del archivo de asignados comparativo a la codiguera. Debe clasificarlas, indicar Indice, marcar Incluir_en_Informe cuando corresponda y volver a generar el reporte.", vbExclamation
         Exit Sub
     End If
 
     ConstruirDictComparativoActualDesdeDictAgg dictAgg, mesCierre, dictCompActual
+
+    etapaActual = "leyendo índices IPC/IMSN"
+    ValidarIndicesRequeridosComparativo dictCod, dictIndicePorClave, anioComparativo, anio, mesCierre
+
+    etapaActual = "leyendo ejecución comparativa año anterior"
+    etapaActual = "aplicando actualización por índice"
     LeerEjecucionesComparativoYAcumular wsEComp, anioComparativo, anio, mesCierre, dictCod, dictIndicePorClave, dictCompAnteriorActualizado, diag, dictControlCompAnteriorPorClave
 
-    If Not wbEComp Is Nothing Then wbEComp.Close False: Set wbEComp = Nothing
-    If Not wbAComp Is Nothing Then wbAComp.Close False: Set wbAComp = Nothing
+    etapaActual = "cerrando archivos auxiliares"
+    CerrarWorkbookSeguro wbEComp, False
+    CerrarWorkbookSeguro wbAComp, False
 
     etapaActual = "completando meses faltantes"
     CompletarMesesAnioEnDictAgg dictAgg
+
+    etapaActual = "generando salida comparativo anual"
 
     etapaActual = "creando workbook de salida"
     Set wbOut = Workbooks.Add(xlWBATWorksheet)
@@ -362,13 +365,13 @@ Public Sub Generar_Reporte_GG_Desde_Panel()
     etapaActual = "escribiendo diagnóstico"
     EscribirDiagnostico ThisWorkbook, diag, archivoEjec, archivoCod, anio, mesCierre
 
-    etapaActual = "cerrando archivos"
-    wbOut.Close False
-    If Not wbE Is Nothing Then wbE.Close False
-    If Not wbA Is Nothing Then wbA.Close False
-    If Not wbC Is Nothing Then wbC.Close False
-    If Not wbEComp Is Nothing Then wbEComp.Close False
-    If Not wbAComp Is Nothing Then wbAComp.Close False
+    etapaActual = "cerrando archivos auxiliares"
+    CerrarWorkbookSeguro wbOut, False, True
+    CerrarWorkbookSeguro wbE, False, True
+    CerrarWorkbookSeguro wbA, False, True
+    CerrarWorkbookSeguro wbC, False, True
+    CerrarWorkbookSeguro wbEComp, False, True
+    CerrarWorkbookSeguro wbAComp, False, True
 
     If Len(rutaControlReporteGenerado) > 0 Then
         MsgBox "Reporte generado correctamente:" & vbCrLf & rutaFinal & vbCrLf & vbCrLf & "Archivo de control generado:" & vbCrLf & rutaControlReporteGenerado, vbInformation
@@ -501,12 +504,12 @@ EH:
     Debug.Print String(100, "-")
 
     On Error Resume Next
-    If Not wbOut Is Nothing Then wbOut.Close False
-    If Not wbE Is Nothing Then wbE.Close False
-    If Not wbA Is Nothing Then wbA.Close False
-    If Not wbC Is Nothing Then wbC.Close False
-    If Not wbEComp Is Nothing Then wbEComp.Close False
-    If Not wbAComp Is Nothing Then wbAComp.Close False
+    If Not wbOut Is Nothing Then CerrarWorkbookSeguro wbOut, False
+    CerrarWorkbookSeguro wbE, False
+    CerrarWorkbookSeguro wbA, False
+    CerrarWorkbookSeguro wbC, False
+    CerrarWorkbookSeguro wbEComp, False
+    CerrarWorkbookSeguro wbAComp, False
     On Error GoTo 0
 
     MsgBox msg, vbCritical
@@ -1200,6 +1203,29 @@ EH:
     NormalizarPeriodoIndiceDesdeValor = ""
 End Function
 
+Private Function TipoIndiceDesdeRutaArchivo(ByVal rutaArchivoIndice As String) As String
+    Dim nombre As String
+    nombre = UCase$(Mid$(rutaArchivoIndice, InStrRev(rutaArchivoIndice, "\") + 1))
+
+    If InStr(1, nombre, "IMSN", vbTextCompare) > 0 Then
+        TipoIndiceDesdeRutaArchivo = "IMSN"
+    ElseIf InStr(1, nombre, "IPC", vbTextCompare) > 0 Then
+        TipoIndiceDesdeRutaArchivo = "IPC"
+    Else
+        TipoIndiceDesdeRutaArchivo = "índice"
+    End If
+End Function
+
+Private Function NombreArchivoDesdeRuta(ByVal rutaArchivo As String) As String
+    Dim p As Long
+    p = InStrRev(rutaArchivo, "\")
+    If p > 0 Then
+        NombreArchivoDesdeRuta = Mid$(rutaArchivo, p + 1)
+    Else
+        NombreArchivoDesdeRuta = rutaArchivo
+    End If
+End Function
+
 Public Function LeerValorIndice(ByVal rutaArchivoIndice As String, ByVal anio As Long, ByVal mes As Long) As Double
     On Error GoTo EH
 
@@ -1211,8 +1237,12 @@ Public Function LeerValorIndice(ByVal rutaArchivoIndice As String, ByVal anio As
     Dim periodoFila As String
     Dim vA As Variant
     Dim vB As Variant
+    Dim tipoIndice As String
+    Dim nombreArchivo As String
 
     periodo = ClavePeriodoIndice(anio, mes)
+    tipoIndice = TipoIndiceDesdeRutaArchivo(rutaArchivoIndice)
+    nombreArchivo = NombreArchivoDesdeRuta(rutaArchivoIndice)
 
     Set wb = Workbooks.Open(rutaArchivoIndice, ReadOnly:=True)
     Set ws = wb.Worksheets(1)
@@ -1226,38 +1256,91 @@ Public Function LeerValorIndice(ByVal rutaArchivoIndice As String, ByVal anio As
             vB = ws.Cells(i, 2).Value2
 
             If IsError(vB) Or IsNull(vB) Or IsEmpty(vB) Then
-                wb.Close False
-                Err.Raise vbObjectError + 1982, "LeerValorIndice", "El índice para " & periodo & " está vacío o tiene error. Archivo: " & rutaArchivoIndice
+                CerrarWorkbookSeguro wb, False
+                Err.Raise vbObjectError + 1982, "LeerValorIndice", _
+                    "El índice " & tipoIndice & " para " & periodo & " está vacío o tiene error en el archivo " & nombreArchivo & ". Actualice la planilla de índices antes de generar el comparativo."
             End If
 
             If Not IsNumeric(vB) Then
-                wb.Close False
-                Err.Raise vbObjectError + 1982, "LeerValorIndice", "El índice para " & periodo & " no es numérico. Valor encontrado: " & TextoSeguro(vB) & ". Archivo: " & rutaArchivoIndice
+                CerrarWorkbookSeguro wb, False
+                Err.Raise vbObjectError + 1982, "LeerValorIndice", _
+                    "El índice " & tipoIndice & " para " & periodo & " no es numérico en el archivo " & nombreArchivo & ". Valor encontrado: " & TextoSeguro(vB) & ". Actualice la planilla de índices antes de generar el comparativo."
             End If
 
             LeerValorIndice = CDbl(vB)
-            wb.Close False
+            CerrarWorkbookSeguro wb, False
             Exit Function
         End If
     Next i
 
-    wb.Close False
+    CerrarWorkbookSeguro wb, False
 
     Err.Raise vbObjectError + 1981, "LeerValorIndice", _
-        "No se encuentra en la planilla el índice de " & LCase$(MesesES()(mes - 1)) & " de " & anio & ". Por favor, actualice el índice y vuelva a ejecutar. Archivo: " & rutaArchivoIndice
+        "No se encontró el índice " & tipoIndice & " para " & periodo & " en el archivo " & nombreArchivo & ". Actualice la planilla de índices antes de generar el comparativo."
 
     Exit Function
 EH:
+    Dim n As Long
+    Dim d As String
+    Dim src As String
+
+    n = Err.Number
+    d = Err.Description
+    src = Err.Source
+
     On Error Resume Next
-    If Not wb Is Nothing Then wb.Close False
+    CerrarWorkbookSeguro wb, False
     On Error GoTo 0
 
-    Err.Raise Err.Number, "LeerValorIndice", _
-        "Error leyendo índice." & vbCrLf & _
-        "Archivo: " & rutaArchivoIndice & vbCrLf & _
-        "Periodo buscado: " & ClavePeriodoIndice(anio, mes) & vbCrLf & _
-        "Detalle: " & Err.Description
+    If src = "LeerValorIndice" And (n = vbObjectError + 1981 Or n = vbObjectError + 1982) Then
+        Err.Raise n, "LeerValorIndice", d
+    Else
+        Err.Raise n, "LeerValorIndice", _
+            "Error leyendo índice " & tipoIndice & "." & vbCrLf & _
+            "Archivo: " & rutaArchivoIndice & vbCrLf & _
+            "Periodo buscado: " & periodo & vbCrLf & _
+            "Err.Source original: " & src & vbCrLf & _
+            "Err.Description original: " & d
+    End If
 End Function
+
+Public Sub ValidarIndicesRequeridosComparativo(ByVal dictCod As Object, ByVal dictIndicePorClave As Object, ByVal anioBase As Long, ByVal anioDestino As Long, ByVal mesCierre As Long)
+    Dim cacheDetalles As Object
+    Dim indicesRequeridos As Object
+    Dim clave As Variant
+    Dim tipoIndice As String
+    Dim k As Variant
+
+    Set cacheDetalles = CreateObject("Scripting.Dictionary")
+    Set indicesRequeridos = CreateObject("Scripting.Dictionary")
+
+    For Each clave In dictCod.Keys
+        If Not dictIndicePorClave.Exists(CStr(clave)) Then
+            Err.Raise vbObjectError + 1990, "ValidarIndicesRequeridosComparativo", _
+                "La llave " & CStr(clave) & " está incluida en informe pero no tiene Indice informado en codiguera."
+        End If
+
+        tipoIndice = UCase$(Trim$(TextoSeguro(dictIndicePorClave(CStr(clave)))))
+        If Len(tipoIndice) = 0 Then
+            Err.Raise vbObjectError + 1990, "ValidarIndicesRequeridosComparativo", _
+                "La llave " & CStr(clave) & " está incluida en informe pero tiene Indice vacío en codiguera."
+        End If
+
+        If tipoIndice = "IPC GRAL" Or tipoIndice = "IPC GENERAL" Then tipoIndice = "IPC"
+        If tipoIndice = "IMSN M B08" Then tipoIndice = "IMSN"
+
+        If tipoIndice <> "IPC" And tipoIndice <> "IMSN" Then
+            Err.Raise vbObjectError + 1995, "ValidarIndicesRequeridosComparativo", _
+                "Índice inválido para llave " & CStr(clave) & ": '" & TextoSeguro(dictIndicePorClave(CStr(clave))) & "'. Debe ser IPC o IMSN."
+        End If
+
+        If Not indicesRequeridos.Exists(tipoIndice) Then indicesRequeridos.Add tipoIndice, True
+    Next clave
+
+    For Each k In indicesRequeridos.Keys
+        ObtenerDetalleActualizacionIndice CStr(k), anioBase, anioDestino, mesCierre, cacheDetalles
+    Next k
+End Sub
 
 Public Function ObtenerDetalleActualizacionIndice(ByVal tipoIndice As String, ByVal anioBase As Long, ByVal anioDestino As Long, ByVal mesCierre As Long, ByRef cacheDetalles As Object) As Variant
     Dim t As String, key As String, ruta As String, idxBase As Double, idxDestino As Double, ratio As Double, det(0 To 6) As Variant

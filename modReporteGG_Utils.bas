@@ -414,3 +414,35 @@ Public Function ObtenerUltimaColHoja(ByVal ws As Worksheet) As Long
         ObtenerUltimaColHoja = celda.Column
     End If
 End Function
+
+Public Sub CerrarWorkbookSeguro(ByRef wb As Workbook, Optional ByVal saveChanges As Boolean = False, Optional ByVal informarErrorCierre As Boolean = False)
+    Dim nombreWb As String
+    Dim errCloseNum As Long
+    Dim errCloseDesc As String
+    Dim errCloseSource As String
+
+    If wb Is Nothing Then Exit Sub
+
+    On Error Resume Next
+    nombreWb = wb.Name
+    Err.Clear
+    wb.Close SaveChanges:=saveChanges
+    errCloseNum = Err.Number
+    errCloseDesc = Err.Description
+    errCloseSource = Err.Source
+    On Error GoTo 0
+
+    If errCloseNum = 0 Then
+        Set wb = Nothing
+    Else
+        Debug.Print "No se pudo cerrar workbook de forma segura: " & IIf(Len(nombreWb) > 0, nombreWb, "(sin nombre)") & _
+                    ". Err.Number: " & CStr(errCloseNum) & ". Err.Source: " & errCloseSource & _
+                    ". Err.Description: " & errCloseDesc
+        If informarErrorCierre Then
+            Err.Raise errCloseNum, "CerrarWorkbookSeguro", _
+                "No se pudo cerrar el workbook" & IIf(Len(nombreWb) > 0, " '" & nombreWb & "'", "") & "." & vbCrLf & _
+                "Err.Source original: " & errCloseSource & vbCrLf & _
+                "Err.Description original: " & errCloseDesc
+        End If
+    End If
+End Sub
