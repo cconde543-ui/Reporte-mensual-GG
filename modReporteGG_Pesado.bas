@@ -68,10 +68,11 @@ Public Sub Generar_TD_Pesada_GG_Desde_Panel()
         Err.Raise vbObjectError + 5102, procedimiento, "Mes inválido en Panel Reportes!B4. Use: Enero..Diciembre (Setiembre). Valor: '" & mesTxt & "'."
     End If
 
+    etapaActual = "inicializando diccionarios de trabajo"
     Set dictCodDetalle = CreateObject("Scripting.Dictionary")
     Set resumen = CrearResumenPesado()
 
-    etapaActual = "resolviendo archivo de ejecuciones"
+    etapaActual = "resolviendo archivos de entrada"
     carpetaEjecActual = RutaCarpetaEjecucionesAnioActiva(anio)
     If Len(Dir(carpetaEjecActual, vbDirectory)) = 0 Then
         Err.Raise vbObjectError + 5103, procedimiento, "No existe la carpeta de ejecuciones del año " & anio & ": " & carpetaEjecActual
@@ -81,7 +82,7 @@ Public Sub Generar_TD_Pesada_GG_Desde_Panel()
         Err.Raise vbObjectError + 5104, procedimiento, "No se encontró archivo de ejecuciones del año " & anio & " en: " & carpetaEjecActual
     End If
 
-    etapaActual = "resolviendo archivo de asignados"
+    etapaActual = "resolviendo archivos de entrada"
     carpetaAsignadosActual = RutaCarpetaAsignadosGastosAnioActiva(anio)
     If Len(Dir(carpetaAsignadosActual, vbDirectory)) = 0 Then
         Err.Raise vbObjectError + 5105, procedimiento, "No existe la carpeta de asignados del año " & anio & ": " & carpetaAsignadosActual
@@ -91,13 +92,13 @@ Public Sub Generar_TD_Pesada_GG_Desde_Panel()
         Err.Raise vbObjectError + 5106, procedimiento, "No se encontró archivo de asignados del año " & anio & " en: " & carpetaAsignadosActual
     End If
 
-    etapaActual = "resolviendo archivo de codiguera"
+    etapaActual = "resolviendo archivos de entrada"
     archivoCod = ResolverArchivoCodiguera(RutaCodigueraActiva())
     If Len(archivoCod) = 0 Then
         Err.Raise vbObjectError + 5107, procedimiento, "No se encontró archivo de codiguera en: " & RutaCodigueraActiva()
     End If
 
-    etapaActual = "abriendo archivos auxiliares en solo lectura"
+    etapaActual = "abriendo archivos fuente"
     Set wbE = Workbooks.Open(Filename:=archivoEjec, ReadOnly:=True, UpdateLinks:=False)
     Set wbA = Workbooks.Open(Filename:=archivoAsignados, ReadOnly:=True, UpdateLinks:=False)
     Set wbC = Workbooks.Open(Filename:=archivoCod, ReadOnly:=True, UpdateLinks:=False)
@@ -107,7 +108,7 @@ Public Sub Generar_TD_Pesada_GG_Desde_Panel()
     Set wsA = ObtenerHojaAsignados(wbA)
     Set wsC = ObtenerHojaCodiguera(wbC)
 
-    etapaActual = "leyendo codiguera completa"
+    etapaActual = "cargando codiguera detallada"
     LeerCodigueraDetallePesada wsC, dictCodDetalle
 
     etapaActual = "contando filas detalladas"
@@ -121,13 +122,13 @@ Public Sub Generar_TD_Pesada_GG_Desde_Panel()
     Set wsBase = wbOut.Worksheets(1)
     wsBase.Name = NOMBRE_HOJA_BASE_PESADA
 
-    etapaActual = "construyendo Base_Detallada"
+    etapaActual = "construyendo base detallada pesada"
     ConstruirBaseDetalladaPesada wsBase, wsE, wsA, dictCodDetalle, anio, mesCierre, archivoEjec, archivoAsignados, resumen
 
     etapaActual = "creando tabla tblBasePesadaGG"
     CrearTablaBasePesada wsBase
 
-    etapaActual = "creando tablas dinámicas detalladas"
+    etapaActual = "creando tablas dinámicas pesadas"
     CrearTablasDinamicasPesadas wbOut, wsBase
 
     etapaActual = "creando Resumen_Control"
@@ -185,13 +186,17 @@ EH:
 End Sub
 
 Private Function CrearResumenPesado() As Object
-    Set CrearResumenPesado = CreateObject("Scripting.Dictionary")
-    CrearResumenPesado("total_ejecutado_informe") = 0#
-    CrearResumenPesado("total_asignado_informe") = 0#
-    CrearResumenPesado("lineas_ejecucion") = 0&
-    CrearResumenPesado("lineas_asignados") = 0&
-    CrearResumenPesado("lineas_llave_no_encontrada") = 0&
-    CrearResumenPesado("lineas_no_incluidas") = 0&
+    Dim d As Object
+
+    Set d = CreateObject("Scripting.Dictionary")
+    d("total_ejecutado_informe") = 0#
+    d("total_asignado_informe") = 0#
+    d("lineas_ejecucion") = 0&
+    d("lineas_asignados") = 0&
+    d("lineas_llave_no_encontrada") = 0&
+    d("lineas_no_incluidas") = 0&
+
+    Set CrearResumenPesado = d
 End Function
 
 Private Sub LeerCodigueraDetallePesada(ByVal ws As Worksheet, ByRef dictCodDetalle As Object)
@@ -457,7 +462,10 @@ Private Sub CrearTablasDinamicasPesadas(ByVal wbOut As Workbook, ByVal wsBase As
     Dim pc As PivotCache
 
     Set lo = wsBase.ListObjects(NOMBRE_TABLA_BASE_PESADA)
-    Set pc = wbOut.PivotCaches.Create(SourceType:=xlDatabase, SourceData:=lo.Range.Address(True, True, xlR1C1, True))
+    If lo.DataBodyRange Is Nothing Then
+        Err.Raise vbObjectError + 5201, "CrearTablasDinamicasPesadas", "La tabla " & NOMBRE_TABLA_BASE_PESADA & " existe, pero no tiene filas de datos para crear la PivotCache."
+    End If
+    Set pc = wbOut.PivotCaches.Create(SourceType:=xlDatabase, SourceData:=NOMBRE_TABLA_BASE_PESADA)
 
     CrearPivotEjecucionPesada wbOut, pc
     CrearPivotAsignadoPesada wbOut, pc
