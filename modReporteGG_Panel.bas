@@ -6,6 +6,7 @@ Public Sub CrearOActualizarPanelReportes()
     Dim ws As Worksheet
     Dim meses As Variant
     Dim shp As Shape
+    Dim shpPesado As Shape
 
     On Error Resume Next
     Set ws = ThisWorkbook.Worksheets(PANEL_SHEET_NAME)
@@ -43,6 +44,7 @@ Public Sub CrearOActualizarPanelReportes()
 
     On Error Resume Next
     ws.Shapes("btnGenerarReporteGG").Delete
+    ws.Shapes("btnGenerarTDPesadaGG").Delete
     On Error GoTo EH
 
     Set shp = ws.Shapes.AddShape(msoShapeRoundedRectangle, ws.Range("A6").Left, ws.Range("A6").Top, ws.Range("D8").Left + ws.Range("D8").Width - ws.Range("A6").Left, ws.Range("D8").Top + ws.Range("D8").Height - ws.Range("A6").Top)
@@ -59,6 +61,22 @@ Public Sub CrearOActualizarPanelReportes()
     shp.TextFrame.HorizontalAlignment = xlHAlignCenter
     shp.TextFrame.VerticalAlignment = xlVAlignCenter
     shp.OnAction = "Generar_Reporte_GG_Desde_Panel"
+
+    Set shpPesado = ws.Shapes.AddShape(msoShapeRoundedRectangle, ws.Range("A10").Left, ws.Range("A10").Top, ws.Range("D12").Left + ws.Range("D12").Width - ws.Range("A10").Left, ws.Range("D12").Top + ws.Range("D12").Height - ws.Range("A10").Top)
+    shpPesado.Name = "btnGenerarTDPesadaGG"
+    shpPesado.TextFrame2.TextRange.Characters.Text = "Generar TD pesada"
+    shpPesado.TextFrame2.TextRange.Font.Size = 11
+    shpPesado.TextFrame2.TextRange.Font.Bold = True
+    shpPesado.Fill.ForeColor.RGB = RGB(112, 48, 160)
+    shpPesado.TextFrame2.TextRange.Font.Fill.ForeColor.RGB = RGB(255, 255, 255)
+    On Error Resume Next
+    shpPesado.TextFrame2.TextRange.ParagraphFormat.Alignment = msoAlignCenter
+    shpPesado.TextFrame2.VerticalAnchor = msoAnchorMiddle
+    On Error GoTo EH
+    shpPesado.TextFrame.HorizontalAlignment = xlHAlignCenter
+    shpPesado.TextFrame.VerticalAlignment = xlVAlignCenter
+    shpPesado.OnAction = "Generar_TD_Pesada_GG_Desde_Panel"
+
 
     ws.Range("A1:B1").Font.Bold = True
     ws.Columns("A:F").AutoFit
