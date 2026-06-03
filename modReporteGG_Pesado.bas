@@ -26,8 +26,7 @@ Private Const IDX_NIVEL1 As Long = 1
 Private Const IDX_NIVEL2 As Long = 2
 Private Const IDX_NIVEL3 As Long = 3
 Private Const IDX_INCLUIR As Long = 4
-Private Const IDX_ESTADO As Long = 5
-Private Const IDX_INDICE As Long = 6
+Private Const IDX_INDICE As Long = 5
 
 Public Sub Generar_TD_Detallada_GG_Desde_Panel()
     On Error GoTo EH
@@ -318,7 +317,7 @@ Private Sub LeerCodigueraDetalleDetallada(ByVal ws As Worksheet, ByRef dictCodDe
     Dim colFinac As Long, colDerF As Long, colPg As Long, colSpg As Long, colProy As Long
     Dim colRubro As Long, colRAux As Long, colUe As Long, colDep As Long, colObra As Long, colDerObra As Long
     Dim colServ As Long, colSniip As Long, colTitular As Long, colN1 As Long, colN2 As Long, colN3 As Long
-    Dim colIncluir As Long, colEstado As Long, colClaveTexto As Long, colIndice As Long
+    Dim colIncluir As Long, colClaveTexto As Long, colIndice As Long
 
     arr = ws.Range(ws.Cells(1, 1), ws.Cells(UltimaFilaConDatos(ws), UltimaColConDatos(ws))).Value2
     Set headers = MapearEncabezados(arr)
@@ -341,7 +340,6 @@ Private Sub LeerCodigueraDetalleDetallada(ByVal ws As Worksheet, ByRef dictCodDe
     colN2 = ObtenerColumna(headers, Array("nivel_2"))
     colN3 = ObtenerColumna(headers, Array("nivel_3"))
     colIncluir = ObtenerColumna(headers, Array("incluir_en_informe"))
-    colEstado = ObtenerColumnaDetallada(headers, Array("estado_codiguera", "estado"))
     colClaveTexto = ObtenerColumnaDetallada(headers, Array("clave llave presupuestal"))
     colIndice = ObtenerColumnaDetallada(headers, Array("indice"))
 
@@ -361,7 +359,6 @@ Private Sub LeerCodigueraDetalleDetallada(ByVal ws As Worksheet, ByRef dictCodDe
                 TextoSeguro(ValorMatriz(arr, i, colN2)), _
                 TextoSeguro(ValorMatriz(arr, i, colN3)), _
                 NormalizarIncluirDetallado(ValorMatriz(arr, i, colIncluir)), _
-                TextoSeguro(ValorMatriz(arr, i, colEstado)), _
                 TextoSeguro(ValorMatriz(arr, i, colIndice)) _
             )
             dictCodDetalle(clave) = info
@@ -537,7 +534,7 @@ End Sub
 Private Sub RegistrarExclusion(ByRef resumen As Object, ByRef filasExcluidas As Collection, ByVal prefijoResumen As String, ByVal origen As String, ByVal archivoOrigen As String, ByVal hojaOrigen As String, ByVal filaOrigen As Long, ByVal anio As Long, ByVal mesNum As Long, ByVal mesNombre As String, ByVal clave As String, ByVal motivo As String, ByVal info As Variant, ByVal importeMN As Double, ByVal ejecutado As Double, ByVal asignado As Double)
     resumen(prefijoResumen & "_no_incluidas") = CLng(resumen(prefijoResumen & "_no_incluidas")) + 1
     If motivo = MOTIVO_LLAVE_NO_ENCONTRADA Then resumen(prefijoResumen & "_llave_no_encontrada") = CLng(resumen(prefijoResumen & "_llave_no_encontrada")) + 1
-    filasExcluidas.Add Array(origen, NombreArchivoDesdeRutaDetallada(archivoOrigen), hojaOrigen, filaOrigen, anio, mesNum, mesNombre, clave, motivo, info(IDX_ESTADO), info(IDX_INCLUIR), info(IDX_FINANCIAMIENTO), info(IDX_NIVEL1), info(IDX_NIVEL2), info(IDX_NIVEL3), importeMN, ejecutado, asignado)
+    filasExcluidas.Add Array(origen, NombreArchivoDesdeRutaDetallada(archivoOrigen), hojaOrigen, filaOrigen, anio, mesNum, mesNombre, clave, motivo, info(IDX_INCLUIR), info(IDX_FINANCIAMIENTO), info(IDX_NIVEL1), info(IDX_NIVEL2), info(IDX_NIVEL3), importeMN, ejecutado, asignado)
 End Sub
 
 Private Function MotivoExclusion(ByVal dictCodDetalle As Object, ByVal clave As String, ByVal incluir As String) As String
@@ -554,7 +551,7 @@ Private Function InfoCodigueraParaClave(ByVal dictCodDetalle As Object, ByVal cl
     If dictCodDetalle.Exists(clave) Then
         InfoCodigueraParaClave = dictCodDetalle(clave)
     Else
-        InfoCodigueraParaClave = Array("SIN CODIGUERA", "SIN CODIGUERA", "SIN CODIGUERA", "SIN CODIGUERA", "NO", "LLAVE NO ENCONTRADA", "")
+        InfoCodigueraParaClave = Array("SIN CODIGUERA", "SIN CODIGUERA", "SIN CODIGUERA", "SIN CODIGUERA", "NO", "")
     End If
 End Function
 
@@ -615,7 +612,7 @@ Private Function BaseValsTD(ByVal origen As String, ByVal archivoOrigen As Strin
         ValorMatriz(arr, fila, CLng(cols(7))), ValorMatriz(arr, fila, CLng(cols(8))), _
         ValorMatriz(arr, fila, CLng(cols(9))), ValorMatriz(arr, fila, CLng(cols(10))), _
         ValorMatriz(arr, fila, CLng(cols(11))), ValorMatriz(arr, fila, CLng(cols(12))), _
-        ejecutado, asignado, importeMN, "SI", info(IDX_ESTADO))
+        ejecutado, asignado, importeMN, "SI")
 End Function
 
 Private Function BaseValsComparativo(ByVal periodoComparativo As String, ByVal origen As String, _
@@ -640,7 +637,7 @@ Private Function BaseValsComparativo(ByVal periodoComparativo As String, ByVal o
         ValorMatriz(arr, fila, CLng(cols(12))), importeOriginal, tipoIndice, _
         NombreArchivoDesdeRutaDetallada(CStr(archivoIndice)), periodoIndiceBase, valorIndiceBase, _
         periodoIndiceDestino, valorIndiceDestino, factorActualizacion, importeActualizado, _
-        ejecutadoActual, ejecutadoAnteriorActualizado, "SI", info(IDX_ESTADO))
+        ejecutadoActual, ejecutadoAnteriorActualizado, "SI")
 End Function
 
 Private Sub CrearDetalleNoIncluidas(ByVal ws As Worksheet, ByVal filasExcluidas As Collection)
@@ -1080,15 +1077,15 @@ EH:
 End Function
 
 Private Function EncabezadosBaseTDDetallada() As Variant
-    EncabezadosBaseTDDetallada = Array("Origen", "ArchivoOrigen", "HojaOrigen", "FilaOrigen", "Año", "MesNum", "MesNombre", "FechaValor", "Clave Llave presupuestal", "Financiamiento", "Nivel_1", "Nivel_2", "Nivel_3", "Finac", "Der-F", "PG", "Spg", "Proy", "Rubro", "R. Aux", "UE", "Dep", "Obra", "Der. Obra", "Serv", "SNIIP", "Ejecutado", "Asignado", "ImporteMN", "Incluir_en_Informe", "Estado_Codiguera")
+    EncabezadosBaseTDDetallada = Array("Origen", "ArchivoOrigen", "HojaOrigen", "FilaOrigen", "Año", "MesNum", "MesNombre", "FechaValor", "Clave Llave presupuestal", "Financiamiento", "Nivel_1", "Nivel_2", "Nivel_3", "Finac", "Der-F", "PG", "Spg", "Proy", "Rubro", "R. Aux", "UE", "Dep", "Obra", "Der. Obra", "Serv", "SNIIP", "Ejecutado", "Asignado", "ImporteMN", "Incluir_en_Informe")
 End Function
 
 Private Function EncabezadosBaseComparativoDetallada() As Variant
-    EncabezadosBaseComparativoDetallada = Array("PeriodoComparativo", "Origen", "ArchivoOrigen", "HojaOrigen", "FilaOrigen", "AñoOrigen", "AñoDestino", "MesNum", "MesNombre", "FechaValor", "Clave Llave presupuestal", "Financiamiento", "Nivel_1", "Nivel_2", "Nivel_3", "Finac", "Der-F", "PG", "Spg", "Proy", "Rubro", "R. Aux", "UE", "Dep", "Obra", "Der. Obra", "Serv", "SNIIP", "ImporteOriginalMN", "TipoIndice", "ArchivoIndice", "PeriodoIndiceBase", "ValorIndiceBase", "PeriodoIndiceDestino", "ValorIndiceDestino", "FactorActualizacion", "ImporteActualizadoMN", "Ejecutado_Actual", "Ejecutado_Anterior_Actualizado", "Incluir_en_Informe", "Estado_Codiguera")
+    EncabezadosBaseComparativoDetallada = Array("PeriodoComparativo", "Origen", "ArchivoOrigen", "HojaOrigen", "FilaOrigen", "AñoOrigen", "AñoDestino", "MesNum", "MesNombre", "FechaValor", "Clave Llave presupuestal", "Financiamiento", "Nivel_1", "Nivel_2", "Nivel_3", "Finac", "Der-F", "PG", "Spg", "Proy", "Rubro", "R. Aux", "UE", "Dep", "Obra", "Der. Obra", "Serv", "SNIIP", "ImporteOriginalMN", "TipoIndice", "ArchivoIndice", "PeriodoIndiceBase", "ValorIndiceBase", "PeriodoIndiceDestino", "ValorIndiceDestino", "FactorActualizacion", "ImporteActualizadoMN", "Ejecutado_Actual", "Ejecutado_Anterior_Actualizado", "Incluir_en_Informe")
 End Function
 
 Private Function EncabezadosControlNoIncluidas() As Variant
-    EncabezadosControlNoIncluidas = Array("Origen", "ArchivoOrigen", "HojaOrigen", "FilaOrigen", "Año", "MesNum", "MesNombre", "Clave Llave presupuestal", "MotivoExclusion", "Estado_Codiguera", "Incluir_en_Informe", "Financiamiento", "Nivel_1", "Nivel_2", "Nivel_3", "ImporteMN", "Ejecutado", "Asignado")
+    EncabezadosControlNoIncluidas = Array("Origen", "ArchivoOrigen", "HojaOrigen", "FilaOrigen", "Año", "MesNum", "MesNombre", "Clave Llave presupuestal", "MotivoExclusion", "Incluir_en_Informe", "Financiamiento", "Nivel_1", "Nivel_2", "Nivel_3", "ImporteMN", "Ejecutado", "Asignado")
 End Function
 
 Private Sub EscribirEncabezados(ByVal ws As Worksheet, ByVal headers As Variant)
