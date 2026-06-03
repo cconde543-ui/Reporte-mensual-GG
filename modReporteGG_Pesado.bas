@@ -670,59 +670,173 @@ Private Sub CrearTablaEnHoja(ByVal ws As Worksheet, ByVal nombreTabla As String,
 End Sub
 
 Private Sub CrearTablasDinamicasDetalladas(ByVal wbOut As Workbook)
+    On Error GoTo EH
+
+    Dim etapaTD As String
+
+    etapaTD = "creando TD_Ejecucion_Detalle"
     CrearPivotEjecucionDetallada wbOut
+
+    etapaTD = "creando TD_Ejec_Asig_Detalle"
     CrearPivotCombinadaDetallada wbOut
+
+    etapaTD = "creando TD_Comparativo_Anual"
     CrearPivotComparativoAnual wbOut
+
+    Exit Sub
+
+EH:
+    Err.Raise Err.Number, "CrearTablasDinamicasDetalladas", _
+        "Falló etapa interna: " & etapaTD & _
+        " | Err.Number=" & Err.Number & _
+        " | Err.Description=" & Err.Description
 End Sub
 
 Private Sub CrearPivotEjecucionDetallada(ByVal wbOut As Workbook)
     Dim ws As Worksheet, pt As PivotTable, pc As PivotCache
+    Dim lo As ListObject
+
+    Set lo = ObtenerTablaBasePivotDetallada(wbOut, NOMBRE_HOJA_BASE_EJEC, NOMBRE_TABLA_BASE_EJEC, _
+        Array("Financiamiento", "Nivel_1", "Nivel_2", "Nivel_3", "MesNombre", "Ejecutado"))
     Set ws = CrearHojaLimpiaDetallada(wbOut, NOMBRE_HOJA_TD_EJEC)
-    Set pc = CrearPivotCacheTabla(wbOut, wbOut.Worksheets(NOMBRE_HOJA_BASE_EJEC).ListObjects(NOMBRE_TABLA_BASE_EJEC))
+    Set pc = CrearPivotCacheTabla(wbOut, lo)
     Set pt = pc.CreatePivotTable(TableDestination:=ws.Range("A3"), TableName:="ptEjecucionDetalleGG")
     ConfigurarFilasClasificacion pt
     ConfigurarCampoPivotDetallado pt, "MesNombre", xlColumnField, 1
     OrdenarMesesPivotDetallado pt, "MesNombre"
-    FormatearDataField pt.AddDataField(pt.PivotFields("Ejecutado"), "Suma de Ejecutado", xlSum), "#,##0"
+    AgregarDataFieldDetallado pt, "Ejecutado", "Suma de Ejecutado", xlSum, "#,##0"
     pt.EnableDrilldown = True
     ws.Columns.AutoFit
 End Sub
 
 Private Sub CrearPivotCombinadaDetallada(ByVal wbOut As Workbook)
     Dim ws As Worksheet, pt As PivotTable, pc As PivotCache
+    Dim lo As ListObject
+
+    Set lo = ObtenerTablaBasePivotDetallada(wbOut, NOMBRE_HOJA_BASE_TD, NOMBRE_TABLA_BASE_TD, _
+        Array("Financiamiento", "Nivel_1", "Nivel_2", "Nivel_3", "Incluir_en_Informe", "Ejecutado", "Asignado"))
     Set ws = CrearHojaLimpiaDetallada(wbOut, NOMBRE_HOJA_TD_COMBINADA)
-    Set pc = CrearPivotCacheTabla(wbOut, wbOut.Worksheets(NOMBRE_HOJA_BASE_TD).ListObjects(NOMBRE_TABLA_BASE_TD))
+    Set pc = CrearPivotCacheTabla(wbOut, lo)
     Set pt = pc.CreatePivotTable(TableDestination:=ws.Range("A3"), TableName:="ptEjecAsigDetalleGG")
     ConfigurarCampoPivotDetallado pt, "Incluir_en_Informe", xlPageField, 1
     FiltrarPivotCampoDetallado pt, "Incluir_en_Informe", "SI"
     ConfigurarFilasClasificacion pt
-    FormatearDataField pt.AddDataField(pt.PivotFields("Ejecutado"), "Suma de Ejecutado", xlSum), "#,##0"
-    FormatearDataField pt.AddDataField(pt.PivotFields("Asignado"), "Suma de Asignado", xlSum), "#,##0"
+    AgregarDataFieldDetallado pt, "Ejecutado", "Suma de Ejecutado", xlSum, "#,##0"
+    AgregarDataFieldDetallado pt, "Asignado", "Suma de Asignado", xlSum, "#,##0"
     pt.EnableDrilldown = True
     ws.Columns.AutoFit
 End Sub
 
 Private Sub CrearPivotComparativoAnual(ByVal wbOut As Workbook)
     Dim ws As Worksheet, pt As PivotTable, pc As PivotCache
-    Dim pf As PivotField
+    Dim lo As ListObject
 
+    Set lo = ObtenerTablaBasePivotDetallada(wbOut, NOMBRE_HOJA_BASE_COMP, NOMBRE_TABLA_BASE_COMP, _
+        Array("Financiamiento", "Nivel_1", "Nivel_2", "Nivel_3", "Ejecutado_Actual", "Ejecutado_Anterior_Actualizado"))
     Set ws = CrearHojaLimpiaDetallada(wbOut, NOMBRE_HOJA_TD_COMP)
-    Set pc = CrearPivotCacheTabla(wbOut, wbOut.Worksheets(NOMBRE_HOJA_BASE_COMP).ListObjects(NOMBRE_TABLA_BASE_COMP))
+    Set pc = CrearPivotCacheTabla(wbOut, lo)
     Set pt = pc.CreatePivotTable(TableDestination:=ws.Range("A3"), TableName:="ptComparativoAnualDetalleGG")
     ConfigurarFilasClasificacion pt
-    FormatearDataField pt.AddDataField(pt.PivotFields("Ejecutado_Actual"), "Suma de Ejecutado_Actual", xlSum), "#,##0"
-    FormatearDataField pt.AddDataField(pt.PivotFields("Ejecutado_Anterior_Actualizado"), "Suma de Ejecutado_Anterior_Actualizado", xlSum), "#,##0"
-    On Error Resume Next
-    pt.CalculatedFields.Add "% Variación", "=('Ejecutado_Actual'-'Ejecutado_Anterior_Actualizado')/'Ejecutado_Anterior_Actualizado'"
-    On Error GoTo 0
-    Set pf = pt.AddDataField(pt.PivotFields("% Variación"), "% Variación", xlSum)
-    pf.NumberFormat = "0.0%"
+    AgregarDataFieldDetallado pt, "Ejecutado_Actual", "Suma de Ejecutado_Actual", xlSum, "#,##0"
+    AgregarDataFieldDetallado pt, "Ejecutado_Anterior_Actualizado", "Suma de Ejecutado_Anterior_Actualizado", xlSum, "#,##0"
+    AsegurarCampoCalculadoPctVariacionDetalle pt
+    AgregarDataFieldDetallado pt, "PctVariacion", "% Variación", xlSum, "0.0%"
     pt.EnableDrilldown = True
     ws.Columns.AutoFit
 End Sub
 
+Private Function ObtenerTablaBasePivotDetallada(ByVal wbOut As Workbook, ByVal nombreHoja As String, ByVal nombreTabla As String, ByVal camposRequeridos As Variant) As ListObject
+    On Error GoTo EH
+
+    Dim ws As Worksheet
+    Dim lo As ListObject
+    Dim campo As Variant
+
+    Set ws = wbOut.Worksheets(nombreHoja)
+    Set lo = ws.ListObjects(nombreTabla)
+
+    If lo.ListRows.Count = 0 Then
+        Err.Raise vbObjectError + 5220, "ObtenerTablaBasePivotDetallada", _
+            "La tabla base requerida para tabla dinámica no tiene filas de datos. Tabla=" & nombreTabla & _
+            " | Hoja=" & nombreHoja
+    End If
+
+    For Each campo In camposRequeridos
+        If Not ListColumnExisteDetallada(lo, CStr(campo)) Then
+            Err.Raise vbObjectError + 5221, "ObtenerTablaBasePivotDetallada", _
+                "No existe el campo requerido para tabla dinámica. Tabla=" & nombreTabla & _
+                " | Hoja=" & nombreHoja & _
+                " | Campo=" & CStr(campo) & _
+                " | Campos disponibles=" & CamposDisponiblesTablaDetallada(lo)
+        End If
+    Next campo
+
+    Set ObtenerTablaBasePivotDetallada = lo
+    Exit Function
+
+EH:
+    Err.Raise Err.Number, "ObtenerTablaBasePivotDetallada", _
+        "No se pudo validar la tabla base para tabla dinámica. Tabla=" & nombreTabla & _
+        " | Hoja=" & nombreHoja & _
+        " | Err.Number=" & Err.Number & _
+        " | Err.Description=" & Err.Description
+End Function
+
+Private Function ListColumnExisteDetallada(ByVal lo As ListObject, ByVal nombreCampo As String) As Boolean
+    Dim lc As ListColumn
+
+    For Each lc In lo.ListColumns
+        If StrComp(lc.Name, nombreCampo, vbBinaryCompare) = 0 Then
+            ListColumnExisteDetallada = True
+            Exit Function
+        End If
+    Next lc
+End Function
+
+Private Function CamposDisponiblesTablaDetallada(ByVal lo As ListObject) As String
+    Dim lc As ListColumn
+    Dim res As String
+
+    For Each lc In lo.ListColumns
+        If Len(res) > 0 Then res = res & ", "
+        res = res & lc.Name
+    Next lc
+    CamposDisponiblesTablaDetallada = res
+End Function
+
 Private Function CrearPivotCacheTabla(ByVal wb As Workbook, ByVal lo As ListObject) As PivotCache
-    Set CrearPivotCacheTabla = wb.PivotCaches.Create(SourceType:=xlDatabase, SourceData:=lo.Range)
+    Dim src As String
+    Dim n1 As Long
+    Dim d1 As String
+    Dim n2 As Long
+    Dim d2 As String
+
+    On Error GoTo EH_NOMBRE
+    src = lo.Name
+    Set CrearPivotCacheTabla = wb.PivotCaches.Create(SourceType:=xlDatabase, SourceData:=src)
+    Exit Function
+
+EH_NOMBRE:
+    n1 = Err.Number
+    d1 = Err.Description
+    Err.Clear
+
+    On Error GoTo EH_RANGO
+    src = lo.Range.Address(ReferenceStyle:=xlR1C1, External:=True)
+    Set CrearPivotCacheTabla = wb.PivotCaches.Create(SourceType:=xlDatabase, SourceData:=src)
+    Exit Function
+
+EH_RANGO:
+    n2 = Err.Number
+    d2 = Err.Description
+    Err.Raise n2, "CrearPivotCacheTabla", _
+        "No se pudo crear PivotCache. Tabla=" & lo.Name & _
+        " | Hoja=" & lo.Parent.Name & _
+        " | Rango=" & lo.Range.Address(False, False) & _
+        " | Filas=" & lo.Range.Rows.Count & _
+        " | Columnas=" & lo.Range.Columns.Count & _
+        " | Primer intento con nombre falló: " & n1 & " - " & d1 & _
+        " | Segundo intento falló: " & n2 & " - " & d2
 End Function
 
 Private Sub ConfigurarFilasClasificacion(ByVal pt As PivotTable)
@@ -733,19 +847,51 @@ Private Sub ConfigurarFilasClasificacion(ByVal pt As PivotTable)
 End Sub
 
 Private Sub ConfigurarCampoPivotDetallado(ByVal pt As PivotTable, ByVal nombreCampo As String, ByVal orientacion As XlPivotFieldOrientation, ByVal posicion As Long)
+    On Error GoTo EH
+
+    If Not PivotFieldExisteDetallado(pt, nombreCampo) Then
+        Err.Raise vbObjectError + 5230, "ConfigurarCampoPivotDetallado", _
+            "No existe el campo de tabla dinámica a configurar. Campo=" & nombreCampo & _
+            " | Campos disponibles=" & CamposDisponiblesPivotDetallado(pt)
+    End If
+
     With pt.PivotFields(nombreCampo)
         .Orientation = orientacion
         .Position = posicion
     End With
+    Exit Sub
+
+EH:
+    Err.Raise Err.Number, "ConfigurarCampoPivotDetallado", _
+        "No se pudo configurar campo de tabla dinámica. Campo=" & nombreCampo & _
+        " | Campos disponibles=" & CamposDisponiblesPivotDetallado(pt) & _
+        " | Err.Number=" & Err.Number & _
+        " | Err.Description=" & Err.Description
 End Sub
 
 Private Sub FiltrarPivotCampoDetallado(ByVal pt As PivotTable, ByVal nombreCampo As String, ByVal valor As String)
-    On Error Resume Next
+    On Error GoTo EH
+
+    If Not PivotFieldExisteDetallado(pt, nombreCampo) Then
+        Err.Raise vbObjectError + 5231, "FiltrarPivotCampoDetallado", _
+            "No existe el campo de tabla dinámica a filtrar. Campo=" & nombreCampo & _
+            " | Valor=" & valor & _
+            " | Campos disponibles=" & CamposDisponiblesPivotDetallado(pt)
+    End If
+
     With pt.PivotFields(nombreCampo)
         .ClearAllFilters
         .CurrentPage = valor
     End With
-    On Error GoTo 0
+    Exit Sub
+
+EH:
+    Err.Raise Err.Number, "FiltrarPivotCampoDetallado", _
+        "No se pudo filtrar campo de tabla dinámica. Campo=" & nombreCampo & _
+        " | Valor=" & valor & _
+        " | Campos disponibles=" & CamposDisponiblesPivotDetallado(pt) & _
+        " | Err.Number=" & Err.Number & _
+        " | Err.Description=" & Err.Description
 End Sub
 
 Private Sub OrdenarMesesPivotDetallado(ByVal pt As PivotTable, ByVal campoMesNombre As String)
@@ -758,8 +904,114 @@ Private Sub OrdenarMesesPivotDetallado(ByVal pt As PivotTable, ByVal campoMesNom
     On Error GoTo 0
 End Sub
 
+Private Sub AgregarDataFieldDetallado(ByVal pt As PivotTable, ByVal sourceFieldName As String, ByVal caption As String, ByVal funcion As XlConsolidationFunction, ByVal formatoNumero As String)
+    On Error GoTo EH
+
+    Dim pf As PivotField
+
+    If Not PivotFieldExisteDetallado(pt, sourceFieldName) Then
+        Err.Raise vbObjectError + 5232, "AgregarDataFieldDetallado", _
+            "No existe el campo de origen para agregar a valores. Campo=" & sourceFieldName & _
+            " | Caption=" & caption & _
+            " | Campos disponibles=" & CamposDisponiblesPivotDetallado(pt)
+    End If
+
+    Set pf = pt.AddDataField(pt.PivotFields(sourceFieldName), caption, funcion)
+    FormatearDataField pf, formatoNumero
+    Exit Sub
+
+EH:
+    Err.Raise Err.Number, "AgregarDataFieldDetallado", _
+        "No se pudo agregar campo a valores de tabla dinámica. Campo=" & sourceFieldName & _
+        " | Caption=" & caption & _
+        " | Campos disponibles=" & CamposDisponiblesPivotDetallado(pt) & _
+        " | Err.Number=" & Err.Number & _
+        " | Err.Description=" & Err.Description
+End Sub
+
+Private Sub AsegurarCampoCalculadoPctVariacionDetalle(ByVal pt As PivotTable)
+    On Error GoTo EH
+
+    Dim formula As String
+
+    formula = "=(Ejecutado_Actual-Ejecutado_Anterior_Actualizado)/Ejecutado_Anterior_Actualizado"
+
+    If Not PivotFieldExisteDetallado(pt, "Ejecutado_Actual") Then
+        Err.Raise vbObjectError + 5233, "AsegurarCampoCalculadoPctVariacionDetalle", _
+            "No existe el campo fuente requerido para PctVariacion: Ejecutado_Actual" & _
+            " | Fórmula=" & formula & _
+            " | Campos disponibles=" & CamposDisponiblesPivotDetallado(pt)
+    End If
+
+    If Not PivotFieldExisteDetallado(pt, "Ejecutado_Anterior_Actualizado") Then
+        Err.Raise vbObjectError + 5234, "AsegurarCampoCalculadoPctVariacionDetalle", _
+            "No existe el campo fuente requerido para PctVariacion: Ejecutado_Anterior_Actualizado" & _
+            " | Fórmula=" & formula & _
+            " | Campos disponibles=" & CamposDisponiblesPivotDetallado(pt)
+    End If
+
+    If PivotFieldExisteDetallado(pt, "PctVariacion") Then Exit Sub
+
+    pt.CalculatedFields.Add Name:="PctVariacion", Formula:=formula
+
+    If Not PivotFieldExisteDetallado(pt, "PctVariacion") Then
+        Err.Raise vbObjectError + 5235, "AsegurarCampoCalculadoPctVariacionDetalle", _
+            "Excel no dejó disponible el campo calculado PctVariacion después de crearlo." & _
+            " | Fórmula=" & formula & _
+            " | Campos disponibles=" & CamposDisponiblesPivotDetallado(pt)
+    End If
+    Exit Sub
+
+EH:
+    Err.Raise Err.Number, "AsegurarCampoCalculadoPctVariacionDetalle", _
+        "No se pudo crear o validar el campo calculado PctVariacion." & _
+        " | Fórmula=" & formula & _
+        " | Campos disponibles=" & CamposDisponiblesPivotDetallado(pt) & _
+        " | Err.Number=" & Err.Number & _
+        " | Err.Description=" & Err.Description
+End Sub
+
+Private Function PivotFieldExisteDetallado(ByVal pt As PivotTable, ByVal nombreCampo As String) As Boolean
+    Dim pf As PivotField
+
+    For Each pf In pt.PivotFields
+        If StrComp(pf.Name, nombreCampo, vbBinaryCompare) = 0 Then
+            PivotFieldExisteDetallado = True
+            Exit Function
+        End If
+    Next pf
+End Function
+
+Private Function CamposDisponiblesPivotDetallado(ByVal pt As PivotTable) As String
+    On Error GoTo EH
+
+    Dim pf As PivotField
+    Dim res As String
+
+    For Each pf In pt.PivotFields
+        If Len(res) > 0 Then res = res & ", "
+        res = res & pf.Name
+    Next pf
+
+    CamposDisponiblesPivotDetallado = res
+    Exit Function
+
+EH:
+    CamposDisponiblesPivotDetallado = "(no se pudieron leer los campos disponibles: " & Err.Number & " - " & Err.Description & ")"
+End Function
+
 Private Sub FormatearDataField(ByVal pf As PivotField, ByVal formato As String)
+    On Error GoTo EH
+
     pf.NumberFormat = formato
+    Exit Sub
+
+EH:
+    Err.Raise Err.Number, "FormatearDataField", _
+        "No se pudo aplicar formato al campo de valores. Campo=" & pf.Name & _
+        " | Formato=" & formato & _
+        " | Err.Number=" & Err.Number & _
+        " | Err.Description=" & Err.Description
 End Sub
 
 Private Function CrearHojaLimpiaDetallada(ByVal wb As Workbook, ByVal nombreHoja As String) As Worksheet
