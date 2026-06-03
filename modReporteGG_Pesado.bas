@@ -27,6 +27,8 @@ Private Const IDX_NIVEL2 As Long = 2
 Private Const IDX_NIVEL3 As Long = 3
 Private Const IDX_INCLUIR As Long = 4
 Private Const IDX_INDICE As Long = 5
+Private Const TAM_BUFFER_EXCLUIDAS As Long = 5000
+Private Const TAM_BUFFER_COMPARATIVO As Long = 5000
 
 Public Sub Generar_TD_Detallada_GG_Desde_Panel()
     On Error GoTo EH
@@ -63,7 +65,10 @@ Public Sub Generar_TD_Detallada_GG_Desde_Panel()
     Dim dictCodDetalle As Object
     Dim dictIndicePorClave As Object
     Dim resumen As Object
-    Dim filasExcluidas As Collection
+    Dim filaControlNoIncluidas As Long
+    Dim cantidadExcluidas As Long
+    Dim bufferExcluidas As Variant
+    Dim bufferExcluidasCount As Long
     Dim cacheDetallesIndice As Object
     Dim filaEjec As Long
     Dim filaAsig As Long
@@ -107,7 +112,6 @@ Public Sub Generar_TD_Detallada_GG_Desde_Panel()
     Set dictCodDetalle = CreateObject("Scripting.Dictionary")
     Set dictIndicePorClave = CreateObject("Scripting.Dictionary")
     Set resumen = CrearResumenDetallado()
-    Set filasExcluidas = New Collection
     Set cacheDetallesIndice = CreateObject("Scripting.Dictionary")
 
     etapaActual = "resolviendo archivo de ejecuciones actual"
@@ -182,15 +186,22 @@ Public Sub Generar_TD_Detallada_GG_Desde_Panel()
     filaAsig = 2
     filaTD = 2
     filaComp = 2
+    filaControlNoIncluidas = 2
+    cantidadExcluidas = 0
+    bufferExcluidasCount = 0
+    ReDim bufferExcluidas(1 To TAM_BUFFER_EXCLUIDAS, 1 To UBound(EncabezadosControlNoIncluidas()) + 1)
 
     etapaActual = "construyendo bases de ejecuciones actuales"
-    AgregarFilasEjecucionDetallada wsBaseEjec, wsBaseTD, wsBaseComp, filaEjec, filaTD, filaComp, wsE, dictCodDetalle, anio, mesCierre, archivoEjec, resumen, filasExcluidas
+    AgregarFilasEjecucionDetallada wsBaseEjec, wsBaseTD, wsBaseComp, filaEjec, filaTD, filaComp, wsE, dictCodDetalle, anio, mesCierre, archivoEjec, resumen, wsControlNoIncluidas, filaControlNoIncluidas, cantidadExcluidas, bufferExcluidas, bufferExcluidasCount
 
     etapaActual = "construyendo base de asignados actual"
-    AgregarFilasAsignadoDetallada wsBaseAsig, wsBaseTD, filaAsig, filaTD, wsA, dictCodDetalle, anio, archivoAsignados, resumen, filasExcluidas
+    AgregarFilasAsignadoDetallada wsBaseAsig, wsBaseTD, filaAsig, filaTD, wsA, dictCodDetalle, anio, archivoAsignados, resumen, wsControlNoIncluidas, filaControlNoIncluidas, cantidadExcluidas, bufferExcluidas, bufferExcluidasCount
 
     etapaActual = "construyendo base comparativa anual"
-    AgregarFilasComparativoAnteriorDetallada wsBaseComp, filaComp, wsEComp, dictCodDetalle, dictIndicePorClave, anioComparativo, anio, mesCierre, archivoEjecComparativo, resumen, filasExcluidas, cacheDetallesIndice
+    AgregarFilasComparativoAnteriorDetallada wsBaseComp, filaComp, wsEComp, dictCodDetalle, dictIndicePorClave, anioComparativo, anio, mesCierre, archivoEjecComparativo, resumen, wsControlNoIncluidas, filaControlNoIncluidas, cantidadExcluidas, bufferExcluidas, bufferExcluidasCount, cacheDetallesIndice
+
+    etapaActual = "volcando buffers pendientes"
+    FlushBufferExclusiones wsControlNoIncluidas, filaControlNoIncluidas, bufferExcluidas, bufferExcluidasCount
 
     etapaActual = "validando límites de filas"
     ValidarLimiteFilasHoja wsBaseEjec, NOMBRE_HOJA_BASE_EJEC
@@ -198,9 +209,6 @@ Public Sub Generar_TD_Detallada_GG_Desde_Panel()
     ValidarLimiteFilasHoja wsBaseTD, NOMBRE_HOJA_BASE_TD
     ValidarLimiteFilasHoja wsBaseComp, NOMBRE_HOJA_BASE_COMP
     ValidarLimiteFilasHoja wsControlNoIncluidas, NOMBRE_HOJA_CONTROL_NO_INCLUIDAS
-
-    etapaActual = "creando detalle de líneas excluidas"
-    CrearDetalleNoIncluidas wsControlNoIncluidas, filasExcluidas
 
     etapaActual = "creando tablas de bases"
     CrearTablaEnHoja wsBaseEjec, NOMBRE_TABLA_BASE_EJEC, True
@@ -213,7 +221,7 @@ Public Sub Generar_TD_Detallada_GG_Desde_Panel()
     CrearTablasDinamicasDetalladas wbOut
 
     etapaActual = "creando Resumen_Control"
-    CrearResumenControlDetallado wbOut, resumen, archivoEjec, archivoAsignados, archivoEjecComparativo, archivoCod, anio, mesCierre, rutaFinal, filasExcluidas.Count
+    CrearResumenControlDetallado wbOut, resumen, archivoEjec, archivoAsignados, archivoEjecComparativo, archivoCod, anio, mesCierre, rutaFinal, cantidadExcluidas
 
     etapaActual = "guardando archivo detallado"
     rutaFinal = GuardarReporteDetalladoGG(wbOut, anio, mesCierre)
@@ -370,17 +378,17 @@ EH:
 End Sub
 
 Private Sub PrepararHojaDetalleConOriginales(ByVal ws As Worksheet, ByVal wsFuente As Worksheet, ByVal baseHeaders As Variant, ByVal prefijoOriginal As String)
-    Dim arr As Variant
+    Dim arrHeaders As Variant
     Dim pref As Variant
     Dim allHeaders As Variant
 
-    arr = wsFuente.Range(wsFuente.Cells(1, 1), wsFuente.Cells(UltimaFilaConDatos(wsFuente), UltimaColConDatos(wsFuente))).Value2
-    pref = EncabezadosPrefijados(arr, prefijoOriginal)
+    arrHeaders = wsFuente.Range(wsFuente.Cells(1, 1), wsFuente.Cells(1, UltimaColConDatos(wsFuente))).Value2
+    pref = EncabezadosPrefijados(arrHeaders, prefijoOriginal)
     allHeaders = UnirEncabezados(baseHeaders, pref)
     EscribirEncabezados ws, allHeaders
 End Sub
 
-Private Sub AgregarFilasEjecucionDetallada(ByVal wsDetalle As Worksheet, ByVal wsTD As Worksheet, ByVal wsComp As Worksheet, ByRef filaDetalle As Long, ByRef filaTD As Long, ByRef filaComp As Long, ByVal wsE As Worksheet, ByVal dictCodDetalle As Object, ByVal anio As Long, ByVal mesCierre As Long, ByVal archivoOrigen As String, ByRef resumen As Object, ByRef filasExcluidas As Collection)
+Private Sub AgregarFilasEjecucionDetallada(ByVal wsDetalle As Worksheet, ByVal wsTD As Worksheet, ByVal wsComp As Worksheet, ByRef filaDetalle As Long, ByRef filaTD As Long, ByRef filaComp As Long, ByVal wsE As Worksheet, ByVal dictCodDetalle As Object, ByVal anio As Long, ByVal mesCierre As Long, ByVal archivoOrigen As String, ByRef resumen As Object, ByVal wsControlNoIncluidas As Worksheet, ByRef filaControlNoIncluidas As Long, ByRef cantidadExcluidas As Long, ByRef bufferExcluidas As Variant, ByRef bufferExcluidasCount As Long)
     Dim arr As Variant, headers As Object, i As Long, j As Long, fechaValor As Date, importeMN As Double
     Dim clave As String, info As Variant, incluir As String, motivo As String, meses As Variant
     Dim cols As Variant, baseVals As Variant, compVals As Variant, colImporte As Long, colOffsetOriginal As Long
@@ -404,7 +412,7 @@ Private Sub AgregarFilasEjecucionDetallada(ByVal wsDetalle As Worksheet, ByVal w
         motivo = MotivoExclusion(dictCodDetalle, clave, incluir)
 
         If Len(motivo) > 0 Then
-            RegistrarExclusion resumen, filasExcluidas, "ejec", ORIGEN_EJECUCION, archivoOrigen, wsE.Name, i, anio, Month(fechaValor), meses(Month(fechaValor) - 1), clave, motivo, info, importeMN, importeMN, 0#
+            RegistrarExclusion resumen, wsControlNoIncluidas, filaControlNoIncluidas, cantidadExcluidas, bufferExcluidas, bufferExcluidasCount, "ejec", ORIGEN_EJECUCION, archivoOrigen, wsE.Name, i, anio, Month(fechaValor), meses(Month(fechaValor) - 1), clave, motivo, info, importeMN, importeMN, 0#
             GoTo SiguienteFila
         End If
 
@@ -432,7 +440,7 @@ SiguienteFila:
     Next i
 End Sub
 
-Private Sub AgregarFilasAsignadoDetallada(ByVal wsDetalle As Worksheet, ByVal wsTD As Worksheet, ByRef filaDetalle As Long, ByRef filaTD As Long, ByVal wsA As Worksheet, ByVal dictCodDetalle As Object, ByVal anio As Long, ByVal archivoOrigen As String, ByRef resumen As Object, ByRef filasExcluidas As Collection)
+Private Sub AgregarFilasAsignadoDetallada(ByVal wsDetalle As Worksheet, ByVal wsTD As Worksheet, ByRef filaDetalle As Long, ByRef filaTD As Long, ByVal wsA As Worksheet, ByVal dictCodDetalle As Object, ByVal anio As Long, ByVal archivoOrigen As String, ByRef resumen As Object, ByVal wsControlNoIncluidas As Worksheet, ByRef filaControlNoIncluidas As Long, ByRef cantidadExcluidas As Long, ByRef bufferExcluidas As Variant, ByRef bufferExcluidasCount As Long)
     Dim arr As Variant, headers As Object, i As Long, j As Long, monto As Double, clave As String
     Dim info As Variant, incluir As String, motivo As String, usarFila As Boolean, anioFila As Long
     Dim colAnio As Long, colAsignado As Long, cols As Variant, baseVals As Variant, colOffsetOriginal As Long
@@ -462,7 +470,7 @@ Private Sub AgregarFilasAsignadoDetallada(ByVal wsDetalle As Worksheet, ByVal ws
         motivo = MotivoExclusion(dictCodDetalle, clave, incluir)
 
         If Len(motivo) > 0 Then
-            RegistrarExclusion resumen, filasExcluidas, "asig", ORIGEN_ASIGNADO, archivoOrigen, wsA.Name, i, anio, 0, MES_ASIGNADO_ANUAL, clave, motivo, info, monto, 0#, monto
+            RegistrarExclusion resumen, wsControlNoIncluidas, filaControlNoIncluidas, cantidadExcluidas, bufferExcluidas, bufferExcluidasCount, "asig", ORIGEN_ASIGNADO, archivoOrigen, wsA.Name, i, anio, 0, MES_ASIGNADO_ANUAL, clave, motivo, info, monto, 0#, monto
             GoTo SiguienteFila
         End If
 
@@ -484,33 +492,73 @@ SiguienteFila:
     Next i
 End Sub
 
-Private Sub AgregarFilasComparativoAnteriorDetallada(ByVal wsComp As Worksheet, ByRef filaComp As Long, ByVal wsEComp As Worksheet, ByVal dictCodDetalle As Object, ByVal dictIndicePorClave As Object, ByVal anioBase As Long, ByVal anioDestino As Long, ByVal mesCierre As Long, ByVal archivoOrigen As String, ByRef resumen As Object, ByRef filasExcluidas As Collection, ByRef cacheDetallesIndice As Object)
-    Dim arr As Variant, headers As Object, i As Long, fechaValor As Date, importeOriginal As Double, importeActualizado As Double
+Private Sub AgregarFilasComparativoAnteriorDetallada(ByVal wsComp As Worksheet, ByRef filaComp As Long, ByVal wsEComp As Worksheet, ByVal dictCodDetalle As Object, ByVal dictIndicePorClave As Object, ByVal anioBase As Long, ByVal anioDestino As Long, ByVal mesCierre As Long, ByVal archivoOrigen As String, ByRef resumen As Object, ByVal wsControlNoIncluidas As Worksheet, ByRef filaControlNoIncluidas As Long, ByRef cantidadExcluidas As Long, ByRef bufferExcluidas As Variant, ByRef bufferExcluidasCount As Long, ByRef cacheDetallesIndice As Object)
+    On Error GoTo EH
+
+    Dim headers As Object, headerArr As Variant, i As Long, fechaValor As Date, importeOriginal As Double, importeActualizado As Double
     Dim clave As String, info As Variant, incluir As String, motivo As String, meses As Variant, cols As Variant, compVals As Variant
-    Dim colImporte As Long, tipoIndice As String, det As Variant
+    Dim colFecha As Long, colImporte As Long, tipoIndice As String, det As Variant
+    Dim lastRow As Long, lastCol As Long, totalDatos As Long, idxDatos As Long, k As Long
+    Dim arrFecha As Variant, arrImporte As Variant, arrLlave(0 To 12) As Variant, valoresLlave(0 To 12) As Variant
+    Dim bufferComparativo As Variant, bufferComparativoCount As Long, columnasComparativo As Long
+    Dim etapaInterna As String, filaFuenteActual As Long, incluidasInicio As Long, excluidasInicio As Long
+    Dim errNum As Long, errDesc As String
 
     meses = MesesES()
-    arr = wsEComp.Range(wsEComp.Cells(1, 1), wsEComp.Cells(UltimaFilaConDatos(wsEComp), UltimaColConDatos(wsEComp))).Value2
-    Set headers = MapearEncabezados(arr)
-    cols = ColumnasLlaveEjecucion(headers)
-    colImporte = ObtenerColumna(headers, Array("importe moneda nacional"))
+    etapaInterna = "detectando dimensiones"
+    lastRow = UltimaFilaConDatos(wsEComp)
+    lastCol = UltimaColConDatos(wsEComp)
+    If lastRow < 2 Then Exit Sub
 
-    For i = 2 To UBound(arr, 1)
-        If Not TryObtenerFechaValorSeguro(arr(i, ObtenerColumna(headers, Array("fecha valor"))), fechaValor) Then GoTo SiguienteFila
+    etapaInterna = "leyendo encabezados"
+    headerArr = wsEComp.Range(wsEComp.Cells(1, 1), wsEComp.Cells(1, lastCol)).Value2
+    Set headers = MapearEncabezados(headerArr)
+
+    etapaInterna = "validando columnas obligatorias"
+    colFecha = ObtenerColumnaDetallada(headers, Array("fecha valor"))
+    colImporte = ObtenerColumnaDetallada(headers, Array("importe moneda nacional"))
+    cols = ColumnasLlaveEjecucionOpcionalesDetallada(headers)
+    ValidarColumnasComparativoAnteriorDetallada colFecha, colImporte, cols, "AgregarFilasComparativoAnteriorDetallada"
+
+    etapaInterna = "leyendo columnas necesarias"
+    arrFecha = LeerColumnaDatosDetallada(wsEComp, colFecha, lastRow)
+    arrImporte = LeerColumnaDatosDetallada(wsEComp, colImporte, lastRow)
+    For k = 0 To 12
+        arrLlave(k) = LeerColumnaDatosDetallada(wsEComp, CLng(cols(k)), lastRow)
+    Next k
+
+    columnasComparativo = UBound(EncabezadosBaseComparativoDetallada()) + 1
+    ReDim bufferComparativo(1 To TAM_BUFFER_COMPARATIVO, 1 To columnasComparativo)
+    bufferComparativoCount = 0
+    incluidasInicio = CLng(resumen("comp_ant_incluidas"))
+    excluidasInicio = cantidadExcluidas
+    totalDatos = lastRow - 1
+
+    For idxDatos = 1 To totalDatos
+        i = idxDatos + 1
+        filaFuenteActual = i
+        etapaInterna = "leyendo datos"
+        If Not TryObtenerFechaValorSeguro(ValorArrayColumnaDetallada(arrFecha, idxDatos), fechaValor) Then GoTo SiguienteFila
         If Year(fechaValor) <> anioBase Or Month(fechaValor) > mesCierre Then GoTo SiguienteFila
 
         resumen("comp_ant_leidas") = CLng(resumen("comp_ant_leidas")) + 1
-        If Not TryDoubleSeguro(arr(i, colImporte), importeOriginal) Then importeOriginal = 0#
-        clave = ClaveDesdeFila(arr, i, cols)
+        If Not TryDoubleSeguro(ValorArrayColumnaDetallada(arrImporte, idxDatos), importeOriginal) Then importeOriginal = 0#
+        For k = 0 To 12
+            valoresLlave(k) = ValorArrayColumnaDetallada(arrLlave(k), idxDatos)
+        Next k
+        clave = ClaveDesdeValoresLlave(valoresLlave)
+
+        etapaInterna = "validando codiguera"
         info = InfoCodigueraParaClave(dictCodDetalle, clave)
         incluir = CStr(info(IDX_INCLUIR))
         motivo = MotivoExclusion(dictCodDetalle, clave, incluir)
 
         If Len(motivo) > 0 Then
-            RegistrarExclusion resumen, filasExcluidas, "comp_ant", ORIGEN_COMPARATIVO_ANTERIOR, archivoOrigen, wsEComp.Name, i, anioBase, Month(fechaValor), meses(Month(fechaValor) - 1), clave, motivo, info, importeOriginal, importeOriginal, 0#
+            RegistrarExclusion resumen, wsControlNoIncluidas, filaControlNoIncluidas, cantidadExcluidas, bufferExcluidas, bufferExcluidasCount, "comp_ant", ORIGEN_COMPARATIVO_ANTERIOR, archivoOrigen, wsEComp.Name, i, anioBase, Month(fechaValor), meses(Month(fechaValor) - 1), clave, motivo, info, importeOriginal, importeOriginal, 0#
             GoTo SiguienteFila
         End If
 
+        etapaInterna = "calculando índice"
         tipoIndice = Trim$(TextoSeguro(info(IDX_INDICE)))
         If Len(tipoIndice) = 0 And dictIndicePorClave.Exists(clave) Then tipoIndice = Trim$(TextoSeguro(dictIndicePorClave(clave)))
         If Len(tipoIndice) = 0 Then
@@ -519,22 +567,80 @@ Private Sub AgregarFilasComparativoAnteriorDetallada(ByVal wsComp As Worksheet, 
 
         det = ObtenerDetalleActualizacionIndice(tipoIndice, anioBase, anioDestino, mesCierre, cacheDetallesIndice)
         importeActualizado = importeOriginal * CDbl(det(6))
-        compVals = BaseValsComparativo("ANTERIOR_ACTUALIZADO", ORIGEN_COMPARATIVO_ANTERIOR, archivoOrigen, wsEComp.Name, i, anioBase, anioDestino, Month(fechaValor), meses(Month(fechaValor) - 1), fechaValor, clave, info, arr, i, cols, importeOriginal, det(0), det(1), det(2), det(3), det(4), det(5), det(6), importeActualizado, 0#, importeActualizado)
-        ValidarFilaSalida filaComp, NOMBRE_HOJA_BASE_COMP
-        wsComp.Range(wsComp.Cells(filaComp, 1), wsComp.Cells(filaComp, UBound(compVals) + 1)).Value = compVals
-        filaComp = filaComp + 1
+        compVals = BaseValsComparativoDesdeValores("ANTERIOR_ACTUALIZADO", ORIGEN_COMPARATIVO_ANTERIOR, archivoOrigen, wsEComp.Name, i, anioBase, anioDestino, Month(fechaValor), meses(Month(fechaValor) - 1), fechaValor, clave, info, valoresLlave, importeOriginal, det(0), det(1), det(2), det(3), det(4), det(5), det(6), importeActualizado, 0#, importeActualizado)
+
+        etapaInterna = "escribiendo salida"
+        AgregarFilaBufferComparativo wsComp, filaComp, bufferComparativo, bufferComparativoCount, compVals
 
         resumen("comp_ant_incluidas") = CLng(resumen("comp_ant_incluidas")) + 1
         resumen("total_comp_anterior_original") = CDbl(resumen("total_comp_anterior_original")) + importeOriginal
         resumen("total_comp_anterior_actualizado") = CDbl(resumen("total_comp_anterior_actualizado")) + importeActualizado
 SiguienteFila:
-    Next i
+    Next idxDatos
+
+    etapaInterna = "volcando buffer comparativo"
+    FlushBufferComparativo wsComp, filaComp, bufferComparativo, bufferComparativoCount
+    Exit Sub
+
+EH:
+    errNum = Err.Number
+    errDesc = Err.Description
+    On Error Resume Next
+    If bufferComparativoCount > 0 Then FlushBufferComparativo wsComp, filaComp, bufferComparativo, bufferComparativoCount
+    On Error GoTo 0
+    Err.Raise errNum, "AgregarFilasComparativoAnteriorDetallada", _
+        "Error procesando comparativo anterior." & _
+        " | Fila fuente=" & filaFuenteActual & _
+        " | Fila destino=" & filaComp & _
+        " | Clave=" & clave & _
+        " | TipoIndice=" & tipoIndice & _
+        " | Líneas leídas comparativo anterior=" & CLng(resumen("comp_ant_leidas")) & _
+        " | Incluidas en esta etapa=" & (CLng(resumen("comp_ant_incluidas")) - incluidasInicio) & _
+        " | Excluidas en esta etapa=" & (cantidadExcluidas - excluidasInicio) & _
+        " | Etapa interna=" & etapaInterna & _
+        " | Err.Number=" & errNum & _
+        " | Err.Description=" & errDesc
 End Sub
 
-Private Sub RegistrarExclusion(ByRef resumen As Object, ByRef filasExcluidas As Collection, ByVal prefijoResumen As String, ByVal origen As String, ByVal archivoOrigen As String, ByVal hojaOrigen As String, ByVal filaOrigen As Long, ByVal anio As Long, ByVal mesNum As Long, ByVal mesNombre As String, ByVal clave As String, ByVal motivo As String, ByVal info As Variant, ByVal importeMN As Double, ByVal ejecutado As Double, ByVal asignado As Double)
+Private Sub RegistrarExclusion(ByRef resumen As Object, ByVal wsControlNoIncluidas As Worksheet, ByRef filaControlNoIncluidas As Long, ByRef cantidadExcluidas As Long, ByRef bufferExcluidas As Variant, ByRef bufferExcluidasCount As Long, ByVal prefijoResumen As String, ByVal origen As String, ByVal archivoOrigen As String, ByVal hojaOrigen As String, ByVal filaOrigen As Long, ByVal anio As Long, ByVal mesNum As Long, ByVal mesNombre As String, ByVal clave As String, ByVal motivo As String, ByVal info As Variant, ByVal importeMN As Double, ByVal ejecutado As Double, ByVal asignado As Double)
+    Dim vals As Variant
+
     resumen(prefijoResumen & "_no_incluidas") = CLng(resumen(prefijoResumen & "_no_incluidas")) + 1
     If motivo = MOTIVO_LLAVE_NO_ENCONTRADA Then resumen(prefijoResumen & "_llave_no_encontrada") = CLng(resumen(prefijoResumen & "_llave_no_encontrada")) + 1
-    filasExcluidas.Add Array(origen, NombreArchivoDesdeRutaDetallada(archivoOrigen), hojaOrigen, filaOrigen, anio, mesNum, mesNombre, clave, motivo, info(IDX_INCLUIR), info(IDX_FINANCIAMIENTO), info(IDX_NIVEL1), info(IDX_NIVEL2), info(IDX_NIVEL3), importeMN, ejecutado, asignado)
+
+    vals = Array(origen, NombreArchivoDesdeRutaDetallada(archivoOrigen), hojaOrigen, filaOrigen, anio, mesNum, mesNombre, clave, motivo, info(IDX_INCLUIR), info(IDX_FINANCIAMIENTO), info(IDX_NIVEL1), info(IDX_NIVEL2), info(IDX_NIVEL3), importeMN, ejecutado, asignado)
+    AgregarFilaBufferExclusiones wsControlNoIncluidas, filaControlNoIncluidas, bufferExcluidas, bufferExcluidasCount, cantidadExcluidas, vals
+End Sub
+
+Private Sub AgregarFilaBufferExclusiones(ByVal ws As Worksheet, ByRef filaDestino As Long, ByRef buffer As Variant, ByRef bufferCount As Long, ByRef cantidadExcluidas As Long, ByVal vals As Variant)
+    Dim c As Long
+
+    bufferCount = bufferCount + 1
+    For c = 1 To UBound(vals) + 1
+        buffer(bufferCount, c) = vals(c - 1)
+    Next c
+    cantidadExcluidas = cantidadExcluidas + 1
+
+    If bufferCount >= TAM_BUFFER_EXCLUIDAS Then FlushBufferExclusiones ws, filaDestino, buffer, bufferCount
+End Sub
+
+Private Sub FlushBufferExclusiones(ByVal ws As Worksheet, ByRef filaDestino As Long, ByRef buffer As Variant, ByRef bufferCount As Long)
+    Dim cols As Long, r As Long, c As Long
+    Dim salida As Variant
+
+    If bufferCount <= 0 Then Exit Sub
+    cols = UBound(buffer, 2)
+    ValidarFilaSalida filaDestino + bufferCount - 1, NOMBRE_HOJA_CONTROL_NO_INCLUIDAS
+    ReDim salida(1 To bufferCount, 1 To cols)
+    For r = 1 To bufferCount
+        For c = 1 To cols
+            salida(r, c) = buffer(r, c)
+            buffer(r, c) = Empty
+        Next c
+    Next r
+    ws.Range(ws.Cells(filaDestino, 1), ws.Cells(filaDestino + bufferCount - 1, cols)).Value = salida
+    filaDestino = filaDestino + bufferCount
+    bufferCount = 0
 End Sub
 
 Private Function MotivoExclusion(ByVal dictCodDetalle As Object, ByVal clave As String, ByVal incluir As String) As String
@@ -570,6 +676,24 @@ Private Function ColumnasLlaveEjecucion(ByVal headers As Object) As Variant
         ObtenerColumna(headers, Array("der. obra código numérico")), _
         ObtenerColumna(headers, Array("serv código numérico")), _
         ObtenerColumna(headers, Array("snip código numérico", "sniip código numérico", "snip", "sniip")) _
+    )
+End Function
+
+Private Function ColumnasLlaveEjecucionOpcionalesDetallada(ByVal headers As Object) As Variant
+    ColumnasLlaveEjecucionOpcionalesDetallada = Array( _
+        ObtenerColumnaDetallada(headers, Array("finac código numérico")), _
+        ObtenerColumnaDetallada(headers, Array("der-f código numérico")), _
+        ObtenerColumnaDetallada(headers, Array("pg código numérico")), _
+        ObtenerColumnaDetallada(headers, Array("spg código numérico")), _
+        ObtenerColumnaDetallada(headers, Array("proyecto", "proy", "proyecto código numérico", "proy código numérico")), _
+        ObtenerColumnaDetallada(headers, Array("rubro código numérico")), _
+        ObtenerColumnaDetallada(headers, Array("r. aux código numérico")), _
+        ObtenerColumnaDetallada(headers, Array("ue código numérico")), _
+        ObtenerColumnaDetallada(headers, Array("dep código numérico")), _
+        ObtenerColumnaDetallada(headers, Array("obra código numérico")), _
+        ObtenerColumnaDetallada(headers, Array("der. obra código numérico")), _
+        ObtenerColumnaDetallada(headers, Array("serv código numérico")), _
+        ObtenerColumnaDetallada(headers, Array("snip código numérico", "sniip código numérico", "snip", "sniip")) _
     )
 End Function
 
@@ -640,16 +764,95 @@ Private Function BaseValsComparativo(ByVal periodoComparativo As String, ByVal o
         ejecutadoActual, ejecutadoAnteriorActualizado, "SI")
 End Function
 
-Private Sub CrearDetalleNoIncluidas(ByVal ws As Worksheet, ByVal filasExcluidas As Collection)
-    Dim i As Long
-    Dim item As Variant
+Private Function BaseValsComparativoDesdeValores(ByVal periodoComparativo As String, ByVal origen As String, _
+        ByVal archivoOrigen As String, ByVal hojaOrigen As String, ByVal filaOrigen As Long, _
+        ByVal anioOrigen As Long, ByVal anioDestino As Long, ByVal mesNum As Long, _
+        ByVal mesNombre As String, ByVal fechaValor As Variant, ByVal clave As String, _
+        ByVal info As Variant, ByRef valoresLlave() As Variant, _
+        ByVal importeOriginal As Double, ByVal tipoIndice As Variant, ByVal archivoIndice As Variant, _
+        ByVal periodoIndiceBase As Variant, ByVal valorIndiceBase As Variant, _
+        ByVal periodoIndiceDestino As Variant, ByVal valorIndiceDestino As Variant, _
+        ByVal factorActualizacion As Variant, ByVal importeActualizado As Double, _
+        ByVal ejecutadoActual As Double, ByVal ejecutadoAnteriorActualizado As Double) As Variant
+    BaseValsComparativoDesdeValores = Array(periodoComparativo, origen, NombreArchivoDesdeRutaDetallada(archivoOrigen), _
+        hojaOrigen, filaOrigen, anioOrigen, anioDestino, mesNum, mesNombre, fechaValor, clave, _
+        info(IDX_FINANCIAMIENTO), info(IDX_NIVEL1), info(IDX_NIVEL2), info(IDX_NIVEL3), _
+        valoresLlave(0), valoresLlave(1), valoresLlave(2), valoresLlave(3), valoresLlave(4), _
+        valoresLlave(5), valoresLlave(6), valoresLlave(7), valoresLlave(8), valoresLlave(9), _
+        valoresLlave(10), valoresLlave(11), valoresLlave(12), importeOriginal, tipoIndice, _
+        NombreArchivoDesdeRutaDetallada(CStr(archivoIndice)), periodoIndiceBase, valorIndiceBase, _
+        periodoIndiceDestino, valorIndiceDestino, factorActualizacion, importeActualizado, _
+        ejecutadoActual, ejecutadoAnteriorActualizado, "SI")
+End Function
 
-    For i = 1 To filasExcluidas.Count
-        item = filasExcluidas(i)
-        ValidarFilaSalida i + 1, NOMBRE_HOJA_CONTROL_NO_INCLUIDAS
-        ws.Range(ws.Cells(i + 1, 1), ws.Cells(i + 1, UBound(item) + 1)).Value = item
+Private Function LeerColumnaDatosDetallada(ByVal ws As Worksheet, ByVal col As Long, ByVal lastRow As Long) As Variant
+    If col <= 0 Then Err.Raise vbObjectError + 5311, "LeerColumnaDatosDetallada", "Columna inválida para lectura: " & col
+    If lastRow < 2 Then
+        LeerColumnaDatosDetallada = Empty
+    Else
+        LeerColumnaDatosDetallada = ws.Range(ws.Cells(2, col), ws.Cells(lastRow, col)).Value2
+    End If
+End Function
+
+Private Function ValorArrayColumnaDetallada(ByRef arrCol As Variant, ByVal indice As Long) As Variant
+    If IsArray(arrCol) Then
+        ValorArrayColumnaDetallada = arrCol(indice, 1)
+    ElseIf indice = 1 Then
+        ValorArrayColumnaDetallada = arrCol
+    Else
+        ValorArrayColumnaDetallada = Empty
+    End If
+End Function
+
+Private Function ClaveDesdeValoresLlave(ByRef valoresLlave() As Variant) As String
+    ClaveDesdeValoresLlave = ConstruirClaveLlavePresupuestalCodiguera( _
+        valoresLlave(0), valoresLlave(1), valoresLlave(2), valoresLlave(3), valoresLlave(4), _
+        valoresLlave(5), valoresLlave(6), valoresLlave(7), valoresLlave(8), valoresLlave(9), _
+        valoresLlave(10), valoresLlave(11), valoresLlave(12))
+End Function
+
+Private Sub ValidarColumnasComparativoAnteriorDetallada(ByVal colFecha As Long, ByVal colImporte As Long, ByVal cols As Variant, ByVal procedimiento As String)
+    Dim nombres As Variant, faltantes As String, i As Long
+
+    If colFecha <= 0 Then faltantes = "Fecha valor"
+    If colImporte <= 0 Then faltantes = faltantes & IIf(Len(faltantes) > 0, ", ", "") & "Importe moneda nacional"
+
+    nombres = Array("Finac", "Der-F", "PG", "Spg", "Proyecto/Proy", "Rubro", "R. Aux", "UE", "Dep", "Obra", "Der. Obra", "Serv", "SNIP/SNIIP")
+    For i = LBound(cols) To UBound(cols)
+        If CLng(cols(i)) <= 0 Then faltantes = faltantes & IIf(Len(faltantes) > 0, ", ", "") & CStr(nombres(i))
     Next i
-    ws.Columns.AutoFit
+
+    If Len(faltantes) > 0 Then Err.Raise vbObjectError + 5312, procedimiento, "Faltan columnas obligatorias del comparativo anterior: " & faltantes
+End Sub
+
+Private Sub AgregarFilaBufferComparativo(ByVal ws As Worksheet, ByRef filaDestino As Long, ByRef buffer As Variant, ByRef bufferCount As Long, ByVal vals As Variant)
+    Dim c As Long
+
+    bufferCount = bufferCount + 1
+    For c = 1 To UBound(vals) + 1
+        buffer(bufferCount, c) = vals(c - 1)
+    Next c
+
+    If bufferCount >= TAM_BUFFER_COMPARATIVO Then FlushBufferComparativo ws, filaDestino, buffer, bufferCount
+End Sub
+
+Private Sub FlushBufferComparativo(ByVal ws As Worksheet, ByRef filaDestino As Long, ByRef buffer As Variant, ByRef bufferCount As Long)
+    Dim cols As Long, r As Long, c As Long
+    Dim salida As Variant
+
+    If bufferCount <= 0 Then Exit Sub
+    cols = UBound(buffer, 2)
+    ValidarFilaSalida filaDestino + bufferCount - 1, NOMBRE_HOJA_BASE_COMP
+    ReDim salida(1 To bufferCount, 1 To cols)
+    For r = 1 To bufferCount
+        For c = 1 To cols
+            salida(r, c) = buffer(r, c)
+            buffer(r, c) = Empty
+        Next c
+    Next r
+    ws.Range(ws.Cells(filaDestino, 1), ws.Cells(filaDestino + bufferCount - 1, cols)).Value = salida
+    filaDestino = filaDestino + bufferCount
+    bufferCount = 0
 End Sub
 
 Private Sub CrearTablaEnHoja(ByVal ws As Worksheet, ByVal nombreTabla As String, ByVal requerirDatos As Boolean)
