@@ -720,6 +720,8 @@ Private Sub CrearPivotCombinadaDetallada(ByVal wbOut As Workbook)
     ConfigurarFilasClasificacion pt
     AgregarDataFieldDetallado pt, "Ejecutado", "Suma de Ejecutado", xlSum, "#,##0"
     AgregarDataFieldDetallado pt, "Asignado", "Suma de Asignado", xlSum, "#,##0"
+    AsegurarCampoCalculadoPctEjecutadoDetalle pt
+    AgregarDataFieldDetallado pt, "PctEjecutado", "% Ejecutado", xlSum, "0.0%"
     pt.EnableDrilldown = True
     ws.Columns.AutoFit
 End Sub
@@ -921,6 +923,57 @@ EH:
     Err.Raise Err.Number, "AgregarDataFieldDetallado", _
         "No se pudo agregar campo a valores de tabla dinámica. Campo=" & sourceFieldName & _
         " | Caption=" & caption & _
+        " | Campos disponibles=" & CamposDisponiblesPivotDetallado(pt) & _
+        " | Err.Number=" & Err.Number & _
+        " | Err.Description=" & Err.Description
+End Sub
+
+Private Sub AsegurarCampoCalculadoPctEjecutadoDetalle(ByVal pt As PivotTable)
+    On Error GoTo EH
+
+    Dim formula As String
+
+    formula = "=Ejecutado/Asignado"
+
+    If pt Is Nothing Then
+        Err.Raise vbObjectError + 5236, "AsegurarCampoCalculadoPctEjecutadoDetalle", _
+            "PivotTable es Nothing al configurar TD_Ejec_Asig_Detalle."
+    End If
+
+    If Not PivotFieldExisteDetallado(pt, "Ejecutado") Then
+        Err.Raise vbObjectError + 5237, "AsegurarCampoCalculadoPctEjecutadoDetalle", _
+            "No existe el campo fuente requerido para PctEjecutado: Ejecutado" & _
+            " | TD=" & NOMBRE_HOJA_TD_COMBINADA & _
+            " | Fórmula=" & formula & _
+            " | Campos disponibles=" & CamposDisponiblesPivotDetallado(pt)
+    End If
+
+    If Not PivotFieldExisteDetallado(pt, "Asignado") Then
+        Err.Raise vbObjectError + 5238, "AsegurarCampoCalculadoPctEjecutadoDetalle", _
+            "No existe el campo fuente requerido para PctEjecutado: Asignado" & _
+            " | TD=" & NOMBRE_HOJA_TD_COMBINADA & _
+            " | Fórmula=" & formula & _
+            " | Campos disponibles=" & CamposDisponiblesPivotDetallado(pt)
+    End If
+
+    If PivotFieldExisteDetallado(pt, "PctEjecutado") Then Exit Sub
+
+    pt.CalculatedFields.Add Name:="PctEjecutado", Formula:=formula
+
+    If Not PivotFieldExisteDetallado(pt, "PctEjecutado") Then
+        Err.Raise vbObjectError + 5239, "AsegurarCampoCalculadoPctEjecutadoDetalle", _
+            "Excel no dejó disponible el campo calculado PctEjecutado después de crearlo." & _
+            " | TD=" & NOMBRE_HOJA_TD_COMBINADA & _
+            " | Fórmula=" & formula & _
+            " | Campos disponibles=" & CamposDisponiblesPivotDetallado(pt)
+    End If
+    Exit Sub
+
+EH:
+    Err.Raise Err.Number, "AsegurarCampoCalculadoPctEjecutadoDetalle", _
+        "No se pudo crear o validar el campo calculado PctEjecutado." & _
+        " | TD=" & NOMBRE_HOJA_TD_COMBINADA & _
+        " | Fórmula=" & formula & _
         " | Campos disponibles=" & CamposDisponiblesPivotDetallado(pt) & _
         " | Err.Number=" & Err.Number & _
         " | Err.Description=" & Err.Description
